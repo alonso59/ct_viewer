@@ -41,6 +41,8 @@ def within(path: Path, roots: list[str]) -> bool:
 
 
 class Supervisor:
+    backends: tuple[str, ...] = ("local", "server")
+
     def __init__(self, path: Path, workspace: Path | None = None) -> None:
         descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
         with os.fdopen(descriptor) as handle:
@@ -48,8 +50,8 @@ class Supervisor:
             if details.st_uid != os.getuid() or details.st_mode & 0o077 or not stat.S_ISREG(details.st_mode):
                 raise ValueError("deployment configuration must be a private operator-owned regular file")
             self.config = validate_config(json.load(handle))
-        if self.config["backend"] == "slurm":
-            raise ValueError("SLURM execution is deferred until cluster acceptance")
+        if self.config["backend"] not in self.backends:
+            raise ValueError(f"backend {self.config['backend']} needs another supervisor")
         configured_workspace = Path(self.config["workspace"]).resolve()
         if workspace is not None and configured_workspace != workspace:
             raise ValueError("deployment workspace does not match the runner")
@@ -114,6 +116,10 @@ class Supervisor:
         policy = json.loads(path.read_text())
         if policy.get("policy") != 1 or policy.get("pool") != self.pool.identity():
             raise ValueError("DICOM/runner allocation differs; configure one shared HOST_ALLOCATION_ROOT/state_dir")
+
+    def check_devices(self) -> list[str]:
+        """The devices a plugin's startup check may count on."""
+        return list(self.config.get("gpu_pool", []))
 
     def environment(self) -> dict[str, str]:
         return {
@@ -238,11 +244,7 @@ class Supervisor:
             "limits": self.config["limits"],
         }
 
-    def start(self, job: Path, manifest: dict[str, Any], plugin: Path, claim: Any) -> bool:
-        if self.record is not None or stopping(job):
-            return False
-        self.verify_allocation_policy()
-        spec = json.loads((job / "job.json").read_text())
+    def admit(self, job: Path, manifest: dict[str, Any], plugin: Path) -> None:
         if manifest.get("id") == "segment.nnunet":
             if self.config["limits"]["cpus"] < 3:
                 raise ValueError("nnU-Net admission requires at least 3 CPU workers")
@@ -257,6 +259,13 @@ class Supervisor:
             )
             if result.returncode != 0:
                 raise ValueError("nnU-Net admission refused: " + result.stderr.strip()[-1500:])
+
+    def start(self, job: Path, manifest: dict[str, Any], plugin: Path, claim: Any) -> bool:
+        if self.record is not None or stopping(job):
+            return False
+        self.verify_allocation_policy()
+        spec = json.loads((job / "job.json").read_text())
+        self.admit(job, manifest, plugin)
         pending = [
             item
             for item in spec.get("items", [])

@@ -43,6 +43,38 @@ def drain(stream: Any, target: Path) -> None:
                     STOP.set()
 
 
+def watch(process: subprocess.Popen[bytes], job: Path, write_roots: list[str]) -> int:
+    """Log the task's output and stop it on cancel, a signal, a full disk or an oversized log."""
+    reader = threading.Thread(target=drain, args=(process.stdout, job / "task.log"), daemon=True)
+    reader.start()
+    termination: float | None = None
+    try:
+        while process.poll() is None:
+            if (job / "cancel").exists() or any(
+                shutil.disk_usage(path).free < 64 * 1024 * 1024 for path in write_roots
+            ):
+                STOP.set()
+            if STOP.is_set():
+                if termination is None:
+                    os.killpg(process.pid, signal.SIGTERM)
+                    termination = time.monotonic()
+                elif time.monotonic() - termination > 5:
+                    os.killpg(process.pid, signal.SIGKILL)
+            time.sleep(0.1)
+        reader.join(timeout=2)
+        code = int(process.returncode)
+        return -signal.SIGTERM if STOP.is_set() and code == 0 else code
+    finally:
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.wait(timeout=5)
+        if process.stdout is not None:
+            process.stdout.close()
+
+
 def run(job: Path, attempt: str) -> int:
     spec = json.loads((job / "attempt.json").read_text())
     if spec["attempt"] != attempt or spec["uid"] != os.getuid():
@@ -93,39 +125,13 @@ def run(job: Path, attempt: str) -> int:
         start_new_session=True,
         bufsize=0,
     )
-    reader = threading.Thread(target=drain, args=(process.stdout, job / "task.log"), daemon=True)
-    reader.start()
-    termination: float | None = None
     try:
-        while process.poll() is None:
-            if (job / "cancel").exists() or any(
-                shutil.disk_usage(path).free < 64 * 1024 * 1024 for path in spec["write_roots"]
-            ):
-                STOP.set()
-            if STOP.is_set():
-                if termination is None:
-                    os.killpg(process.pid, signal.SIGTERM)
-                    termination = time.monotonic()
-                elif time.monotonic() - termination > 5:
-                    os.killpg(process.pid, signal.SIGKILL)
-            time.sleep(0.1)
-        reader.join(timeout=2)
-        code = int(process.returncode)
-        if STOP.is_set() and code == 0:
-            code = -signal.SIGTERM
-        write_json_atomic(job / "worker-exit.json", {"attempt": attempt, "code": code})
-        return 0 if code == 0 else 1
+        code = watch(process, job, spec["write_roots"])
     finally:
         if broker is not None:
             broker.close()
-        if process.poll() is None:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        process.wait(timeout=5)
-        if process.stdout is not None:
-            process.stdout.close()
+    write_json_atomic(job / "worker-exit.json", {"attempt": attempt, "code": code})
+    return 0 if code == 0 else 1
 
 
 if __name__ == "__main__":
