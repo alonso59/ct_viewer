@@ -44,18 +44,21 @@ function Field({ name, schema, required, value, error, onChange, onLeave }: {
     input = (
       <div className="task-chips">
         {/* a group takes no aria-required; the label says it */}
-        <span id={id} role="group" aria-labelledby={`${id}-label`} className="seg" {...a11y} aria-required={undefined}>
+        <ul id={id} role="group" aria-labelledby={`${id}-label`} className="task-checklist" {...a11y} aria-required={undefined}>
           {items.enum?.map((o, i) => {
             const on = picked.includes(String(o))
             const state = items['x-enumStatus']?.[i]
             return (
-              <button key={String(o)} type="button" aria-pressed={on} disabled={!on && (full || state === 'unavailable')} onClick={() => toggle(String(o))}>
-                {state ? <Icon spec={codicon(STATE_ICON[state])} className={`gpu-${state}`} aria-label={t(`tasks.state.${state}`)} /> : null}
-                {label(items, i, o)}
-              </button>
+              <li key={String(o)}>
+                <label className="task-check">
+                  <input type="checkbox" checked={on} disabled={!on && (full || state === 'unavailable')} onChange={() => toggle(String(o))} />
+                  {state ? <Icon spec={codicon(STATE_ICON[state])} className={`gpu-${state}`} aria-label={t(`tasks.state.${state}`)} /> : null}
+                  <span>{label(items, i, o)}</span>
+                </label>
+              </li>
             )
           })}
-        </span>
+        </ul>
         {!picked.length ? <span className="muted task-help">{t('tasks.noneSelected')}</span> : null}
       </div>
     )

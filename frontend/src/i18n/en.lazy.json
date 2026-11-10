@@ -582,9 +582,7 @@
       "offline": "The runner is offline. Start it before checking GPU availability.",
       "timeout": "The runner did not provide a new GPU reading within 20 seconds. Try again.",
       "help": "GPUs can be shared when they have enough free memory. Check GPUs reads fresh usage (up to 20 seconds); memory is checked again at launch.",
-      "memoryRequired": "Minimum free memory per GPU: {{gib}} GiB (configured for this runner).",
-      "memoryList": "GPU memory availability",
-      "deviceMemory": "GPU {{index}}: {{free}} / {{total}} GiB free · {{state}}"
+      "memoryRequired": "Minimum free memory per GPU: {{gib}} GiB (configured for this runner)."
     },
     "state": {
       "ready": "Ready",
