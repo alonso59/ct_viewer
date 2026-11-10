@@ -58,7 +58,7 @@ function NavContextChip({ caseId, itemId }: { caseId: string; itemId: string | n
 export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>) {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const { data, isLoading, isError, error } = useCase(pid, params.caseId)
+  const { data, isLoading, isError, error, refetch } = useCase(pid, params.caseId)
   const project = useProject(pid)
   const set = useViewerSync((s) => s.set)
   const loaded = useLoadBudget(panelId, active)
@@ -119,14 +119,17 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
     )
   if (isError || !data || !current) {
     const p = error instanceof ProblemError ? error : null
-    const notFound = !p || p.status === 404
-    const title = notFound ? t('viewer.caseNotFound') : t(`problemTitle.${p.type}`, { defaultValue: p.title })
-    const problem = new ProblemError(p?.status ?? 404, p?.type ?? 'not-found', title, notFound ? t('viewer.caseNotFoundHelp', { id: params.caseId }) : p.detail, ['quick_open', 'close_tab'])
+    const failed = isError && p?.status !== 404
+    const empty = !isError && !!data
+    const problem = failed
+      ? new ProblemError(p?.status ?? 0, p?.type ?? 'unknown', t(`problemTitle.${p?.type ?? 'unknown'}`, { defaultValue: p?.title }), p?.detail ?? (error instanceof Error ? error.message : undefined), ['quick_open', 'close_tab'])
+      : new ProblemError(404, 'not-found', t(empty ? 'viewer.caseEmpty' : 'viewer.caseNotFound'), t(empty ? 'viewer.caseEmptyHelp' : 'viewer.caseNotFoundHelp', { id: params.caseId }), ['quick_open', 'close_tab'])
     const quick = registry.commands.get('workbench.quickOpen')
     return (
       <div className="case-editor-error">
         <ProblemCard
           error={problem}
+          onRetry={failed ? () => void refetch() : undefined}
           labels={{ quick_open: `${t('problemAction.quick_open')}${quick ? ` (${formatChord(bindingOf(quick))})` : ''}` }}
           onAction={{ quick_open: () => runCommand('workbench.quickOpen'), close_tab: () => runCommand('workbench.closeTab') }}
         />
@@ -152,7 +155,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         </span>
         <span className="case-header-end" />
         {current.warning_codes.length ? (
-          <span className="badge" data-tone="warn" title={current.warning_codes.join(', ')}>
+          <span className="badge" data-tone="warn" role="img" aria-label={t('viewer.warningCodes', { count: current.warning_codes.length, codes: current.warning_codes.join(', ') })} title={current.warning_codes.join(', ')}>
             <Icon spec={codicon('warning')} />
             {current.warning_codes.length}
           </span>
