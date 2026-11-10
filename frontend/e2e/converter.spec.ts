@@ -5,7 +5,9 @@ import { expect, test } from '@playwright/test'
 import type { SourceOperation } from '../src/api/types'
 import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
-import { API, api } from './helpers'
+import { API, api, converterDestination } from './helpers'
+
+test.beforeEach(({ page }) => converterDestination(page))
 
 test('convert without a project, then create a project from the dataset', async ({ page, browserName }) => {
   test.setTimeout(120_000)
@@ -26,7 +28,7 @@ test('convert without a project, then create a project from the dataset', async 
   const runs = (await (await fetch(`${API}/task-runs`)).json()) as { name: string; dataset_dir: string; status: string }[]
   const run = runs.find((r) => r.name === name)
   expect(run?.status).toBe('completed')
-  expect(run?.dataset_dir).toContain(`/_datasets/${name}`)
+  expect(run?.dataset_dir).toBe(`${process.env.E2E_DATASETS}/${name}`)
 
   // Create project from this → the import wizard on the dataset (metadata-v1)
   await dialog.getByRole('button', { name: 'Create project from this' }).click()

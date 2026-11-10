@@ -2,7 +2,7 @@
 // the pages use), the fixture paths, and one imported project on the synthetic dataset.
 import { resolve } from 'node:path'
 
-import { expect } from '@playwright/test'
+import { expect, type BrowserContext, type Page } from '@playwright/test'
 
 import { copyDataset } from './fixtures'
 
@@ -32,4 +32,9 @@ export async function importedProject(name: string, { packs = ['ccrcc'], root = 
   await api('POST', `/projects/${pid}/imports`, { preview_id: pv.preview_id })
   await expect.poll(async () => (await api<{ index: { state: string } }>('GET', `/projects/${pid}/imports`)).index.state, { timeout: 30_000 }).toBe('ready')
   return pid
+}
+
+// The overlay suggests the last destination used in this browser, else the folder holding the source.
+export async function converterDestination(target: Page | BrowserContext, folder = process.env.E2E_DATASETS!): Promise<void> {
+  await target.addInitScript((path) => localStorage.setItem('rw.converter.destination', path), folder)
 }

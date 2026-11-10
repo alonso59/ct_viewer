@@ -7,7 +7,9 @@ import { expect, test } from '@playwright/test'
 import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
 import { gotoOpen } from './openMode'
-import { API } from './helpers'
+import { API, converterDestination } from './helpers'
+
+test.beforeEach(({ page }) => converterDestination(page))
 
 test('G2: convert DICOM, make a project, review phases and problems, read the DICOM tags', async ({ page, browserName }) => {
   test.setTimeout(150_000)
@@ -44,7 +46,7 @@ test('G2: convert DICOM, make a project, review phases and problems, read the DI
   await expect(phase.getByText(/rows analyzed/)).toBeVisible()
   const runs = (await (await fetch(`${API}/task-runs`)).json()) as { name: string; dataset_dir: string }[]
   const dataset = runs.find((r) => r.name === name)?.dataset_dir ?? ''
-  expect(dataset).toContain(`/_datasets/${name}`)
+  expect(dataset).toBe(`${process.env.E2E_DATASETS}/${name}`)
 
   // Create project → wizard on the dataset: the metadata table, in plain words (AUD-A1-15)
   await dialog.getByRole('button', { name: 'Create project from this' }).click()

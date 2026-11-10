@@ -92,7 +92,9 @@ def main() -> None:
                 marker=(2, 1, 3),
                 seed="browser-native-recovery",
             )
-    (root / "derived").mkdir(exist_ok=True)
+    outputs = root / "outputs"
+    for name in ("derived", "datasets"):
+        (outputs / name).mkdir(parents=True, exist_ok=True)
     original = dicom_process.asyncio.create_subprocess_exec
     code = (
         "import sys; from pathlib import Path; from threading import Event; "
@@ -116,8 +118,8 @@ def main() -> None:
     dicom_process.asyncio.create_subprocess_exec = launch
     settings = Settings(
         workspace_root=root / "workspace",
-        allowed_data_roots=str(source),
-        allowed_derived_roots=str(root / "derived"),
+        allowed_data_roots=f"{source}:{outputs / 'datasets'}",
+        allowed_derived_roots=str(outputs / "derived"),
         host_allocation_root=root / "allocation",
         public_base_url=public_url,
         job_workers=1,

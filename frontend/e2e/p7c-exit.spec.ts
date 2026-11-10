@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 
-import { API } from './helpers'
+import { API, converterDestination } from './helpers'
 
 const json = async <T,>(r: Response) => (await r.json()) as T
 
@@ -15,6 +15,7 @@ const cell = (page: Page, row: number, col: number) => page.getByRole('row').fil
 test('the P7c journey', async ({ page, browserName }) => {
   test.setTimeout(180_000)
   await page.addInitScript(() => localStorage.setItem('rw.reviewer', JSON.stringify({ state: { name: 'Dr. Exit' }, version: 0 })))
+  await converterDestination(page)
   const name = `exit-${browserName}-${Date.now()}`
 
   // 1 · Convert without a project from the converter overlay
@@ -81,13 +82,11 @@ test('the P7c journey', async ({ page, browserName }) => {
   await page.getByRole('complementary', { name: 'Curation' }).getByRole('button', { name: /^Accept/ }).click()
   await expect.poll(async () => (await json<{ n_events: number }>(await fetch(`${API}/projects/${pid}/curation/state`))).n_events).toBe(1)
 
-  // 7 · Every plugin is reachable from the Library (pending ones are listed, not openable)
+  // 7 · Every plugin is reachable from the Library
   await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Plugin Library' }).click()
   const lib = page.locator('.plugin-list')
-  for (const id of ['dicom', 'analyzers', 'curation', 'labeling', 'radiomics', 'dashboard', 'ccrcc', 'generic-ct'])
+  for (const id of ['dicom', 'analyzers', 'curation', 'labeling', 'radiomics', 'dashboard', 'ccrcc', 'generic-ct', 'nnunet', 'voi'])
     await expect(lib.locator(`[data-plugin="${id}"]`).getByRole('button', { name: /^Open / })).toBeEnabled()
-  await expect(lib.locator('[data-plugin="nnunet"]').getByRole('button', { name: /^Open / })).toBeEnabled()
-  await expect(lib.locator('[data-plugin="voi"]').getByRole('button', { name: /^Open / })).toBeDisabled()
 
   // 8 · A view-only link that cannot write
   const { view_token } = await json<{ view_token: string }>(await fetch(`${API}/projects/${pid}/view-token`, { method: 'POST' }))

@@ -8,6 +8,7 @@ import { expect, test as base, type BrowserContext, type Page } from '@playwrigh
 
 import type { SourceOperation } from '../src/api/types'
 import { startRecoveryServer } from './dicomRecovery'
+import { converterDestination } from './helpers'
 import { continueImportInspection, continueImportPreview, finishImportIndex } from './importMode'
 import { openViaHistoryState } from './openMode'
 import { stopProcess } from './processes'
@@ -18,6 +19,10 @@ const test = base.extend<{ server: Awaited<ReturnType<typeof startRecoveryServer
   server: async ({ browserName }, provide, info) => {
     const server = await startRecoveryServer(info.outputPath(`native-${browserName}`))
     try { await provide(server) } finally { await server.close() }
+  },
+  context: async ({ context, server }, provide) => {
+    await converterDestination(context, server.datasets)
+    await provide(context)
   },
 })
 test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 })
@@ -56,10 +61,10 @@ test('B05 cancels registration, drains its shared worker and resumes without rew
   const worker = JSON.parse(readFileSync(join(server.root, 'index-barrier.json'), 'utf8')) as { pid: number }
   const record = () => server.request<SourceOperation>('GET', `/source-operations/${oid}`)
   const original = (await record()).conversion_run!
-  const hashes = fixtureHashes(server.derived)
+  const hashes = fixtureHashes(server.outputs)
   const committed = Object.keys(hashes).filter((path) => path.endsWith('.nii.gz'))
   expect(committed).toHaveLength(2)
-  const mtimes = committed.map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))
+  const mtimes = committed.map((path) => String(statSync(join(server.outputs, path), { bigint: true }).mtimeNs))
   await dialog.getByRole('button', { name: 'Cancel conversion', exact: true }).click()
   await dialog.getByRole('button', { name: 'Yes, cancel', exact: true }).click() // UI-28: a cancel asks first
   await expect.poll(async () => (await record()).status).toBe('cancelling')
@@ -79,8 +84,8 @@ test('B05 cancels registration, drains its shared worker and resumes without rew
   await execute(server.python, ['-c', 'import os,sys;os.kill(int(sys.argv[1]),0)', String(worker.pid)])
   expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items`)).total).toBe(2)
   expect((await server.request<{ items: unknown[] }>('GET', `/projects/${pid}/imports`)).items).toHaveLength(1)
-  expect(fixtureHashes(server.derived)).toEqual(hashes)
-  expect(committed.map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))).toEqual(mtimes)
+  expect(fixtureHashes(server.outputs)).toEqual(hashes)
+  expect(committed.map((path) => String(statSync(join(server.outputs, path), { bigint: true }).mtimeNs))).toEqual(mtimes)
   expect(fixtureHashes(server.source)).toEqual(inputs)
 })
 
@@ -101,10 +106,10 @@ for (const project of [false, true]) {
       await expect(dialog.getByRole('button', { name: 'View without a project', exact: true })).toBeDisabled()
       await expect(dialog.getByRole('button', { name: 'Create project from this' })).toBeDisabled()
     }
-    const before = fixtureHashes(server.derived)
+    const before = fixtureHashes(server.outputs)
     const [image] = Object.keys(before).filter((path) => path.endsWith('.nii.gz'))
     expect(image).toBeTruthy()
-    const mtime = String(statSync(join(server.derived, image!), { bigint: true }).mtimeNs)
+    const mtime = String(statSync(join(server.outputs, image!), { bigint: true }).mtimeNs)
     unlinkSync(join(server.root, 'pause'))
     await dialog.getByRole('button', { name: 'Retry failed', exact: true }).click()
     await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
@@ -116,10 +121,10 @@ for (const project of [false, true]) {
     const finalCounts: Record<string, number> = completed.counts ?? {}
     expect(finalCounts.failed).toBe(0)
     expect(finalCounts.ok ?? (finalCounts.converted ?? 0) + (finalCounts.already_converted ?? 0)).toBe(2)
-    const after = fixtureHashes(server.derived)
+    const after = fixtureHashes(server.outputs)
     expect(Object.keys(after).filter((path) => path.endsWith('.nii.gz'))).toHaveLength(2)
     expect(after[image!]).toBe(before[image!])
-    expect(String(statSync(join(server.derived, image!), { bigint: true }).mtimeNs)).toBe(mtime)
+    expect(String(statSync(join(server.outputs, image!), { bigint: true }).mtimeNs)).toBe(mtime)
     if (pid) {
       expect((await server.request<{ total: number }>('GET', `/projects/${pid}/items`)).total).toBe(2)
       expect((await server.request<{ items: unknown[] }>('GET', `/projects/${pid}/imports`)).items).toHaveLength(1)
@@ -146,8 +151,8 @@ test('B05/B07 phase cancellation and failed retry preserve converted pixels and 
   await expect.poll(async () => (await record()).status, { timeout: 45_000 }).toBe('completed')
   const original = await record()
   expect(original.phase_run?.status).toBe('cancelled')
-  const converted = fixtureHashes(server.derived)
-  const mtimes = Object.keys(converted).map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))
+  const converted = fixtureHashes(server.outputs)
+  const mtimes = Object.keys(converted).map((path) => String(statSync(join(server.outputs, path), { bigint: true }).mtimeNs))
   const item = (await server.request<{ items: { item_id: string; case_id: string; scan_idx: string }[] }>('GET', `/projects/${pid}/items`)).items[0]!
   const manual = await page.request.post(`${server.url}/api/v1/projects/${pid}/phase/events`, {
     headers: { 'X-Reviewer': 'B07 browser' }, data: { case_id: item.case_id, scan_idx: item.scan_idx, value: 'NC' },
@@ -169,8 +174,8 @@ test('B05/B07 phase cancellation and failed retry preserve converted pixels and 
   expect(completed.conversion_run!.attempts).toBe(original.conversion_run!.attempts)
   const detail = await server.request<{ phase: { canonical: string; source: string } }>('GET', `/projects/${pid}/items/${item.item_id}`)
   expect(detail.phase).toMatchObject({ canonical: 'NC', source: 'manual' })
-  expect(fixtureHashes(server.derived)).toEqual(converted)
-  expect(Object.keys(converted).map((path) => String(statSync(join(server.derived, path), { bigint: true }).mtimeNs))).toEqual(mtimes)
+  expect(fixtureHashes(server.outputs)).toEqual(converted)
+  expect(Object.keys(converted).map((path) => String(statSync(join(server.outputs, path), { bigint: true }).mtimeNs))).toEqual(mtimes)
   expect(fixtureHashes(server.source)).toEqual(inputs)
 })
 
@@ -417,9 +422,9 @@ for (const scope of ['dataset', 'project']) {
         const running = await record()
         const original = running.conversion_run!
         expect(original).toBeTruthy()
-        const commits = Object.fromEntries(Object.entries(fixtureHashes(server.derived))
+        const commits = Object.fromEntries(Object.entries(fixtureHashes(server.outputs))
           .filter(([p]) => p.endsWith('.nii.gz') && !p.split('/').some((part) => part.startsWith('.')))
-          .map(([p, sha]) => [p, { sha, mtime: String(statSync(join(server.derived, p), { bigint: true }).mtimeNs) }]))
+          .map(([p, sha]) => [p, { sha, mtime: String(statSync(join(server.outputs, p), { bigint: true }).mtimeNs) }]))
         expect(Object.keys(commits)).toHaveLength(1)
         const second = await page.context().newPage()
         await second.goto(server.url)
@@ -474,15 +479,15 @@ for (const scope of ['dataset', 'project']) {
           expect(completed.conversion_run).toHaveProperty('output_dir', original.output_dir)
         }
         expect(completed.cleanup_verified).toBe(true)
-        const finalHashes = fixtureHashes(server.derived)
+        const finalHashes = fixtureHashes(server.outputs)
         const images = Object.keys(finalHashes).filter((p) => p.endsWith('.nii.gz') && !p.split('/').some((part) => part.startsWith('.')))
         expect(images).toHaveLength(2)
         expect(Object.keys(finalHashes).filter((p) => /\.tmp\.nii/.test(p))).toEqual([])
-        await execute(server.python, ['-c', 'import sys,nibabel as n,numpy as np\nfor p in sys.argv[1:]:\n im=n.load(p);assert im.shape==(5,4,12);marker,=np.argwhere(im.get_fdata()==2000);np.testing.assert_allclose(im.affine@[*marker,1],[18.6,29.1,107.5,1],atol=1e-4)', ...images.map((p) => join(server.derived, p))], { cwd: server.backend })
+        await execute(server.python, ['-c', 'import sys,nibabel as n,numpy as np\nfor p in sys.argv[1:]:\n im=n.load(p);assert im.shape==(5,4,12);marker,=np.argwhere(im.get_fdata()==2000);np.testing.assert_allclose(im.affine@[*marker,1],[18.6,29.1,107.5,1],atol=1e-4)', ...images.map((p) => join(server.outputs, p))], { cwd: server.backend })
         expect(fixtureHashes(server.source)).toEqual(inputs)
         for (const [p, saved] of Object.entries(commits)) {
           expect(finalHashes[p]).toBe(saved.sha)
-          expect(String(statSync(join(server.derived, p), { bigint: true }).mtimeNs)).toBe(saved.mtime)
+          expect(String(statSync(join(server.outputs, p), { bigint: true }).mtimeNs)).toBe(saved.mtime)
         }
         const runs = await server.request<unknown[]>('GET', pid ? `/projects/${pid}/task-runs` : '/task-runs')
         expect(runs).toHaveLength(1)

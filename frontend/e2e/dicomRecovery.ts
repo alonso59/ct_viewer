@@ -69,7 +69,7 @@ export async function startRecoveryServer(root: string) {
   }
   try { await ready() } catch (error) { await close(); throw error }
   return {
-    root, url, python, backend, source: join(root, 'source'), derived: join(root, 'derived'),
+    root, url, python, backend, source: join(root, 'source'), outputs: join(root, 'outputs'), derived: join(root, 'outputs/derived'), datasets: join(root, 'outputs/datasets'),
     async request<T>(method: string, path: string, body?: unknown): Promise<T> {
       const response = await fetch(`${url}/api/v1${path}`, {
         method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
