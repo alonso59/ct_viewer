@@ -30,12 +30,12 @@ from app.core.reviewer import Origin
 from app.jobs.manager import JobManager
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.source_inventory import checked_folders
-from app.tasks.source_operations import (
+from app.tasks.source_models import (
     SourceOperationControl,
     SourceOperationConvert,
-    SourceOperations,
     SourceOperationStart,
 )
+from app.tasks.source_operations import SourceOperations
 from app.tasks.workspace_runs import (
     DATASET_JSON,
     WorkspaceRun,

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.tasks.source_operations import SourceOperationStart
+from app.tasks.source_models import SourceOperationStart
 from tests.test_source_operations_api import wait_operation
 from tests.test_sources import ct, nii
 

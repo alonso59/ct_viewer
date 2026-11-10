@@ -12,7 +12,7 @@ from app.api.v1.paging import Page, Paging, paginate
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult
 from app.tasks.source_inventory import InventoryPage
-from app.tasks.source_operations import (
+from app.tasks.source_models import (
     SourceImportCommit,
     SourceImportUpdate,
     SourceOperation,

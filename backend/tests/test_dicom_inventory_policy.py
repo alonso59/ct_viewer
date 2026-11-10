@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from app.tasks.source_retention import prune_inventories
 from tests.test_api_ingest import ctx_of
 from tests.test_source_operations_api import wait_operation
 from tests.test_sources import ct, nii
@@ -90,7 +91,7 @@ def test_retention_protects_open_sessions_import_drafts_and_interrupted_work(
             path.write_text(json.dumps(data))
         service = ctx_of(client).source_operations
         assert client.portal is not None
-        assert client.portal.call(service.prune_inventories) == 1
+        assert client.portal.call(prune_inventories, service) == 1
         assert not (root / finished["operation_id"] / "inventory.sqlite").exists()
         assert client.get(f"{API}/{finished['operation_id']}/series").status_code == 409
         assert client.get(f"{API}/{finished['operation_id']}").json()["summary"][
@@ -98,11 +99,11 @@ def test_retention_protects_open_sessions_import_drafts_and_interrupted_work(
         ]
         for record in (opened, draft, recoverable):
             assert (root / record["operation_id"] / "inventory.sqlite").is_file()
-        assert client.portal.call(service.prune_inventories) == 0
+        assert client.portal.call(prune_inventories, service) == 0
         response = client.post(f"{API}/{opened['operation_id']}/open")
         assert response.status_code == 201, response.text
         assert client.delete(f"/api/v1/open/{opened['operation_id']}").status_code == 204
-        assert client.portal.call(service.prune_inventories) == 1
+        assert client.portal.call(prune_inventories, service) == 1
         assert (root / draft["operation_id"] / "inventory.sqlite").is_file()
         assert (root / recoverable["operation_id"] / "inventory.sqlite").is_file()
 

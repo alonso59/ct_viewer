@@ -14,7 +14,7 @@ from app.core.reviewer import Origin
 from app.main import create_app
 from app.tasks.models import TaskRunRecord
 from app.tasks.source_batches import PlanRecord
-from app.tasks.source_operations import SourceOperation
+from app.tasks.source_models import SourceOperation
 from app.tasks.workspace_runs import WorkspaceRun
 from tests.test_api_ingest import wait
 from tests.test_source_batches import PLANS, app_client, create_plan, patients, wait_plan

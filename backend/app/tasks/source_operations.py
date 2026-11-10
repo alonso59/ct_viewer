@@ -14,11 +14,8 @@ import time
 import traceback
 from collections import Counter
 from contextlib import suppress
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import Settings
 from app.core import reviewer as reviewer_stamp
@@ -33,7 +30,7 @@ from app.core.errors import (
 )
 from app.core.fsio import atomic_write_json, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
-from app.core.locks import FileLock, LockHeldError, ProjectLocks
+from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard
 from app.core.reviewer import Origin
 from app.ingest.schemas import ImportPreview
@@ -53,7 +50,6 @@ from app.tasks.discovery_rate import DiscoveryRate
 from app.tasks.dry_run import DICOM_CONVERT
 from app.tasks.models import (
     TERMINAL_TASK_RUN,
-    TaskEstimate,
     TaskRunDetail,
     TaskRunRequest,
     TaskRunStatus,
@@ -61,7 +57,18 @@ from app.tasks.models import (
 )
 from app.tasks.source_import import commit_with_annotations
 from app.tasks.source_inventory import SourceInventory, checked_folders
+from app.tasks.source_models import (
+    PendingSourceControl,
+    SourceImportContext,
+    SourceImportUpdate,
+    SourceOperation,
+    SourceOperationControl,
+    SourceOperationConvert,
+    SourceOperationEstimate,
+    SourceOperationStart,
+)
 from app.tasks.source_plans import SourcePlanPage, read_plan_page, write_plan
+from app.tasks.source_retention import prune_inventories
 from app.tasks.workspace_runs import (
     WORKSPACE_JOBS,
     WorkspaceRun,
@@ -75,123 +82,6 @@ if TYPE_CHECKING:
 
 ACTIVE = {"queued", "running", "cancelling"}
 log = logging.getLogger("app.source_operations")
-
-
-class SourceImportContext(BaseModel):
-    """Import draft choices; Preview remains responsible for validating adapter options."""
-
-    model_config = ConfigDict(extra="forbid")
-    alias: str = Field(default="DATA", pattern=r"^[A-Z][A-Z0-9_]{0,15}$")
-    adapter: str | None = Field(default=None, max_length=64)
-    add: bool = False
-    options: dict[str, Any] = Field(default_factory=dict)
-    reconstruct: bool = False
-    anonymize: bool = False
-    step: Literal["detect", "previewing", "preview", "index"] = "detect"
-    preview_id: str | None = None
-    import_id: str | None = None
-    job_id: str | None = None
-
-
-class SourceOperationStart(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    path: str = Field(min_length=1)
-    idempotency_key: str = Field(min_length=8, max_length=128)
-    project_id: str | None = None
-    purpose: Literal["discover", "open", "convert"] = "convert"
-    prepare_plan: bool = False
-    import_context: SourceImportContext | None = None
-    settings: dict[str, Any] = Field(default_factory=dict)
-    name: str | None = Field(default=None, max_length=200)
-    destination: str | None = Field(default=None, min_length=1)  # parent of a workspace dataset
-    folders: list[str] | None = Field(default=None, min_length=1, max_length=5000)
-
-
-class SourceOperationControl(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    expected_revision: int = Field(ge=0)
-    expected_attempt: int = Field(ge=1)
-    expected_run_attempt: int | None = Field(default=None, ge=0)
-
-
-class SourceImportCommit(SourceOperationControl):
-    allow_incomplete: bool | None = None  # import a converter dataset that is not complete (DCM-34)
-
-
-class SourceOperationEstimate(SourceOperationControl):
-    settings: dict[str, Any] = Field(default_factory=dict)
-    name: str | None = Field(default=None, max_length=200)
-    destination: str | None = Field(default=None, min_length=1)
-
-
-class SourceOperationConvert(SourceOperationControl):
-    inventory_generation: str = Field(min_length=1)
-    # project datasets: add series converted by the current readers next to committed series
-    # from other reader versions (DCM-31)
-    allow_mixed_versions: bool | None = None
-    plan_attempt: int = Field(ge=1)
-    name: str | None = Field(default=None, max_length=200)
-    destination: str | None = Field(default=None, min_length=1)
-
-
-class SourceImportUpdate(SourceOperationControl):
-    project_id: str
-    alias: str = Field(default="DATA", pattern=r"^[A-Z][A-Z0-9_]{0,15}$")
-    adapter: str | None = Field(default=None, max_length=64)
-    add: bool = False
-    options: dict[str, Any] = Field(default_factory=dict)
-    reconstruct: bool = False
-    anonymize: bool = False
-
-
-class PendingSourceControl(BaseModel):
-    action: Literal["cancel", "resume", "retry_failed"]
-    request: SourceOperationControl
-    request_id: str
-    run_attempt: int
-
-
-class SourceOperation(BaseModel):
-    import_context: SourceImportContext | None = None
-    import_preview: ImportPreview | None = None
-    import_job: JobInfo | None = None
-    version: Literal[1] = 1
-    operation_id: str
-    source: str
-    project_id: str | None
-    purpose: Literal["discover", "open", "convert"]
-    reviewer: str | None = None
-    origin: Origin | None = None
-    status: TaskRunStatus = "queued"
-    stage: str = "discovering"
-    revision: int = 0
-    attempt: int = 1
-    job_id: str | None = None
-    created_at: str
-    updated_at: str
-    request_hash: str
-    cleanup_verified: bool = True
-    progress: dict[str, int] = Field(default_factory=dict)
-    summary: dict[str, Any] = Field(default_factory=dict)
-    control: dict[str, Any] = Field(default_factory=dict)
-    pending_control: PendingSourceControl | None = None
-    work_kind: Literal["inventory", "estimate", "convert"] = "inventory"
-    settings: dict[str, Any] = Field(default_factory=dict)
-    estimate: TaskEstimate | None = None
-    plan_attempt: int | None = None
-    plan_total: int = 0
-    progress_stage: str | None = None
-    discovery_eta: dict[str, Any] | None = None
-    error: str | None = None
-    problem: dict[str, Any] | None = None
-    conversion_run_id: str | None = None
-    conversion_request: dict[str, Any] = Field(default_factory=dict)
-    conversion_run: TaskRunDetail | WorkspaceRun | None = None
-    phase_run: TaskRunDetail | WorkspaceRun | None = None
-    prepare_plan: bool = False
-    dataset_name: str | None = None
-    dataset_destination: str | None = None
-    folders: list[str] | None = None
 
 
 def inventory_limit_message(summary: dict[str, Any]) -> str:
@@ -450,100 +340,6 @@ class SourceOperations:
                 "The completed operation's inventory expired; start a new source operation",
                 actions=["choose_another_path", "home"],
             )
-
-    async def prune_inventories(self) -> int:
-        """Expire completed history only; never reclaim unfinished work to make space."""
-        if not self.root.exists():
-            return 0
-        execution = FileLock(self.root.parent / "execution.lock")
-        try:
-            execution.acquire()
-        except LockHeldError:
-            return 0
-        cutoff = datetime.now(UTC) - timedelta(days=self.settings.dicom_retention_days)
-        try:
-            removed = 0
-            for directory in self.root.iterdir():
-                removed += await self._expire_inventory(directory, cutoff)
-            return removed
-        finally:
-            execution.release()
-
-    async def _expire_inventory(self, directory: Path, cutoff: datetime) -> bool:
-        if not is_ulid(directory.name) or directory.is_symlink():
-            return False
-        try:
-            record = self.get(directory.name)
-        except (OSError, Problem):
-            return False
-        expired = directory / "inventory-expired.json"
-        if (
-            expired.exists()
-            and not any(directory.glob("inventory.sqlite*"))
-            and not any((directory / "plans").glob("*/*.json"))
-        ):
-            return False
-        try:
-            age = datetime.fromisoformat(record.updated_at.replace("Z", "+00:00"))
-            if not expired.exists() and age >= cutoff:
-                return False
-        except (TypeError, ValueError):
-            return False
-        lock = self.locks(f"_source_operation:{record.operation_id}")
-        if lock.locked():
-            return False
-        async with lock:
-            current = await self.view(record.operation_id)
-            if current.status != "completed" or not current.cleanup_verified or current.error:
-                return False
-            if current.purpose == "open" and not (directory / "open-closed.json").is_file():
-                return False
-            if current.import_context is not None and current.import_context.step != "index":
-                return False
-            if current.phase_run is not None and current.phase_run.status != "completed":
-                return False
-            lease = FileLock(directory / "inventory-use.lock")
-            try:
-                lease.acquire()
-            except LockHeldError:
-                return False
-            try:
-                if current.purpose == "open" and not (directory / "open-closed.json").is_file():
-                    return False
-                database = directory / "inventory.sqlite"
-                if (
-                    database.is_file()
-                    and not expired.exists()
-                    and not self._checkpointed(database, record.source)
-                ):
-                    return False
-                atomic_write_json(
-                    expired,
-                    {"expired_at": utc_now(), "generation": current.summary.get("generation")},
-                )
-                for name in ("inventory.sqlite-wal", "inventory.sqlite-shm", "inventory.sqlite"):
-                    path = directory / name
-                    if path.is_file() and not path.is_symlink():
-                        path.unlink()
-                for path in (directory / "plans").glob("*/*.json"):
-                    if (
-                        not path.is_symlink()
-                        and path.is_file()
-                        and path.resolve().is_relative_to(directory.resolve())
-                    ):
-                        path.unlink()
-                return True
-            finally:
-                lease.release()
-
-    @staticmethod
-    def _checkpointed(database: Path, source: str) -> bool:
-        try:
-            with SourceInventory(database, Path(source)) as inventory:
-                inventory.db.execute("PRAGMA busy_timeout=0")
-                return not inventory.db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0]
-        except (OSError, sqlite3.Error, Problem):
-            return False
 
     async def _import_view(self, record: SourceOperation) -> SourceOperation:
         context = record.import_context
@@ -840,7 +636,7 @@ class SourceOperations:
             raise ValidationProblem("Open a source first; start conversion as a separate operation")
         if not Path(request.path).is_absolute():
             raise ValidationProblem("Choose an absolute source path")
-        await self.prune_inventories()
+        await prune_inventories(self)
         source = (
             guarded_source(self.guard, request.path)
             if request.purpose == "open"

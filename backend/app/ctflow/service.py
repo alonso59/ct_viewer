@@ -40,12 +40,12 @@ from app.tasks.models import (
     TaskRunRequest,
 )
 from app.tasks.source_batches import BatchReassign, SourceBatches, view_of
-from app.tasks.source_operations import (
+from app.tasks.source_models import (
     SourceOperationControl,
     SourceOperationConvert,
-    SourceOperations,
     SourceOperationStart,
 )
+from app.tasks.source_operations import SourceOperations
 from app.tasks.targets import TargetOptions, resolve
 
 ITEMS_SHOWN = 50

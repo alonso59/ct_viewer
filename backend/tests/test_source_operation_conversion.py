@@ -355,7 +355,7 @@ def test_cancel_acknowledgement_fences_the_handoff_before_a_native_attempt(
     import threading
 
     from app.core.errors import JobConflict
-    from app.tasks.source_operations import SourceOperationControl
+    from app.tasks.source_models import SourceOperationControl
 
     client, settings, _, derived, record, request = planned
     settings.dicom_memory_mb = 512
@@ -560,7 +560,7 @@ def test_native_cancel_serializes_with_a_source_operation_resume(
     import asyncio
     import threading
 
-    from app.tasks.source_operations import SourceOperationControl
+    from app.tasks.source_models import SourceOperationControl
 
     client, settings, _, _, record, request = planned
     operation = record["operation_id"]
