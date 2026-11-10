@@ -83,7 +83,7 @@ All five waves were completed in P7e on 2026-10-21.
 
 ## Approved P7d policy
 
-- Expose only `Dataset220_KiTS2023` in the first implementation.
+- The first implementation exposed only `Dataset220_KiTS2023`; `Dataset320_TCGA_KIRC` (profile `tcga-kirc-dataset320`, no postprocessing step) is now selectable beside it. The task form lists every profile the runner validates.
 - The operator exposes 2–4 available GPUs to the runner. A task defaults to 2 GPUs and may request at most 4; the effective count can be lower when fewer items are pending.
 - Keep preprocessing and export workers at 2 per GPU unless GPU-host acceptance shows a lower bound is required.
 

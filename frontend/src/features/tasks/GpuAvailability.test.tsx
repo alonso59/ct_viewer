@@ -29,5 +29,5 @@ test('shows free memory, the configured requirement and GPU 7 without treating u
   const info: TaskInfo = { ...template, execution: { inventory: { at: new Date().toISOString(), required_free_mb: 16384, devices: [{ index: '7', total_mb: 46080, used_mb: 8192, utilization: 100, busy: false }] } } }
   render(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={info} /></QueryClientProvider>)
   expect(screen.getByText(/Minimum free memory per GPU: 16.0 GiB/)).toBeInTheDocument()
-  expect(screen.getByText('GPU 7: 37.0 / 45.0 GiB free · available')).toBeInTheDocument()
+  expect(screen.getByText('GPU 7: 37.0 / 45.0 GiB free · Ready')).toBeInTheDocument()
 })

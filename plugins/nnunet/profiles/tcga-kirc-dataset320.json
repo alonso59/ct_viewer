@@ -1,0 +1,69 @@
+{
+  "profile": 1,
+  "id": "tcga-kirc-dataset320",
+  "title": "TCGA-KIRC kidney, mass and tumor",
+  "dataset": "Dataset320_TCGA_KIRC",
+  "channels": {
+    "0": "CT"
+  },
+  "labels": {
+    "1": "kidney",
+    "2": "tumor",
+    "3": "masses"
+  },
+  "regions_class_order": [
+    1,
+    3,
+    2
+  ],
+  "predictors": [
+    {
+      "configuration": "3d_fullres",
+      "trainer": "nnUNetTrainer",
+      "plans": "nnUNetResEncUNetPlans",
+      "folds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "checkpoint": "checkpoint_final.pth"
+    }
+  ],
+  "processes": {
+    "preprocessing_per_gpu": 2,
+    "export_per_gpu": 2
+  },
+  "artifacts": [
+    {
+      "path": "nnUNetTrainer__nnUNetResEncUNetPlans__3d_fullres/dataset.json",
+      "sha256": "287ce5851f86b21fc3ae30588cd30bd751198eae70deec22e313b87c14305f07"
+    },
+    {
+      "path": "nnUNetTrainer__nnUNetResEncUNetPlans__3d_fullres/plans.json",
+      "sha256": "e26e46813c4a36388b0669b460d148884a9972f9f342fd2694fe4a326616ce03"
+    },
+    {
+      "path": "nnUNetTrainer__nnUNetResEncUNetPlans__3d_fullres/fold_0/checkpoint_final.pth",
+      "sha256": "390ac47876c263e3ff85feaa863015edc297516c0c0b00ca19b0b63b13ffcb49"
+    },
+    {
+      "path": "nnUNetTrainer__nnUNetResEncUNetPlans__3d_fullres/fold_1/checkpoint_final.pth",
+      "sha256": "9c83e1906e26f2f88e21d320dd1b37a4186cf858f73ab1ab5158cb1e0b7fbfb3"
+    },
+    {
+      "path": "nnUNetTrainer__nnUNetResEncUNetPlans__3d_fullres/fold_2/checkpoint_final.pth",
+      "sha256": "392f4db11186b8a7e1018d53f64350b9e90ad2a4585f88740d54c44ef8cef73d"
+    },
+    {
+      "path": "nnUNetTrainer__nnUNetResEncUNetPlans__3d_fullres/fold_3/checkpoint_final.pth",
+      "sha256": "49defce21145dfbf7a1af44a7ec4ffe85e6bc7584344ab688ff633aeb88ee189"
+    },
+    {
+      "path": "nnUNetTrainer__nnUNetResEncUNetPlans__3d_fullres/fold_4/checkpoint_final.pth",
+      "sha256": "c4bfdc0ec086de7314c8f56a3c677fed097303c6deba286f623d4c09769b8d18"
+    }
+  ],
+  "artifacts_sha256": "b13f0849802a7bf7df081b89272efe1e3e168b0bcf25ad763c5a124176143aef"
+}

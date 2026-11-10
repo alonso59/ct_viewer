@@ -24,10 +24,13 @@ def test_display_and_admission_use_free_memory_even_with_compute_processes(
         )
     ]
     supervisor = object.__new__(Supervisor)
-    supervisor.config = {"gpu_pool": ["0", "1", "2", "3"]}
+    supervisor.config = {"gpu_pool": ["0", "1", "2"]}
     monkeypatch.setattr(gpu, "inventory", lambda: rows)
     devices = supervisor.inventory_snapshot()["devices"]
-    assert [d["busy"] for d in devices] == [True, False, False, False]
+    assert [d["busy"] for d in devices] == [True, False, False, True]
+    assert [d["status"] for d in devices] == ["unavailable", "warning", "warning", "unavailable"]
+    assert devices[3]["reason"] == "not in the approved pool"
     assert supervisor.inventory_snapshot()["required_free_mb"] == gpu.MIN_FREE_MB
     assert all("pids" not in d for d in devices)
     assert gpu.select_devices(rows, ["0", "1", "2", "3"], [], 1) == ["GPU-1"]
+    assert gpu.status(rows[3], ["3"]) == ("ready", None)

@@ -136,7 +136,7 @@ def lifecycle(
             json={
                 "task_id": "segment.nnunet",
                 "name": f"lifecycle {seg_id}",
-                "settings": {"profile": "kits2023-dataset220", "gpu_cap": 1, "seg_id": seg_id},
+                "settings": {"profile": "kits2023-dataset220", "seg_id": seg_id},
                 "selection": {"item_ids": item_ids},
             },
             headers=headers,
@@ -342,7 +342,6 @@ def run(args: argparse.Namespace) -> int:
                         "name": f"real Dataset220 ({args.items} items)",
                         "settings": {
                             "profile": "kits2023-dataset220",
-                            "gpu_cap": min(args.gpu_cap, len(gpu_ids)),
                             "seg_id": f"tst21-kits-{args.items}",
                         },
                         "selection": {"item_ids": item_ids},
@@ -446,7 +445,6 @@ def main() -> None:
     parser.add_argument(
         "--gpus", default="0", help="Approved physical GPU IDs 0..6, checked before allocation"
     )
-    parser.add_argument("--gpu-cap", type=int, choices=range(1, 5), default=1)
     parser.add_argument(
         "--lifecycle",
         action="store_true",

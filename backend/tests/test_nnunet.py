@@ -205,7 +205,7 @@ def write_job(
             {
                 "protocol": 1,
                 "task": {"id": "segment.nnunet", "version": "0.1.0"},
-                "settings": {"profile": PROFILE_ID, "gpu_cap": 2},
+                "settings": {"profile": PROFILE_ID},
                 "items": items,
                 "output_dir": str(output),
                 "resume": {"skip": skip or []},
@@ -442,7 +442,7 @@ def test_external_runner_registers_indexed_segmentation_set(
         f"{API}/projects/{pid}/task-runs",
         json={
             "task_id": "segment.nnunet",
-            "settings": {"profile": PROFILE_ID, "gpu_cap": 2, "seg_id": "kits-prediction"},
+            "settings": {"profile": PROFILE_ID, "seg_id": "kits-prediction"},
             "selection": {"item_ids": item_ids},
         },
     )

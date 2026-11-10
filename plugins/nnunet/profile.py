@@ -25,6 +25,8 @@ PROFILE_KEYS = {
     "artifacts_sha256",
 }
 PROFILES_DIR = Path(__file__).with_name("profiles")
+# Per GPU and kind; with 2 GPUs and the 12-CPU budget, 2 + 2*2 + 2*2 processes is the most that fits.
+MAX_WORKERS = 2
 
 
 @dataclass(frozen=True)
@@ -249,8 +251,8 @@ def load_profile(profile_id: str, *, verify_hashes: bool = True) -> Profile:
         raise ValueError("profile regions_class_order differs from nnU-Net dataset.json")
     processes = _object(raw.get("processes"), "processes")
     npp, nps = processes.get("preprocessing_per_gpu"), processes.get("export_per_gpu")
-    if type(npp) is not int or type(nps) is not int or not (1 <= npp <= 4 and 1 <= nps <= 4):
-        raise ValueError("profile process counts must be integers from 1 to 4")
+    if type(npp) is not int or type(nps) is not int or not (1 <= npp <= MAX_WORKERS and 1 <= nps <= MAX_WORKERS):
+        raise ValueError(f"profile process counts must be integers from 1 to {MAX_WORKERS}")
 
     return Profile(
         id=profile_id,

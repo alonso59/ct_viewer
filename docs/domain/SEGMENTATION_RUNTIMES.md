@@ -58,9 +58,9 @@ cd backend
 
 Then start `scripts/rw-runner.py` with `--deployment /absolute/deployment.json`, the matching `--workspace`, trusted `--plugins`, `--tasks segment.nnunet` and `--concurrency 1`. Admission without a verified configured backend stays closed.
 
-`gpu_cap` supports 1..4; optional `gpu_ids` selects the physical indices advertised by the configured pool, resolved against fresh inventory to UUIDs. Configure additional devices by UUID. Empty selection uses approved devices with sufficient memory automatically. Effective count is capped by pending cases; requested devices are never replaced with outside devices. nnU-Net uses its official partitioned inference CLI.
+A run uses at most two GPUs (`MAX_GPUS`, fixed for every user and not a task setting), so other runs keep devices of the pool; optional `gpu_ids` (at most two) selects physical indices, resolved against fresh inventory to UUIDs. Configure additional devices by UUID. Empty selection uses ready approved devices automatically. Effective count is capped by pending cases; requested devices are never replaced with outside devices. nnU-Net uses its official partitioned inference CLI. Preprocessing and export workers are 1 or 2 per GPU and kind (`MAX_WORKERS`): with two GPUs and the 12-CPU budget that is at most 2 predictors, 4 preprocessors and 4 exporters.
 
-The task's **Check GPUs** button waits up to 20 seconds for a new runner inventory reading and refreshes the approved-device choices, free memory and per-GPU budget. It does not reserve devices or start inference. The available/insufficient-memory display uses the allocator's admission rule; launch checks memory again. Shared memory can change during inference.
+The task's **Check GPUs** button waits up to 20 seconds for a new runner inventory reading and refreshes the device choices, free memory and per-GPU budget. Every host GPU is listed with a state: ready (green: in the pool, enough free memory, idle), warning (yellow: usable but shared with other work) or unavailable (red: not in the approved pool or not enough free memory; it cannot be picked). It does not reserve devices or start inference. The state uses the allocator's admission rule; launch checks memory again. Shared memory can change during inference.
 
 ## SLURM preparation (deferred)
 

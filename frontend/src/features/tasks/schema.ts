@@ -19,6 +19,8 @@ export interface FieldSchema {
   'x-help'?: string
   /** Display names for `enum` values, same order (e.g. a model title for its profile id) */
   'x-enumNames'?: string[]
+  /** Per `enum` value: ready, warning or unavailable; an unavailable value cannot be picked */
+  'x-enumStatus'?: ('ready' | 'warning' | 'unavailable')[]
   'x-advanced'?: boolean
   'x-group'?: string
 }

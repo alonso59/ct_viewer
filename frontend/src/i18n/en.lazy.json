@@ -577,16 +577,19 @@
     "gpu": {
       "check": "Check GPUs",
       "checking": "Checking GPUs…",
-      "snapshot": "{{available}} of {{total}} approved GPUs have enough free memory · updated {{age}}",
+      "snapshot": "{{available}} of {{total}} GPUs can be used · updated {{age}}",
       "unknown": "GPU availability is unavailable. Check the runner and try again.",
       "offline": "The runner is offline. Start it before checking GPU availability.",
       "timeout": "The runner did not provide a new GPU reading within 20 seconds. Try again.",
       "help": "GPUs can be shared when they have enough free memory. Check GPUs reads fresh usage (up to 20 seconds); memory is checked again at launch.",
       "memoryRequired": "Minimum free memory per GPU: {{gib}} GiB (configured for this runner).",
       "memoryList": "GPU memory availability",
-      "deviceMemory": "GPU {{index}}: {{free}} / {{total}} GiB free · {{state}}",
-      "insufficient": "insufficient free memory",
-      "available": "available"
+      "deviceMemory": "GPU {{index}}: {{free}} / {{total}} GiB free · {{state}}"
+    },
+    "state": {
+      "ready": "Ready",
+      "warning": "Shared with other work",
+      "unavailable": "Unavailable"
     },
     "kind": {
       "conversion": "Conversion",

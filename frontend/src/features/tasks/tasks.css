@@ -7,6 +7,10 @@
 .task-section h2 { margin: 0; font-size: var(--fs-ui); font-weight: var(--fw-semibold); }
 .task-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--sp-3); align-items: start; }
 .task-field { display: flex; flex-direction: column; gap: 4px; }
+.gpu-ready { color: var(--ok); }
+.gpu-warning { color: var(--warn); }
+.gpu-unavailable { color: var(--error); }
+.task-chips .seg button { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .task-help { font-size: var(--fs-badge); }
 .task-input { display: flex; align-items: center; gap: var(--sp-2); }
 .task-input > :first-child { flex: 1; min-width: 0; }

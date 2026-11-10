@@ -85,17 +85,15 @@ class Supervisor:
     def inventory_snapshot(self) -> dict[str, Any]:
         try:
             pool = self.config.get("gpu_pool", [])
-            rows = [row for row in gpu.inventory() if row["uuid"] in pool or str(row["index"]) in pool]
-            return {
-                "at": utc_now(),
-                "error": None,
-                "required_free_mb": self.config.get("gpu_min_free_mb", gpu.MIN_FREE_MB),
-                "devices": [
+            minimum = self.config.get("gpu_min_free_mb", gpu.MIN_FREE_MB)
+            devices = []
+            for row in gpu.inventory():
+                state, reason = gpu.status(row, pool, minimum)
+                devices.append(
                     {key: value for key, value in row.items() if key != "pids"}
-                    | {"busy": not gpu.available(row, self.config.get("gpu_min_free_mb", gpu.MIN_FREE_MB))}
-                    for row in rows
-                ],
-            }
+                    | {"busy": state == "unavailable", "status": state, "reason": reason}
+                )
+            return {"at": utc_now(), "error": None, "required_free_mb": minimum, "devices": devices}
         except (OSError, ValueError, subprocess.TimeoutExpired):
             return {"at": utc_now(), "devices": [], "error": "GPU inventory unavailable"}
 
@@ -265,12 +263,11 @@ class Supervisor:
             if item.get("item_id") not in (spec.get("resume") or {}).get("skip", [])
         ]
         settings = spec.get("settings") or {}
-        cap = settings.get("gpu_cap", 1)
+        cap = min(gpu.MAX_GPUS, self.config["limits"]["gpus"])
         requested = settings.get("gpu_ids") or []
         if (
-            type(cap) is not int
-            or not 1 <= cap <= self.config["limits"]["gpus"]
-            or not isinstance(requested, list)
+            not isinstance(requested, list)
+            or len(requested) > cap
             or any(not isinstance(value, str) for value in requested)
         ):
             raise ValueError("invalid GPU request")

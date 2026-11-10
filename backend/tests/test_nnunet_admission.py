@@ -27,7 +27,7 @@ def test_drift_is_rejected_before_gpu_admission(
     profile = load_profile(PROFILE_ID)
     plugin = REPO / "plugins/nnunet"
     manifest = json.loads((plugin / "task.json").read_text())
-    spec["settings"] = {"profile": PROFILE_ID, "gpu_cap": 1}
+    spec["settings"] = {"profile": PROFILE_ID}
     spec["items"][0]["item_id"] = "one"
     spec["identity"] = freeze(
         content_hash(plugin / "task.json"),

@@ -83,7 +83,7 @@ Status: ROADMAP P7h; C1 (attribution, project-run logs), C2 (catalog, targets, o
 
 ## Implementation notes
 
-- Shipped command names: `dicom2nii` (`dicom.convert`), `radiomics`, `segment` (`segment.nnunet`, `-gpus` = `gpu_cap`). Adding the key changed the nnU-Net manifest hash, which its resume pins: nnU-Net runs paused or interrupted before that release start again instead of resuming, and the host runner's `PLUGINS_ROOT` copy must be updated with the image.
+- Shipped command names: `dicom2nii` (`dicom.convert`), `radiomics`, `segment` (`segment.nnunet`; its `-gpus` option was removed when the GPU cap became fixed at two). Adding the key changed the nnU-Net manifest hash, which its resume pins: nnU-Net runs paused or interrupted before that release start again instead of resuming, and the host runner's `PLUGINS_ROOT` copy must be updated with the image.
 - `dicom2nii` starts a durable source operation with its analysis (API-69); `convert <operation>` then converts it, as the converter window does.
 - `ctflow` (C3, `scripts/ctflow.py`, OPS-21): interactive console, one command (`-c` or the words after the options) followed to its end, `--detach`, `--plan`, `--json`, `attach`, `logs [-f]`, `status`, `cancel`, `runs`. Exit codes: 0 completed, 1 failed/with errors/interrupted, 2 refused, 3 cancelled/paused, 130 stopped following. `ctflow file.ctf` sends a local script as one request (its runs go on; the script itself is not durable until C5).
 - Test-only tasks are callable by id and not listed. Numbers that look like integers stay integers, so settings hash as the GUI's do.

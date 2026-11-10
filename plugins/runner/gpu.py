@@ -19,6 +19,18 @@ from plugins.protocol import write_json_atomic
 
 RESOURCE_POLICY = "dicom-resources.json"
 MIN_FREE_MB = 16 * 1024
+MAX_GPUS = 2  # per run, fixed for every user so other runs keep GPUs of the pool
+
+
+def status(row: dict[str, Any], pool: list[str], minimum_mb: int = MIN_FREE_MB) -> tuple[str, str | None]:
+    """How a user sees one host GPU: ready, warning (usable but shared) or unavailable, with the reason."""
+    if row["uuid"] not in pool and str(row["index"]) not in pool:
+        return "unavailable", "not in the approved pool"
+    if not available(row, minimum_mb):
+        return "unavailable", "insufficient free memory"
+    if row["utilization"] > 0 or row["pids"]:
+        return "warning", "in use by other work"
+    return "ready", None
 
 
 def available(row: dict[str, Any], minimum_mb: int = MIN_FREE_MB) -> bool:

@@ -45,11 +45,11 @@ def _gpu_label(device: dict[str, Any]) -> str:
     name = device.get("name") or "GPU"
     free = max(0, total - used) / 1024
     label = f"GPU {device['index']} · {name} · {free:.1f}/{total / 1024:.0f} GiB free"
-    return label + (" · insufficient memory" if device.get("busy") else "")
+    return label + (f" · {device['reason']}" if device.get("reason") else "")
 
 
 def _gpu_fields(info: TaskInfo) -> None:
-    """Offer and accept only the runner's approved devices; the cap fits limit and pool."""
+    """List every host GPU with its state; the runner admits only usable ones."""
     execution = info.execution or {}
     inventory = execution.get("inventory") or {}
     devices = [
@@ -57,17 +57,10 @@ def _gpu_fields(info: TaskInfo) -> None:
         for d in inventory.get("devices") or []
         if isinstance(d, dict) and isinstance(d.get("index"), str)
     ]
-    props = info.manifest.settings_schema.get("properties", {})
-    bounds = [len(devices) or None, (execution.get("limits") or {}).get("gpus")]
-    cap = props.get("gpu_cap")
-    if isinstance(cap, dict):
-        bound = min(b for b in [cap.get("maximum"), *bounds] if isinstance(b, int) and b > 0)
-        cap["maximum"] = bound
-        if isinstance(cap.get("default"), int) and cap["default"] > bound:
-            cap["default"] = bound
-    ids = props.get("gpu_ids")
+    ids = info.manifest.settings_schema.get("properties", {}).get("gpu_ids")
     if isinstance(ids, dict) and isinstance(ids.get("items"), dict) and devices:
         ids["items"]["enum"] = [d["index"] for d in devices]
         ids["items"]["x-enumNames"] = [_gpu_label(d) for d in devices]
-        if isinstance(cap, dict):
-            ids["maxItems"] = min(ids.get("maxItems", cap["maximum"]), cap["maximum"])
+        ids["items"]["x-enumStatus"] = [
+            d.get("status", "unavailable" if d.get("busy") else "ready") for d in devices
+        ]

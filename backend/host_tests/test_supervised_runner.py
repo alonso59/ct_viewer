@@ -33,7 +33,7 @@ def deployment(
     spec = json.loads((job / "job.json").read_text())
     spec.update(
         items=[{"item_id": "one", "image": {"path": str(source / "one.nii.gz")}}],
-        settings={"gpu_cap": 1},
+        settings={},
         output_dir=str(output),
         resume={"skip": []},
     )

@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { NumberInput } from '../../lib'
+import { Icon, codicon } from '../../theme'
 import { fieldTitle, fields, type FieldSchema } from './schema'
 
 /** Help, default and error are linked to the field; an error shows once the field is left (or chosen),
  *  never while typing */
+export const STATE_ICON = { ready: 'pass-filled', warning: 'warning', unavailable: 'error' } as const
+
 function Field({ name, schema, required, value, error, onChange, onLeave }: {
   name: string
   schema: FieldSchema
@@ -44,8 +47,10 @@ function Field({ name, schema, required, value, error, onChange, onLeave }: {
         <span id={id} role="group" aria-labelledby={`${id}-label`} className="seg" {...a11y} aria-required={undefined}>
           {items.enum?.map((o, i) => {
             const on = picked.includes(String(o))
+            const state = items['x-enumStatus']?.[i]
             return (
-              <button key={String(o)} type="button" aria-pressed={on} disabled={!on && full} onClick={() => toggle(String(o))}>
+              <button key={String(o)} type="button" aria-pressed={on} disabled={!on && (full || state === 'unavailable')} onClick={() => toggle(String(o))}>
+                {state ? <Icon spec={codicon(STATE_ICON[state])} className={`gpu-${state}`} aria-label={t(`tasks.state.${state}`)} /> : null}
                 {label(items, i, o)}
               </button>
             )

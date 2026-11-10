@@ -20,10 +20,12 @@ from typing import Any
 try:
     from plugins.nnunet.profile import Predictor, Profile, load_profile
     from plugins.protocol import Job, pause_expired
+    from plugins.runner.gpu import MAX_GPUS
 except ImportError:  # runner cwd is plugins/nnunet
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from plugins.nnunet.profile import Predictor, Profile, load_profile
     from plugins.protocol import Job, pause_expired
+    from plugins.runner.gpu import MAX_GPUS
 
 VERSION = "0.1.0"
 PREDICT = "nnUNetv2_predict"
@@ -404,10 +406,7 @@ def _execute(job: Job, profile: Profile, gpus: list[str]) -> dict[str, Any]:
             "part_assignments": {},
             "commands": [],
         }
-    gpu_cap = int(job.settings.get("gpu_cap", 2))
-    if not 1 <= gpu_cap <= 4:
-        raise ValueError("gpu_cap must be from 1 to 4")
-    parts = min(len(staged), len(gpus), gpu_cap, int(os.environ.get("RW_CPU_WORKERS", "12")) // 3)
+    parts = min(len(staged), len(gpus), MAX_GPUS, int(os.environ.get("RW_CPU_WORKERS", "12")) // 3)
     if parts < 1:
         raise ValueError("nnU-Net requires a CPU worker budget of at least 3")
     predictor = profile.predictors[0]

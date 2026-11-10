@@ -36,6 +36,16 @@ test('titles, enum names and bounded GPU toggles', () => {
   expect(onChange).toHaveBeenLastCalledWith({ gpu_ids: [] })
 })
 
+test('GPU states show an icon and an unavailable GPU cannot be picked', () => {
+  const states = { type: 'object', properties: { gpu_ids: { type: 'array', title: 'GPUs', maxItems: 2, items: { type: 'string', enum: ['0', '1', '2'], 'x-enumNames': ['GPU 0', 'GPU 1', 'GPU 2'], 'x-enumStatus': ['ready', 'warning', 'unavailable'] } } } }
+  render(<SchemaForm schema={states} values={{}} errors={{}} onChange={vi.fn()} />)
+  const gpus = screen.getByRole('group', { name: 'GPUs' })
+  expect(within(gpus).getByRole('button', { name: /GPU 0/ })).toBeEnabled()
+  expect(within(gpus).getByRole('button', { name: /GPU 1/ })).toBeEnabled()
+  expect(within(gpus).getByRole('button', { name: /GPU 2/ })).toBeDisabled()
+  expect(within(gpus).getByLabelText('Shared with other work')).toBeInTheDocument()
+})
+
 test('never offers the folder list a batch plan sets', () => {
   const withFolders = { type: 'object', properties: { ...schema.properties, patient_folders: { type: 'array', title: 'Patient folders', items: { type: 'string' }, 'x-advanced': true } } }
   render(<SchemaForm schema={withFolders} values={{}} errors={{}} onChange={vi.fn()} />)

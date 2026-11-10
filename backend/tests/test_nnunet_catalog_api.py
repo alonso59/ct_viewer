@@ -116,33 +116,48 @@ def test_conflicting_runner_catalogs_are_not_silently_combined(client: TestClien
 
 
 def test_gpu_settings_follow_the_runner_pool(client: TestClient) -> None:
-    """G1: only the runner's approved devices are offered and accepted; the cap fits the pool."""
+    """G1: every host GPU is listed with its state; at most two can be picked."""
 
-    def device(index: str, busy: bool) -> dict[str, Any]:
-        used = 40000 if busy else 14
-        return {"index": index, "uuid": f"GPU-{index}", "name": "NVIDIA A40",
-                "total_mb": 46068, "used_mb": used, "busy": busy}  # fmt: skip
+    def device(index: str, status: str, reason: str | None = None) -> dict[str, Any]:
+        used = 40000 if status == "unavailable" else 14
+        return {
+            "index": index,
+            "uuid": f"GPU-{index}",
+            "name": "NVIDIA A40",
+            "total_mb": 46068,
+            "used_mb": used,
+            "busy": status == "unavailable",
+            "status": status,
+            "reason": reason,
+        }
 
     advertise(
         client,
         execution={
             "backend": "server",
             "limits": {"cpus": 12, "gpus": 2},
-            "inventory": {"devices": [device("0", False), device("6", True)]},
+            "inventory": {
+                "devices": [
+                    device("0", "ready"),
+                    device("1", "warning", "in use by other work"),
+                    device("6", "unavailable", "not in the approved pool"),
+                ]
+            },
         },
     )
     props = client.get(f"{API}/tasks/segment.nnunet").json()["manifest"]["settings_schema"]
     props = props["properties"]
-    assert props["gpu_ids"]["items"]["enum"] == ["0", "6"]
+    assert props["gpu_ids"]["items"]["enum"] == ["0", "1", "6"]
+    assert props["gpu_ids"]["items"]["x-enumStatus"] == ["ready", "warning", "unavailable"]
     names = props["gpu_ids"]["items"]["x-enumNames"]
-    assert "A40" in names[0] and "insufficient memory" in names[1].lower()
-    assert props["gpu_cap"]["maximum"] == 2 and props["gpu_cap"]["default"] <= 2
+    assert "A40" in names[0] and "not in the approved pool" in names[2]
+    assert props["gpu_ids"]["maxItems"] == 2 and "gpu_cap" not in props
     assert props["profile"]["x-enumNames"] == [PROFILE_ID, "other-ct"]
 
     def ok(settings: dict[str, Any]) -> bool:
         body = {"settings": {"profile": PROFILE_ID, **settings}}
         return bool(client.post(f"{API}/tasks/segment.nnunet/validate", json=body).json()["ok"])
 
-    assert ok({"gpu_ids": ["6"], "gpu_cap": 2})
-    assert not ok({"gpu_ids": ["1"]})
-    assert not ok({"gpu_cap": 3})
+    assert ok({"gpu_ids": ["0", "1"]})
+    assert not ok({"gpu_ids": ["0", "1", "6"]})
+    assert not ok({"gpu_ids": ["2"]})
