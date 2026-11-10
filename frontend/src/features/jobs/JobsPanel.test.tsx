@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 // UI-29 / FE-09: the Activity channel survives new lines even where scrollIntoView returns a Promise.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import '../../i18n'
-import { keys, type Job } from '../../api'
+import { api, keys, type Job } from '../../api'
 import { useWorkbench } from '../../shell'
 import { ActivityLog, JobStatus, JobsPanel, logEvent } from './JobsPanel'
 
@@ -45,4 +45,32 @@ test('a failed job shows its error as text, not as another alert (UI-10)', () =>
   render(<QueryClientProvider client={qc}><JobsPanel /></QueryClientProvider>)
   expect(screen.getByText('Disk full')).toBeInTheDocument()
   expect(screen.queryByRole('alert')).toBeNull()
+})
+
+test('the panel shows loading, then a retryable error, before the empty state', async () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+  qc.setQueryData(keys.tasks(), { tasks: [] })
+  useWorkbench.setState({ pid: 'P1' })
+  const list = vi.spyOn(api, 'listJobs').mockRejectedValue(new TypeError('offline'))
+  render(<QueryClientProvider client={qc}><JobsPanel /></QueryClientProvider>)
+  expect(screen.getByText('Loading…')).toBeInTheDocument()
+  expect(await screen.findByRole('alert')).toBeInTheDocument()
+  expect(screen.queryByText('No jobs')).toBeNull()
+  list.mockResolvedValue([])
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  expect(await screen.findByText('No jobs')).toBeInTheDocument()
+})
+
+test('a queued task job is cancellable by name, and a failed cancel is reported', async () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+  const job = { job_id: 'j1', kind: 'task', key: 'nnunet', status: 'queued', done: 0, total: 4, eta_s: null, error: null } as unknown as Job
+  qc.setQueryData(keys.jobs('P1'), [job])
+  qc.setQueryData(keys.tasks(), { tasks: [{ manifest: { id: 'nnunet', title: 'Segment kidneys' } }] })
+  useWorkbench.setState({ pid: 'P1', toasts: [] })
+  vi.spyOn(api, 'cancelJob').mockRejectedValue(new Error('cancel refused'))
+  render(<QueryClientProvider client={qc}><JobsPanel /></QueryClientProvider>)
+  expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel Segment kidneys' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel' }))
+  await waitFor(() => expect(useWorkbench.getState().toasts).toHaveLength(1))
 })

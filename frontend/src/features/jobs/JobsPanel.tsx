@@ -2,9 +2,9 @@ import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
 
 import i18n from '../../i18n'
-import { useCancelJob, useJobs, useStaleLive, type Job, type LogLine, type ServerEvent } from '../../api'
-import { ConfirmInline, Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
-import { useWorkbench } from '../../shell'
+import { useCancelJob, useJobs, useStaleLive, useTasks, type Job, type LogLine, type ServerEvent } from '../../api'
+import { ConfirmInline, ProblemCard, Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
+import { toastProblem, useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { LogView } from './LogView'
@@ -54,9 +54,14 @@ export function logEvent(e: ServerEvent) {
 export function JobsPanel() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const jobs = useJobs(pid).data ?? []
+  const { data, error, isLoading, refetch } = useJobs(pid)
+  const jobs = data ?? []
+  const tasks = useTasks().data?.tasks
   const cancel = useCancelJob(pid)
   const stale = useStaleLive()
+  const nameOf = (j: Job) => (j.kind === 'task' && j.key ? (tasks?.find((x) => x.manifest.id === j.key)?.manifest.title ?? j.key) : t(JOB_KIND[j.kind]))
+  if (isLoading) return <div className="empty">{t('common.loading')}</div>
+  if (error && !jobs.length) return <ProblemCard error={error} onRetry={() => void refetch()} />
   if (!jobs.length) return <div className="empty">{t('jobs.none')}</div>
   return (
     <>
@@ -68,29 +73,31 @@ export function JobsPanel() {
           <th>{t('jobs.col.status')}</th>
           <th style={{ width: '30%' }}>{t('jobs.col.progress')}</th>
           <th className="num">{t('jobs.col.eta')}</th>
-          <th />
+          <th><span className="visually-hidden">{t('jobs.col.actions')}</span></th>
         </tr>
       </thead>
       <tbody>
-        {jobs.map((j) => (
+        {jobs.map((j) => {
+          const name = nameOf(j)
+          return (
           <tr key={j.job_id}>
-            <td>{t(JOB_KIND[j.kind])}</td>
+            <td>{name}</td>
             <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error">{j.error}</p> : null}</td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} label={t(JOB_KIND[j.kind])} stale={stale} /></div>
+                <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} label={name} stale={stale} /></div>
                 <span className="num muted">{t('jobs.count', { done: j.done, total: j.total })}</span>
               </div>
             </td>
             <td className="num muted">{j.status === 'running' && j.eta_s !== null ? fmtDuration(j.eta_s) : ''}</td>
             <td>
-              {j.status === 'running' || (j.status === 'queued' && j.kind !== 'task') ? (
+              {j.status === 'running' || j.status === 'queued' || j.status === 'waiting_for_runner' ? (
                 <ConfirmInline
                   question={t('confirm.cancelJob')}
                   confirm={t('common.yesCancel')}
-                  onConfirm={() => cancel.mutate(j.job_id)}
+                  onConfirm={() => cancel.mutate(j.job_id, { onError: (e) => toastProblem(e) })}
                   trigger={(ask) => (
-                    <button type="button" className="btn btn-sm" onClick={ask}>
+                    <button type="button" className="btn btn-sm" aria-label={t('jobs.cancelNamed', { name })} onClick={ask}>
                       <Icon spec={codicon('debug-stop')} />
                       {t('jobs.cancel')}
                     </button>
@@ -99,7 +106,8 @@ export function JobsPanel() {
               ) : null}
             </td>
           </tr>
-        ))}
+          )
+        })}
       </tbody>
     </table>
     </>

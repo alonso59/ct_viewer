@@ -38,7 +38,8 @@ function geometry(el: HTMLElement, scrollHeight: number) {
 test('follows new lines, pauses when scrolled up and jumps back to the latest', () => {
   const view = render(<LogView lines={lines.slice(0, 1)} name="run" />)
   const log = screen.getByRole('log')
-  expect(log.getAttribute('aria-live')).toBe('polite')
+  expect(log).not.toHaveAttribute('aria-live')
+  expect(log).toHaveAttribute('tabindex', '0')
   geometry(log, 500)
   view.rerender(<LogView lines={lines.slice(0, 2)} name="run" />)
   expect(log.scrollTop).toBe(500)

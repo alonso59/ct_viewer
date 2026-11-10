@@ -727,6 +727,7 @@
   },
   "jobs": {
     "col": {
+      "actions": "Actions",
       "eta": "ETA",
       "job": "Job",
       "progress": "Progress",
@@ -747,7 +748,8 @@
     "taskFailedDetail": "{{name}}: {{error}}",
     "showTask": "Show task",
     "stale": "The live connection is down: progress refreshes every few seconds and may lag.",
-    "cancel": "Cancel job"
+    "cancel": "Cancel job",
+    "cancelNamed": "Cancel {{name}}"
   },
   "output": {
     "activity": "Activity",

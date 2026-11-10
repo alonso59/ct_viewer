@@ -117,7 +117,7 @@ export function LogView({ lines, first = 0, name, empty, loading = false, error,
       <div
         ref={list}
         role="log"
-        aria-live="polite"
+        tabIndex={0}
         className="mono"
         onScroll={onScroll}
         style={{ flex: 1, minHeight: 0, overflow: 'auto', fontSize: 'var(--fs-panel)', padding: '0 var(--sp-3) var(--sp-1)', whiteSpace: 'pre-wrap' }}
