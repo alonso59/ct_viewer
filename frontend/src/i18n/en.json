@@ -1107,6 +1107,7 @@
     "projectName": "Enter a project name",
     "datasetFolder": "Choose a dataset folder",
     "noFile": "Select a file first",
+    "chooseFileOrFolder": "Choose a file or folder",
     "fileError": "This file could not be read",
     "npyAdd": "NumPy files are added as NIfTI: save as NIfTI first",
     "axisOrder": "Choose the axis order first",

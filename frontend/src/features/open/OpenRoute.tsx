@@ -98,6 +98,7 @@ export default function OpenRoute() {
   const path = session?.path ?? pending
   // `/open` with neither a session id nor a path to open: the next steps of an ended session
   const none = useMemo(() => new ProblemError(404, 'not-found', t('open.noSession'), t('open.noSessionHelp'), ['choose_another_path', 'home']), [t])
+  const empty = useMemo(() => new ProblemError(404, 'not-found', t('open.noItems'), t('open.noItemsHelp'), ['choose_another_path', 'home']), [t])
   const error = sid ? live.error : pending ? opening.error : none
   const isLoading = live.isLoading || opening.isPending
   const attach = useAttachOpen(sid ?? '')
@@ -165,10 +166,10 @@ export default function OpenRoute() {
           <span className="badge" data-tone="accent">{t('open.noProject')}</span>
         </header>
         <div className="open-actions" role="toolbar" aria-label={t('open.actions')} onKeyDown={toolbarKeyDown}>
-          <button type="button" className="btn btn-primary" disabled={!path || selectionBusy || (paged && !!selected.error)} onClick={() => setCreating(true)}>
+          <Button className="btn btn-primary" disabled={!path || selectionBusy || (paged && !!selected.error)} reason={t(path ? 'reason.working' : 'reason.chooseFileOrFolder')} onClick={() => setCreating(true)}>
             <Icon spec={codicon('new-folder')} />
             {t('open.createProject')}
-          </button>
+          </Button>
           <Button className="btn" disabled={!current || !!current.error || current.format === 'npy' || selectionBusy} reason={t(fileBlocker ?? (current?.format === 'npy' ? 'reason.npyAdd' : 'reason.working'))} onClick={() => setAdding(true)}>
             <Icon spec={codicon('add')} />
             {t('open.addAction')}
@@ -238,7 +239,9 @@ export default function OpenRoute() {
                   labels={autoLabels()}
                   tags={current.format === 'dicom' ? () => api.openDicomTags(session.sid, current.n) : undefined}
                 />
-              ) : null}
+              ) : (
+                !isLoading && !selectionBusy && !page.isFetching && !viewable.length ? <ProblemCard error={empty} onAction={onAction} /> : null
+              )}
             </div>
           </div>
         ) : null}

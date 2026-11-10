@@ -569,6 +569,8 @@
     "close": "Close",
     "noSession": "No Open session",
     "noSessionHelp": "Open a file or folder to view it without a project.",
+    "noItems": "Nothing to view",
+    "noItemsHelp": "No viewable image was found in this path.",
     "unreadable": "{{name}} cannot be read",
     "cancelOpening": "Cancel opening",
     "cancelOpeningConfirm": "Stop opening? Nothing is shown yet and nothing is converted."

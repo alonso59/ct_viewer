@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { Dialog, openPath } from '../../lib'
+import { Button, Dialog, openPath } from '../../lib'
 import { FolderBrowser } from '../import'
 import { codicon } from '../../theme'
 import { useOpenDialog } from './store'
@@ -23,17 +23,17 @@ export default function OpenDialog() {
       footer={
         <>
           <button type="button" className="btn" onClick={hide}>{t('common.cancel')}</button>
-          <button
-            type="button"
+          <Button
             className="btn btn-primary"
             disabled={!target}
+            reason={t('reason.chooseFileOrFolder')}
             onClick={() => {
               hide()
               if (target) openPath(navigate, target)
             }}
           >
             {t(file ? 'open.openFile' : 'open.openFolder')}
-          </button>
+          </Button>
         </>
       }
     >
