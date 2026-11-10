@@ -104,6 +104,8 @@ class JobSpecBase(SelectionBase):
                         masks[sid]["removed_labels"] = segmentation.removed_labels
                     if vol.labels:  # a mask set folder: member name → value
                         masks[sid]["labels"] = vol.labels
+                    if segmentation.label_mapping:  # file value → project value
+                        masks[sid]["label_mapping"] = segmentation.label_mapping
             out.append(
                 {
                     "item_id": it.item_id,
@@ -208,6 +210,7 @@ class JobSpecBase(SelectionBase):
                 "phase_vocabulary": list(cfg.phase_vocabulary),
                 "packs": list(cfg.packs),
                 "target_profile": target_profile(cfg.packs),
+                "labels": {e.name: e.value for e in cfg.label_map},
             },
             "items": self._job_items(pid, items, seg_id) if m.input == "items" else [],
             "rows": self._rows(items) if m.input == "rows" else [],

@@ -104,7 +104,7 @@ def test_library_api(tmp_path: Path, fixtures_copy: Path) -> None:
         assert set(rows) == SHIPPED  # hidden CI plugin not listed (PLG-05)
         assert rows["dicom"]["status"] == "needs_derived_root"
         assert rows["nnunet"]["status"] == "needs_derived_root"
-        assert rows["voi"]["status"] == "pending"
+        assert rows["voi"]["status"] == "needs_derived_root"  # crops go to a derived root
         assert rows["curation"]["status"] == "ready"
         assert rows["radiomics"]["manifest"]["contributes"]["tasks"] == ["radiomics.pyradiomics"]
         assert body["invalid"] == []

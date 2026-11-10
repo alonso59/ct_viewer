@@ -47,6 +47,17 @@ def test_modality() -> None:
     assert not_ready(item(modality="ct"), modalities=["CT"]) is None  # stored as a DICOM code
 
 
+def test_scope_and_scans_with_vois() -> None:
+    crop = item("a.01.voi.L", case_id="a", scope="voi", side="L")
+    assert not_ready(crop, scope="complete") == NotReady(
+        "scope", {"scope": "voi", "need": "complete"}
+    )
+    assert not_ready(item("a.01.complete.-", case_id="a"), scope="complete") is None
+    scan = item("a.01.complete.-", case_id="a")
+    assert not_ready(scan, with_vois={("a", "01")}) == NotReady("has_vois")
+    assert not_ready(scan, with_vois={("a", "02"), ("b", "01")}) is None  # another scan's VOIs
+
+
 def test_no_mask() -> None:
     r = not_ready(item(masks={}), seg_id="nn")
     assert r == NotReady("no_mask", {"seg_id": "nn"})

@@ -136,6 +136,8 @@ export function EditorArea({ pid }: { pid: string }) {
     try {
       const saved = loadTabs(pid)
       if (saved) e.api.fromJSON(saved as Parameters<typeof e.api.fromJSON>[0])
+      // a tab of an editor this build no longer has (a removed plugin surface) would stay blank
+      for (const p of e.api.panels) if (!registry.getEditor((p.params as EditorParams | undefined)?.type ?? '')) p.api.close()
     } catch {
       e.api.clear()
       toast({ message: t('shell.tabsLost'), tone: 'info' })

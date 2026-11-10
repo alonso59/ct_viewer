@@ -61,7 +61,8 @@ Finished phases and the done items of open ones (tasks, exit criteria): `docs/ar
 
 ### P7b — Sources, derived data, tasks & plugins (ADR-0013..0017)
 Done 2026-09-24 (exit met; archive).
-- [ ] **Pending (user decision 2026-09-24):** the VOI extractor plugin (§Pending plugin after P7g); keep `legacy/` until the owner decides to delete it (fully ported otherwise)
+- [x] The VOI extractor plugin (§Pending plugin after P7g), built 2026-11-09
+- [ ] **Pending (user decision 2026-09-24):** keep `legacy/` until the owner decides to delete it (fully ported otherwise)
 - [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
 
 ### P7d — nnU-Net segmentation planning
@@ -141,7 +142,7 @@ Steps as COHORT.md; independent of P7g–P7j. After P7k, a separate cleanup deci
 **Exit:** on the synthetic fixtures and Dataset820, a user filters the cohort by a value from the column summary, compares a case's scans and opens one in the viewer; nothing in the Metadata section writes except the correction-queue flag.
 
 ### Pending plugin after P7g
-- [ ] VOI extractor plugin: crops VOIs (image + mask, per side) from a segmentation set; **requires a segmented mask**; reference code from the owner; settles the legacy `.npy` VOI axis order (SRC-12, IMP-10; default `xyz` until then)
+- [x] VOI extractor plugin (v3.2.0, ADR-0050, VOI.md): candidates per scan, patient or batch with axial previews; sides from patient coordinates; `voi.extract` crops; the owner's writer used `xyz`, which settles SRC-12 — owner review and release pending
 
 ### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)
 - [x] Audits A0..A8 and fix batches FB1..FB12, 2026-09-25..27; **closed 2026-09-27**: 129 findings, all fixed. Frozen record: `docs/archive/v3/audit/` (PLAN §Status, REMEDIATION §Owner review). Its only deferred item, the udocker check on the remote server, is P7 above (Step 4).

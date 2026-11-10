@@ -55,3 +55,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0047 | DICOM conversion runs outside the host allocation pool (interim, to be redesigned) | Accepted (partially supersedes 0035) |
 | 0048 | Agent interface over CTFlow: MCP client, agent origin, zones | Accepted (extends 0041) |
 | 0049 | Timeline events are label table rows at an `event` level, dated in days from an anchor | Accepted (extends 0046) |
+| 0050 | The VOI extractor takes sides from patient coordinates and previews boxes before cropping | Accepted (extends 0014, 0016) |

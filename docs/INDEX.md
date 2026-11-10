@@ -25,6 +25,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | Phase / organ / readiness analyzers, annotations | `domain/ANALYZERS.md` |
 | Native phase selection (one-click, precedence, exports) | `domain/PHASE.md` |
 | Labeling tables | `domain/LABELING.md` |
+| VOI extractor: candidates, sides, previews, crops | `domain/VOI.md`; ADR-0050 |
 | Curation, QC status, correction queue | `domain/CURATION.md` |
 | Radiomics extraction, settings, IBSI | `domain/RADIOMICS.md` |
 | Study variables, types, group-by, derived variables | `domain/VARIABLES.md` |
@@ -57,6 +58,7 @@ For domain, product and ops facts. Code tasks start at the area map (`backend/AG
 | `PHS-` | domain/PHASE.md | Native phase selection |
 | `PLG-` | domain/PLUGINS.md | Plugins |
 | `LBL-` | domain/LABELING.md | Labeling tables |
+| `VOI-` | domain/VOI.md | VOI extractor |
 | `CUR-` | domain/CURATION.md | Curation workflow |
 | `RAD-` | domain/RADIOMICS.md | Radiomics engine |
 | `VAR-` | domain/VARIABLES.md | Study variables |

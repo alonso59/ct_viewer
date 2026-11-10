@@ -696,6 +696,12 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       fd.set('file', file)
       return send('POST', `/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/import`, fd, { ...reviewerHeader(reviewer), 'X-Session-Id': SESSION_ID })
     },
+    voiRegions: () => unwrap(client.GET('/api/v1/plugins/voi/regions')),
+    voiCandidates: (pid, iid, body) =>
+      unwrap(client.POST('/api/v1/plugins/voi/projects/{pid}/items/{iid}/candidates', { params: { path: { pid, iid } }, body })),
+    voiPreviewUrl: (pid, token) => `${V1}/plugins/voi/projects/${enc(pid)}/previews/${enc(token)}`,
+    voiRunResults: (pid, rid, query) => unwrap(client.GET('/api/v1/plugins/voi/projects/{pid}/runs/{rid}/results', { params: { path: { pid, rid }, query } })),
+    voiResultPreviewUrl: (pid, rid, n) => `${V1}/plugins/voi/projects/${enc(pid)}/runs/${enc(rid)}/results/${n}/preview`,
     labelExportUrl: (pid, tid, format) => viewPath(`${V1}/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/export?format=${format}`),
     estimateWorkspaceTask: (tid, selection, settings = {}, progressId) =>
       unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid }, query: { progress_id: progressId ?? null } }, body: { selection, settings } })),

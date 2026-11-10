@@ -13,7 +13,7 @@ A **task** takes a selection plus settings, runs as a job, and produces typed ou
 | TSK-01 | Every task has a manifest (§Manifest) and belongs to a first-party plugin (PLG-01); there are no third-party tasks in v3. Builtin tasks run in the image; first-party tasks with an `external` runtime are run by the host runner from `PLUGINS_ROOT` (a host copy of `plugins/`). Invalid manifests are listed with their error, not loaded. | M |
 | TSK-02 | Settings come from the manifest's JSON Schema, rendered by the generic schema form. Validation runs in the UI (an error shows once the field is left, linked to it with `aria-describedby` / `aria-invalid`) and authoritatively on the server. Fields in `required` are marked; help and the default show as text under the field; a field without `title` reads as its property name in words, and a unit suffix (`_s`, `_mm`, `_mb`, `_hu`, `_pct`) shows as its unit. Radiomics keeps its richer schema (RAD-01) behind the same endpoints. | M |
 | TSK-03 | Selection is shared by every item task: all active / current Explorer filter / explicit item list; scope; `seg_id` + labels when the task reads masks (RAD-05 generalized). The explicit list offers a file table (API-68), search and scope/phase/modality/mask-presence filters, optional grouping by indexed `case_id` and manual IDs. Page size is 50 (default), 100, 200 or 500, inside a fixed-height scrolling table. Selection persists across filters/pages; group/header toggles affect this page, while Select all matching files toggles every page of the current filter and preserves unrelated selections. Resolving that list is atomic in the UI and blocks Run/Estimate until complete. Grouping never infers or changes identity from file names. | M |
-| TSK-04 | Preflight checks `requires` against the selection → `{n_ready, missing: {reason: count}, suggestions: [{task_id, reason}]}`. Example: 12 items without a `kidney` mask → suggest `segment.nnunet`. Items that aren't ready are skipped, never failed. Reasons (shared with RAD-07 skips, `app/selection/readiness.py`): no image, modality not in `requires.modality`, no mask in the set, a required label missing (`imported` only), a blocking IMP-08 code on the `imported` set. | M |
+| TSK-04 | Preflight checks `requires` against the selection → `{n_ready, missing: {reason: count}, suggestions: [{task_id, reason}]}`. Example: 12 items without a `kidney` mask → suggest `segment.nnunet`. Items that aren't ready are skipped, never failed. Reasons (shared with RAD-07 skips, `app/selection/readiness.py`): no image, modality not in `requires.modality`, scope other than `requires.scope`, a scan that already has VOI items when `requires.without_vois` is set (unless `skip_existing` is false), no mask in the set, a required label missing (`imported` only), a blocking IMP-08 code on the `imported` set. | M |
 | TSK-05 | Estimate before a run: units, skipped, time (builtin: measured on a 3-item sample; external: the manifest's `seconds_per_item`, else unknown), output size when known. | S |
 | TSK-06 | A run is a job (BE-06) with statuses `queued`, `waiting_for_runner`, `running`, `completed`, `completed_with_errors`, `failed`, `cancelled`, `interrupted`. Per-item progress and ETA arrive over SSE. The UI never blocks. | M |
 | TSK-07 | Protocol (§Protocol) is identical for builtin and external runtimes. Per-item failures don't stop a run (as RAD-07). Resume skips items already `ok` (as RAD-08). | M |
@@ -32,6 +32,8 @@ Implementation (TSK-13): the manifest key `scope` (`project` default, `workspace
 TSK-03 picker: selection controls wait for the current search/page results, including search debounce.
 Select-all shows the pending checkbox intent while resolving IDs; failure restores the committed selection.
 
+A plugin may extend its task's tab without leaving it (`registry.taskExtension`, UI-20): its own **settings** form in place of the schema form, a **review** step under the preflight whose decisions go into the settings, and a finished run's **results**, which the task's run rows (tab and Tasks view) open as **Show results** in the same tab (`?run=`). The VOI extractor uses all three (VOI-01, VOI-07, VOI-10).
+
 For nnU-Net, preserve the native failure detail in per-item errors, the run and the job status.
 CUDA failures stop later batches; CUDA out of memory suggests choosing GPUs with more free memory or waiting for other GPU work before resuming.
 The frontend notifies on a failed or partially failed run transition, links to the task and keeps the error visible in its row.
@@ -45,7 +47,7 @@ Already completed failures do not generate notifications when opening a project.
   "kind": "segmentation",                // conversion | analyzer | features | segmentation
   "input": "items",                      // items (indexed volumes) | rows (metadata only) | source (a source root)
   "outputs": ["masks"],                  // ⊂ images, masks, features, metadata, annotations
-  "requires": { "modality": ["CT"], "channels": 1, "seg": null },   // seg: {labels:[names]} when masks are read
+  "requires": { "modality": ["CT"], "channels": 1, "seg": null },   // seg: {labels:[names]} when masks are read; optional scope (complete | voi) and without_vois (skip scans that already have VOI items, unless the task's `skip_existing` setting is off)
   "settings_schema": { /* JSON Schema subset: object, boolean, integer, number, string(enum), array; x-group, x-help, x-advanced */ },
   "defaults": { },
   "runtime": { "type": "external", "command": ["python", "-m", "rw_nnunet", "{job_dir}"], "env_hint": "conda env rw-nnunet" },
@@ -75,7 +77,7 @@ Job dir: builtin = `WORKSPACE_ROOT/.scratch/jobs/{job_id}/`; external = `WORKSPA
 - Paths: data and derived roots are absolute and mirror-mounted (OPS-05), so they are the same inside the container and on the host. Workspace files are referenced **relative to the job dir**, because the workspace path differs across the container boundary.
 - Exit code 0 = see `result.json`; non-zero or no `result.json` = `failed`, with the tail of the log kept.
 - The current attempt's `progress.jsonl` and `task.log` of a source operation or workspace run are readable incrementally through API-71, always redacted (NFR-17).
-- `job.json` also carries `context` (phase vocabulary, preset, preset target profile), `project_id`, and for tasks with volume outputs `dataset_dir` + `dataset_ref` (the append-only `dataset/`); `input: source` tasks get `source {path}`; tasks with `metadata` outputs get `identity` and `previous_metadata`. `result.json` may add `identity` (merged into `sources/identity.json`, append-only) and `estimate`.
+- `job.json` also carries `context` (phase vocabulary, preset, preset target profile, `labels` = project label names → values; a mask entry adds `label_mapping`, file value → project value, when its set has one), `project_id`, and for tasks with volume outputs `dataset_dir` + `dataset_ref` (the append-only `dataset/`); `input: source` tasks get `source {path}`; tasks with `metadata` outputs get `identity` and `previous_metadata`. `result.json` may add `identity` (merged into `sources/identity.json`, append-only) and `estimate`.
 - Output kinds in item lines: `mask`, `image`, `sidecar` (files inside `output_dir` or `dataset/`, recorded with sha256 in the ledger); `result.outputs_manifest`: `annotations` (a job-dir file, copied to the run) and `metadata` (a file in `output_dir`, imported as the source `task:{task_id}`).
 - The API process tails `progress.jsonl` (every 0.2 s) and keeps, in `tasks/runs/{run_id}/`: `run.json` (TSK-10), `items.jsonl` (one outcome line per item and attempt; the last one wins; resume skips `ok` items), `log.jsonl`, and `masks.jsonl` for mask outputs. A mask output must be a file inside `output_dir`, else the item becomes `failed`. Builtin job dirs are deleted when the run ends.
 
@@ -114,6 +116,7 @@ Full native/API crash barriers, torn-journal repair and registration/index progr
 | `radiomics.pyradiomics` | items | features | RADIOMICS.md |
 | `dicom.convert` | source | images, metadata | DICOM_CONVERTER.md |
 | `analyzer.phase`, `analyzer.target`, `analyzer.readiness` | rows | annotations | ANALYZERS.md |
+| `voi.extract` | items | images (image crops; mask crops as sidecars) | VOI.md |
 | `segment.threshold` (test only, CI; runs under both runtimes, TST-14) | items | masks | TESTING.md |
 
 External: `segment.nnunet` in `plugins/nnunet/`. The manifest above is its generic task shape; model profiles, official nnU-Net stages and multi-GPU partitioning are owned by SEG-*.

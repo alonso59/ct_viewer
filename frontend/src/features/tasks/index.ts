@@ -28,10 +28,12 @@ export function registerTasks() {
     // the manifest title; the id until the task list has loaded (the editor renames the tab then)
     title: (p) => queryClient.getQueryData<TaskList>(keys.tasks())?.tasks.find((x) => x.manifest.id === p.taskId)?.manifest.title ?? p.taskId,
     icon: () => codicon('run-all'),
-    path: (pid, p) => `/p/${pid}/tasks/${encodeURIComponent(p.taskId)}`,
-    match: (path) => {
+    path: (pid, p) => `/p/${pid}/tasks/${encodeURIComponent(p.taskId)}${p.runId ? `?run=${encodeURIComponent(p.runId)}` : ''}`,
+    match: (path, search) => {
       const m = /^\/tasks\/([^/]+)$/.exec(path)
-      return m?.[1] ? { taskId: decodeURIComponent(m[1]) } : null
+      if (!m?.[1]) return null
+      const run = search.get('run')
+      return { taskId: decodeURIComponent(m[1]), ...(run ? { runId: run } : {}) }
     },
   })
 }

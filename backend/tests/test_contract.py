@@ -20,7 +20,7 @@ STREAMING = {
     "export",  # API-58 CSV/Parquet
 }  # bundle: API-06 zip
 # Binary bodies identified by the segment before a path parameter (API-25 mesh: .../mesh/{label})
-BINARY_PARENTS = {"mesh"}
+BINARY_PARENTS = {"mesh", "previews"}  # mesh files, VOI preview images
 
 
 def test_openapi_matches_reviewed_snapshot() -> None:

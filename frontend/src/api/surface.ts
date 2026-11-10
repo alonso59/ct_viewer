@@ -44,6 +44,11 @@ import type {
   ProjectModality,
   ProjectPatch,
   ViewToken,
+  VoiCandidates,
+  VoiRegion,
+  VoiRequest,
+  VoiResultsQuery,
+  VoiRunResults,
   PreviewRequest,
   Profile,
   Project,
@@ -307,6 +312,14 @@ export interface Api {
   labelHistory(pid: string, tid: string, target?: string, columnId?: string): Promise<LabelCellEvent[]>
   importLabelTable(pid: string, tid: string, file: File, reviewer: string): Promise<LabelImportReport>
   labelExportUrl(pid: string, tid: string, format: 'csv' | 'parquet'): string
+
+  voiRegions(): Promise<VoiRegion[]>
+  voiCandidates(pid: string, iid: string, body: VoiRequest): Promise<VoiCandidates>
+  /** Axial preview of a candidate; null when the binding cannot serve images (mock) */
+  voiPreviewUrl(pid: string, token: string): string | null
+  voiRunResults(pid: string, runId: string, query: VoiResultsQuery): Promise<VoiRunResults>
+  /** Axial preview of a written VOI; null when the binding cannot serve images (mock) */
+  voiResultPreviewUrl(pid: string, runId: string, n: number): string | null
 
   listTasks(): Promise<TaskList>
   getTask(taskId: string): Promise<TaskInfo>

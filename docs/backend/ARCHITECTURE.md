@@ -38,6 +38,7 @@ backend/app/
 ├── eventstore/      # namespaced append-only log `events/{ns}.jsonl`, reviewer/session stamps, `{ns}.appended` SSE, LWW state (ADR-0022)
 ├── curation/        # Curation & QC on the event store: reducer (derived state), queue, exports (CUR-*)
 ├── labeling/        # Labeling tables on the event store: schemas, cells, layers (LBL-*)
+├── voi/             # VOI candidates and axial previews over plugins/voi/engine.py, cached (VOI-*)
 ├── phase/           # native phase selection: events, read-time join, exports (PHS-*, ADR-0026)
 ├── imaging/         # header reader, fingerprint, npy→nii, mesh builder (route: api/v1/mesh.py, API-25), thumbnails, file streaming
 ├── selection/       # shared item selection + readiness codes for tasks and radiomics (TSK-03/04, RAD-05)

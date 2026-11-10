@@ -49,6 +49,29 @@ export interface EditorContribution<P extends object = object> {
   writes?: boolean
 }
 
+/** What a task extension's components receive: the task tab's draft settings, to read and change */
+export interface TaskSettingsProps {
+  pid: string
+  values: Record<string, unknown>
+  onChange: (values: Record<string, unknown>) => void
+  /** The segmentation set chosen in Selection; null = the project default */
+  segId: string | null
+}
+
+export interface TaskReviewProps extends TaskSettingsProps {
+  /** The items the preflight found ready; null until it answers */
+  itemIds: readonly string[] | null
+}
+
+/** A plugin's own pieces inside the common task tab: a settings form instead of the schema one, a
+ *  review step under the preflight (its decisions go into the settings), and a finished run's results */
+export interface TaskExtension {
+  taskId: string
+  settings?: ComponentType<TaskSettingsProps>
+  review?: ComponentType<TaskReviewProps>
+  results?: ComponentType<{ pid: string; runId: string }>
+}
+
 export interface PanelTabContribution {
   id: string
   title: string
@@ -191,6 +214,10 @@ class Registry {
   }
   editor<P extends object>(e: EditorContribution<P>) {
     this.editors.set(e.type, e as unknown as EditorContribution<never>)
+  }
+  readonly taskExtensions = new Map<string, TaskExtension>()
+  taskExtension(e: TaskExtension) {
+    this.taskExtensions.set(e.taskId, e)
   }
   panelTab(p: PanelTabContribution) {
     upsert(this.panelTabs, p)

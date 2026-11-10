@@ -298,7 +298,8 @@ class TaskService(DriverBase):
             await dry_run.require_dicom(m.id, Path(source))
         items = [] if source is not None else await self.select(pid, req.selection)
         seg_id = self._seg_id(cfg, m, req.selection)
-        ready = [i for i in items if self._not_ready(cfg, m, i, seg_id) is None]
+        with_vois = self._with_vois(pid, m, req.settings)
+        ready = [i for i in items if self._not_ready(cfg, m, i, seg_id, with_vois) is None]
         if not ready and source is None:
             raise ValidationProblem(
                 "No selected item is ready for this task",
@@ -369,7 +370,7 @@ class TaskService(DriverBase):
                 {
                     "item_id": i.item_id,
                     "status": "skipped",
-                    "message": self._not_ready(cfg, m, i, seg_id),
+                    "message": self._not_ready(cfg, m, i, seg_id, with_vois),
                 }
                 for i in items
                 if i not in ready

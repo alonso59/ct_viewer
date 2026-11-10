@@ -9947,6 +9947,21 @@
       ],
       "title": "Modality"
      },
+     "scope": {
+      "anyOf": [
+       {
+        "enum": [
+         "complete",
+         "voi"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scope"
+     },
      "seg": {
       "anyOf": [
        {
@@ -9956,6 +9971,11 @@
         "type": "null"
        }
       ]
+     },
+     "without_vois": {
+      "default": false,
+      "title": "Without Vois",
+      "type": "boolean"
      }
     },
     "title": "Requires",
@@ -16344,6 +16364,676 @@
     "title": "ViewToken",
     "type": "object"
    },
+   "VoiCandidate": {
+    "properties": {
+     "centroid_mm": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Centroid Mm",
+      "type": "array"
+     },
+     "confidence": {
+      "default": "",
+      "enum": [
+       "verified",
+       "probable",
+       "uncertain",
+       ""
+      ],
+      "title": "Confidence",
+      "type": "string"
+     },
+     "crop": {
+      "items": {
+       "items": {
+        "type": "integer"
+       },
+       "type": "array"
+      },
+      "title": "Crop",
+      "type": "array"
+     },
+     "crop_size_mm": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Crop Size Mm",
+      "type": "array"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "label_ml": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "title": "Label Ml",
+      "type": "object"
+     },
+     "preview": {
+      "title": "Preview",
+      "type": "string"
+     },
+     "side": {
+      "enum": [
+       "L",
+       "R",
+       ""
+      ],
+      "title": "Side",
+      "type": "string"
+     },
+     "tight": {
+      "items": {
+       "items": {
+        "type": "integer"
+       },
+       "type": "array"
+      },
+      "title": "Tight",
+      "type": "array"
+     },
+     "tight_size_mm": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Tight Size Mm",
+      "type": "array"
+     },
+     "volume_ml": {
+      "title": "Volume Ml",
+      "type": "number"
+     },
+     "voxels": {
+      "title": "Voxels",
+      "type": "integer"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "z_mid": {
+      "title": "Z Mid",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "side",
+     "voxels",
+     "volume_ml",
+     "centroid_mm",
+     "tight",
+     "crop",
+     "tight_size_mm",
+     "crop_size_mm",
+     "z_mid",
+     "warnings",
+     "label_ml",
+     "preview"
+    ],
+    "title": "VoiCandidate",
+    "type": "object"
+   },
+   "VoiCandidates": {
+    "properties": {
+     "candidates": {
+      "items": {
+       "$ref": "#/components/schemas/VoiCandidate"
+      },
+      "title": "Candidates",
+      "type": "array"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "lateral": {
+      "title": "Lateral",
+      "type": "boolean"
+     },
+     "margin_mm": {
+      "title": "Margin Mm",
+      "type": "number"
+     },
+     "min_size_mm": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Min Size Mm",
+      "type": "array"
+     },
+     "missing_labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Missing Labels",
+      "type": "array"
+     },
+     "region": {
+      "enum": [
+       "kidney",
+       "lung",
+       "liver",
+       "pancreas",
+       "stomach",
+       "heart",
+       "custom"
+      ],
+      "title": "Region",
+      "type": "string"
+     },
+     "seg_id": {
+      "title": "Seg Id",
+      "type": "string"
+     },
+     "shape": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Shape",
+      "type": "array"
+     },
+     "spacing_mm": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Spacing Mm",
+      "type": "array"
+     }
+    },
+    "required": [
+     "item_id",
+     "seg_id",
+     "region",
+     "lateral",
+     "labels",
+     "missing_labels",
+     "margin_mm",
+     "min_size_mm",
+     "candidates"
+    ],
+    "title": "VoiCandidates",
+    "type": "object"
+   },
+   "VoiCaseRow": {
+    "description": "One case of a run, counted over the VOIs that match the filters.",
+    "properties": {
+     "case_id": {
+      "title": "Case Id",
+      "type": "string"
+     },
+     "n_review": {
+      "title": "N Review",
+      "type": "integer"
+     },
+     "n_scans": {
+      "title": "N Scans",
+      "type": "integer"
+     },
+     "n_vois": {
+      "title": "N Vois",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "case_id",
+     "n_scans",
+     "n_vois",
+     "n_review"
+    ],
+    "title": "VoiCaseRow",
+    "type": "object"
+   },
+   "VoiRegion": {
+    "properties": {
+     "id": {
+      "enum": [
+       "kidney",
+       "lung",
+       "liver",
+       "pancreas",
+       "stomach",
+       "heart",
+       "custom"
+      ],
+      "title": "Id",
+      "type": "string"
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "lateral": {
+      "title": "Lateral",
+      "type": "boolean"
+     },
+     "margin_mm": {
+      "title": "Margin Mm",
+      "type": "number"
+     },
+     "max_components": {
+      "title": "Max Components",
+      "type": "integer"
+     },
+     "min_size_mm": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Min Size Mm",
+      "type": "array"
+     },
+     "min_volume_ml": {
+      "title": "Min Volume Ml",
+      "type": "number"
+     },
+     "organ": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Organ",
+      "type": "array"
+     },
+     "protect": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Protect",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "lateral",
+     "max_components",
+     "min_volume_ml",
+     "organ",
+     "labels",
+     "protect",
+     "margin_mm",
+     "min_size_mm"
+    ],
+    "title": "VoiRegion",
+    "type": "object"
+   },
+   "VoiRequest": {
+    "properties": {
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "margin_mm": {
+      "anyOf": [
+       {
+        "maximum": 100.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Margin Mm"
+     },
+     "min_size_mm": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "maxItems": 3,
+        "minItems": 3,
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Min Size Mm"
+     },
+     "region": {
+      "default": "kidney",
+      "enum": [
+       "kidney",
+       "lung",
+       "liver",
+       "pancreas",
+       "stomach",
+       "heart",
+       "custom"
+      ],
+      "title": "Region",
+      "type": "string"
+     },
+     "seg_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Id"
+     }
+    },
+    "title": "VoiRequest",
+    "type": "object"
+   },
+   "VoiResult": {
+    "properties": {
+     "candidate": {
+      "title": "Candidate",
+      "type": "string"
+     },
+     "case_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Id"
+     },
+     "crop_size_mm": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Crop Size Mm",
+      "type": "array"
+     },
+     "image": {
+      "title": "Image",
+      "type": "string"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "mask": {
+      "title": "Mask",
+      "type": "string"
+     },
+     "n": {
+      "title": "N",
+      "type": "integer"
+     },
+     "region": {
+      "title": "Region",
+      "type": "string"
+     },
+     "shape": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Shape",
+      "type": "array"
+     },
+     "side": {
+      "title": "Side",
+      "type": "string"
+     },
+     "side_confidence": {
+      "default": "",
+      "title": "Side Confidence",
+      "type": "string"
+     },
+     "side_swapped": {
+      "default": false,
+      "title": "Side Swapped",
+      "type": "boolean"
+     },
+     "spacing": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Spacing",
+      "type": "array"
+     },
+     "volume_ml": {
+      "title": "Volume Ml",
+      "type": "number"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+     }
+    },
+    "required": [
+     "n",
+     "item_id",
+     "side",
+     "candidate",
+     "region",
+     "labels",
+     "image",
+     "mask",
+     "shape",
+     "spacing",
+     "crop_size_mm",
+     "volume_ml",
+     "warnings"
+    ],
+    "title": "VoiResult",
+    "type": "object"
+   },
+   "VoiRunResults": {
+    "properties": {
+     "cases": {
+      "items": {
+       "$ref": "#/components/schemas/VoiCaseRow"
+      },
+      "title": "Cases",
+      "type": "array"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "limit": {
+      "title": "Limit",
+      "type": "integer"
+     },
+     "offset": {
+      "title": "Offset",
+      "type": "integer"
+     },
+     "output_dir": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Output Dir"
+     },
+     "reviewer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reviewer"
+     },
+     "run_id": {
+      "title": "Run Id",
+      "type": "string"
+     },
+     "scans": {
+      "items": {
+       "$ref": "#/components/schemas/VoiScanRow"
+      },
+      "title": "Scans",
+      "type": "array"
+     },
+     "settings": {
+      "additionalProperties": true,
+      "title": "Settings",
+      "type": "object"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "summary": {
+      "$ref": "#/components/schemas/VoiSummary"
+     },
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     },
+     "view": {
+      "enum": [
+       "scans",
+       "cases"
+      ],
+      "title": "View",
+      "type": "string"
+     }
+    },
+    "required": [
+     "run_id",
+     "status",
+     "settings",
+     "summary",
+     "view",
+     "total",
+     "offset",
+     "limit",
+     "scans",
+     "cases"
+    ],
+    "title": "VoiRunResults",
+    "type": "object"
+   },
+   "VoiScanRow": {
+    "description": "One scan of a run with all its written VOIs.",
+    "properties": {
+     "case_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Case Id"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "phase": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phase"
+     },
+     "vois": {
+      "items": {
+       "$ref": "#/components/schemas/VoiResult"
+      },
+      "title": "Vois",
+      "type": "array"
+     }
+    },
+    "required": [
+     "item_id",
+     "vois"
+    ],
+    "title": "VoiScanRow",
+    "type": "object"
+   },
+   "VoiSummary": {
+    "description": "The whole run, whatever the filters.",
+    "properties": {
+     "by_confidence": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "By Confidence",
+      "type": "object"
+     },
+     "n_cases": {
+      "title": "N Cases",
+      "type": "integer"
+     },
+     "n_review": {
+      "title": "N Review",
+      "type": "integer"
+     },
+     "n_scans": {
+      "title": "N Scans",
+      "type": "integer"
+     },
+     "n_vois": {
+      "title": "N Vois",
+      "type": "integer"
+     },
+     "n_warnings": {
+      "title": "N Warnings",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "n_cases",
+     "n_scans",
+     "n_vois",
+     "by_confidence",
+     "n_warnings",
+     "n_review"
+    ],
+    "title": "VoiSummary",
+    "type": "object"
+   },
    "VolumeRef": {
     "properties": {
      "format": {
@@ -17039,7 +17729,7 @@
  },
  "info": {
   "title": "Radiology Workbench",
-  "version": "3.1.10"
+  "version": "3.2.0"
  },
  "openapi": "3.1.0",
  "paths": {
@@ -19300,6 +19990,385 @@
     "summary": "Remove Row",
     "tags": [
      "labeling"
+    ]
+   }
+  },
+  "/api/v1/plugins/voi/projects/{pid}/items/{iid}/candidates": {
+   "post": {
+    "description": "VOI boxes for one scan; the first call reads the volumes, later ones are cached.",
+    "operationId": "candidates_api_v1_plugins_voi_projects__pid__items__iid__candidates_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VoiRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VoiCandidates"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Candidates",
+    "tags": [
+     "voi"
+    ]
+   }
+  },
+  "/api/v1/plugins/voi/projects/{pid}/previews/{token}": {
+   "get": {
+    "operationId": "preview_api_v1_plugins_voi_projects__pid__previews__token__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "image/webp": {}
+      },
+      "description": "WebP preview"
+     },
+     "304": {
+      "description": "Not modified (If-None-Match)"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Axial WebP preview of a candidate's middle slice",
+    "tags": [
+     "voi"
+    ]
+   }
+  },
+  "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/results": {
+   "get": {
+    "description": "A page of the VOIs a `voi.extract` run wrote (its `voi_catalog.jsonl`), by scan or by case.\n\nThe summary covers the whole run; the filters (`q` matches case and scan ids; `review` is an\nuncertain side or a warning) cut the rows; a scan or case is listed when a VOI matches.",
+    "operationId": "run_results_api_v1_plugins_voi_projects__pid__runs__rid__results_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "view",
+      "required": false,
+      "schema": {
+       "default": "scans",
+       "enum": [
+        "scans",
+        "cases"
+       ],
+       "title": "View",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "minimum": 0,
+       "title": "Offset",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 50,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "confidence",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "verified",
+          "probable",
+          "uncertain",
+          "reviewer"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Confidence"
+      }
+     },
+     {
+      "in": "query",
+      "name": "review",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Review",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "warning",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Warning"
+      }
+     },
+     {
+      "in": "query",
+      "name": "side",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "L",
+          "R"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Side"
+      }
+     },
+     {
+      "in": "query",
+      "name": "case",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Case"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VoiRunResults"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Run Results",
+    "tags": [
+     "voi"
+    ]
+   }
+  },
+  "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/results/{n}/preview": {
+   "get": {
+    "operationId": "result_preview_api_v1_plugins_voi_projects__pid__runs__rid__results__n__preview_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "n",
+      "required": true,
+      "schema": {
+       "title": "N",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "image/webp": {}
+      },
+      "description": "WebP preview"
+     },
+     "304": {
+      "description": "Not modified (If-None-Match)"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "WebP of a written VOI: middle axial slice with its label box",
+    "tags": [
+     "voi"
+    ]
+   }
+  },
+  "/api/v1/plugins/voi/regions": {
+   "get": {
+    "operationId": "list_regions_api_v1_plugins_voi_regions_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/VoiRegion"
+         },
+         "title": "Response List Regions Api V1 Plugins Voi Regions Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "List Regions",
+    "tags": [
+     "voi"
     ]
    }
   },

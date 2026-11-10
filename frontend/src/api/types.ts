@@ -422,6 +422,26 @@ export type LayerInfo = S['LayerInfo']
 
 export type LabelTable = S['LabelTable']
 export type LabelTableInfo = S['TableInfo']
+export type VoiRegion = S['VoiRegion']
+export type VoiRequest = S['VoiRequest']
+export type VoiCandidates = S['VoiCandidates']
+export type VoiCandidate = S['VoiCandidate']
+export type VoiRunResults = S['VoiRunResults']
+export type VoiResult = S['VoiResult']
+export type VoiScanRow = S['VoiScanRow']
+export type VoiSummary = S['VoiSummary']
+/** A page of a run's VOIs, by scan or by case; the filters cut it on the server */
+export interface VoiResultsQuery {
+  view: 'scans' | 'cases'
+  offset: number
+  limit: number
+  q?: string
+  confidence?: 'verified' | 'probable' | 'uncertain' | 'reviewer'
+  review?: boolean
+  warning?: string
+  side?: 'L' | 'R'
+  case?: string
+}
 export type LabelColumn = S['LabelColumn']
 export type LabelColumnIn = S['ColumnIn']
 export type LabelTableCreate = S['TableCreate']

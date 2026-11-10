@@ -3,9 +3,9 @@
 First-party plugins (PLG-01). Each folder has a `plugin.json`; task plugins add `task*.json` manifests. Builtin plugins are installed into the image; `PLUGINS_ROOT` is the host copy the runner executes for `external` runtimes.
 
 **Owns**
-- Task plugins: `dicom/` (converter task glue, DCM), `analyzers/` (task glue for phase, readiness, target; ANZ), `nnunet/` (segmentation, SEG), `threshold/` (CI test task).
+- Task plugins: `dicom/` (converter task glue, DCM), `analyzers/` (task glue for phase, readiness, target; ANZ), `nnunet/` (segmentation, SEG), `voi/` (VOI engine + `voi.extract`, VOI; the engine also serves `backend/app/voi/`), `threshold/` (CI test task).
 - `runner/`: host-runner safety (GPU allocation, sandbox, supervised lifecycle, preflight; OPS-16..19). The host runner itself is `scripts/rw-runner.py` (TSK-11).
-- Contribution-only (UI, routes or pack data): `radiomics/` (its builtin task lives in `backend/app/radiomics/`), `curation/`, `labeling/`, `dashboard/`; packs `ccrcc/`, `generic-ct/`; `voi/` is pending (PLG-09).
+- Contribution-only (UI, routes or pack data): `radiomics/` (its builtin task lives in `backend/app/radiomics/`), `curation/`, `labeling/`, `dashboard/`; packs `ccrcc/`, `generic-ct/`.
 - Converter package `dicom/src/rw_dicom/` (distribution `rw-dicom`, ADR-0042): conversion, inventory, workers, dataset emission, settings, the metadata rules (`rw_dicom.analyzers`) and DICOM text helpers; also the standalone `rw-dicom` CLI and Python API. It imports neither `app` nor `plugins`.
 - Shared: `protocol.py` (task side of the run protocol, TSK-07).
 
@@ -14,9 +14,9 @@ First-party plugins (PLG-01). Each folder has a `plugin.json`; task plugins add 
 **Boundaries**
 - Plugin code does not import `backend/app`; it talks to the app only through job files (TASKS.md §Protocol).
 - Task code writes only into the run's output folder or the task's `dataset/` in a `derived` root (BE-03, R1).
-- The backend runs plugins only through `backend/app/tasks/`; their UI lives in `frontend/src/plugins/<name>/`.
+- The backend runs plugins only through `backend/app/tasks/`; the one library exception is `plugins/voi/engine.py`, which `backend/app/voi/` imports lazily for interactive previews. Plugin UI lives in `frontend/src/plugins/<name>/`.
 
-**Tests:** in `backend/tests/`, named after the plugin (`test_dicom*`, `test_analyzers.py`, `test_nnunet*`, `test_runner*`, `test_gpu*`, `test_supervised*`, `test_plugins.py`). Runner safety gate: `make test-runner`; host effects: `make test-host`.
+**Tests:** in `backend/tests/`, named after the plugin (`test_dicom*`, `test_analyzers.py`, `test_nnunet*`, `test_runner*`, `test_gpu*`, `test_supervised*`, `test_voi*`, `test_plugins.py`). Runner safety gate: `make test-runner`; host effects: `make test-host`.
 
 **Change together**
 - `task*.json` settings ↔ the schema-driven task form (`frontend/src/features/tasks/`) ↔ the owning domain doc.

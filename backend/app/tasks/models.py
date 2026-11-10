@@ -69,6 +69,9 @@ class Requires(BaseModel):
     modality: list[str] | None = None
     channels: int | None = Field(default=None, ge=1)
     seg: SegRequirement | None = None  # the task reads masks (seg_id + labels)
+    scope: Literal["complete", "voi"] | None = None  # only items of this scope run
+    # scans with VOI items in the project don't run, unless the setting `skip_existing` is false
+    without_vois: bool = False
 
 
 class TaskCommand(BaseModel):

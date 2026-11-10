@@ -32,6 +32,9 @@ import type {
   StartRunBody,
   VariablePatch,
   ViewRequest,
+  VoiRequest,
+  VoiResultsQuery,
+  TaskRunStatus,
 } from './types'
 
 const enabled = (...v: (string | null | undefined)[]) => v.every(Boolean)
@@ -366,6 +369,26 @@ export const useConsoleCommands = () => useQuery({ queryKey: keys.consoleCommand
 export const useEstimateProgress = (eid: string | null) =>
   useQuery({ queryKey: keys.estimateProgress(eid ?? ''), queryFn: () => api.estimateProgress(eid ?? ''), enabled: !!eid, retry: false, refetchInterval: 500 })
 export const useLayers = (pid: string) => useQuery({ queryKey: keys.layers(pid), queryFn: () => api.listLayers(pid), enabled: enabled(pid) })
+export const useVoiRegions = () => useQuery({ queryKey: keys.voiRegions(), queryFn: () => api.voiRegions(), staleTime: Infinity })
+/** One scan's VOI boxes, for `useQueries` over a selection; margin and size changes are answered
+ *  from the server's cache */
+export const voiCandidatesQuery = (pid: string, iid: string, body: VoiRequest) => ({
+  queryKey: keys.voiCandidates(pid, iid, body),
+  queryFn: () => api.voiCandidates(pid, iid, body),
+  enabled: enabled(pid, iid),
+  placeholderData: keepPreviousData,
+  staleTime: 60_000,
+  retry: false,
+})
+/** A page of what a `voi.extract` run wrote; polls while the run is going */
+export const useVoiRunResults = (pid: string, rid: string | null, query: VoiResultsQuery) =>
+  useQuery({
+    queryKey: keys.voiRunResults(pid, rid ?? '', query),
+    queryFn: () => api.voiRunResults(pid, rid ?? '', query),
+    enabled: enabled(pid, rid),
+    placeholderData: keepPreviousData,
+    refetchInterval: (q) => (isTaskRunPending(q.state.data?.status as TaskRunStatus | undefined) ? 2000 : false),
+  })
 export const useLabelTables = (pid: string) =>
   useQuery({ queryKey: keys.labelTables(pid), queryFn: () => api.listLabelTables(pid), enabled: enabled(pid) })
 /** Deleted tables, for Restore */

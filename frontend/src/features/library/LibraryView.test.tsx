@@ -22,7 +22,7 @@ test('lists the shipped plugins; Open reveals a ready plugin; pending plugins ar
   for (const id of ['dicom', 'analyzers', 'curation', 'radiomics', 'dashboard', 'nnunet', 'voi']) expect(card(id)).not.toBeNull()
   expect(within(card('nnunet')).getByText('needs runner')).toBeInTheDocument()
   expect(within(card('nnunet')).getByRole('button', { name: 'Open nnU-Net segmentation' })).toBeEnabled()
-  expect(within(card('voi')).getByRole('button', { name: /Open VOI/ })).toBeDisabled()
+  expect(within(card('voi')).getByRole('button', { name: 'Open VOI extractor' })).toBeEnabled()
   useLayout.getState().set({ activeView: 'project' })
   fireEvent.click(within(card('curation')).getByRole('button', { name: 'Open Curation & QC' }))
   expect(useLayout.getState().activeView).toBe('curation')

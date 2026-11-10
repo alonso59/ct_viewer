@@ -1,0 +1,53 @@
+{
+  "manifest": 1,
+  "id": "voi.extract",
+  "version": "1.0.0",
+  "title": "Extract VOIs",
+  "description": "Crops one VOI (image + mask) per organ side from the selected segmentation set. Sides come from patient coordinates, so prone and feet-first scans are handled. Writes NIfTI in RAS and a voi_catalog.jsonl into the derived root.",
+  "kind": "conversion",
+  "input": "items",
+  "outputs": ["images"],
+  "requires": { "modality": ["CT", "MR"], "scope": "complete", "without_vois": true, "seg": { "labels": [] } },
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "region": {
+        "type": "string",
+        "enum": ["kidney", "lung", "liver", "pancreas", "stomach", "heart", "custom"],
+        "default": "kidney",
+        "x-help": "Kidney and lung give one VOI per side; the others one VOI around the organ"
+      },
+      "labels": {
+        "type": "array",
+        "items": { "type": "string" },
+        "x-help": "Label names that make up the VOI; empty uses the region's labels"
+      },
+      "margin_mm": { "type": "number", "minimum": 0, "maximum": 100, "x-help": "Added around the labels on every side; empty uses the region's margin" },
+      "min_size_mm": {
+        "type": "array",
+        "items": { "type": "number", "minimum": 0 },
+        "x-help": "Minimum VOI size (x, y, z) in mm; empty uses the region's size"
+      },
+      "resample_mm": { "type": "number", "minimum": 0, "maximum": 10, "default": 1.0, "x-help": "Isotropic voxel size of the output; 0 keeps the scan's voxels" },
+      "skip_existing": { "type": "boolean", "default": true, "x-help": "Leave out scans that already have VOIs in the project; off extracts them again into this run's folder" },
+      "keep_labels": { "type": "boolean", "default": true, "x-help": "Keep every label in the mask crop; off writes a binary mask of the VOI labels" },
+      "workers": { "type": "integer", "minimum": 1, "maximum": 16, "default": 4, "x-advanced": true },
+      "overrides": {
+        "type": "array",
+        "x-advanced": true,
+        "x-help": "Reviewer decisions from the VOI view: swap sides or exclude VOIs per item",
+        "items": {
+          "type": "object",
+          "properties": {
+            "item_id": { "type": "string" },
+            "swap": { "type": "boolean" },
+            "exclude": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["item_id"]
+        }
+      }
+    }
+  },
+  "runtime": { "type": "builtin", "entry": "plugins.voi.task:run" },
+  "resources": { "gpu": "none" }
+}

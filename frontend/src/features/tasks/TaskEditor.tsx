@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, useArchivedTaskRuns, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
+import { api, keys, useArchivedTaskRuns, useCase, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
 import { Button, ConfirmInline, Progress, ProblemCard, RadioSeg, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
 import { openEditor, registry, toast, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
@@ -21,6 +21,8 @@ const CONFIRM_ABOVE = 20
 
 export interface TaskParams {
   taskId: string
+  /** A finished run whose results the tab shows instead of the form (tasks with a results extension) */
+  runId?: string | null
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -59,6 +61,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
     void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
   }
   const c = run.counts
+  const hasResults = !!registry.taskExtensions.get(run.task.id)?.results && !ACTIVE_RUN.includes(run.status)
   return (
     <li className="task-run" data-status={run.status}>
       <div className="task-run-head">
@@ -79,6 +82,11 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       <span className="muted num">{run.task.id === 'dicom.convert' ? t('conv.recoveryCounts', { complete: c?.ok ?? 0, failed: c?.failed ?? 0, pending: c?.pending ?? 0 }) : t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
       {run.error ? <p className="field-error" role="alert">{run.error}</p> : null}
       <div className="task-run-actions">
+        {hasResults ? (
+          <Button className="btn btn-sm btn-primary" onClick={() => openEditor('task', { taskId: run.task.id, runId: run.run_id })}>
+            {t('tasks.showResults')}
+          </Button>
+        ) : null}
         {actions.map((a) => {
           const button = (onClick: () => void) => (
             <Button key={a} className="btn btn-sm" disabled={(a === 'resume' || a === 'retry_failed') && fenced && run.execution?.cleanup_verified !== true} reason={t('reason.cleanup')} onClick={onClick}>
@@ -173,6 +181,59 @@ function OutputLink({ pid, run, o }: { pid: string; run: TaskRunSummary; o: Task
   return null
 }
 
+/** The viewer's scan or case as an explicit item list: frozen when picked, so later navigation
+ *  never moves the selection */
+function CurrentShortcuts({ pid, segId, needMask, onPick }: { pid: string; segId: string | null; needMask: boolean; onPick: (ids: string[]) => void }) {
+  const { t } = useTranslation()
+  const activeItem = useViewerSync((s) => s.activeItemId)
+  const activeCase = useViewerSync((s) => s.activeCaseId)
+  const kase = useCase(pid, activeCase)
+  const caseIds = (kase.data?.items ?? [])
+    .filter((it) => it.scope === 'complete' && (!needMask || (segId ? !!it.masks?.[segId] : Object.keys(it.masks ?? {}).length > 0)))
+    .map((it) => it.item_id)
+  if (!activeItem && !activeCase) return null
+  return (
+    <div className="task-run-actions">
+      {activeItem ? <Button className="btn btn-sm" onClick={() => onPick([activeItem])}>{t('tasks.currentScan')}</Button> : null}
+      {activeCase ? (
+        <Button className="btn btn-sm" disabled={!caseIds.length} reason={t('tasks.caseNoItems')} onClick={() => onPick(caseIds)}>
+          {t('tasks.currentCase', { count: caseIds.length })}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+/** A finished run's results, from the task's extension, in place of the form */
+function RunResults({ pid, info, runId }: { pid: string; info: TaskInfo; runId: string }) {
+  const { t } = useTranslation()
+  const m = info.manifest
+  const run = (useTaskRuns(pid).data ?? []).find((r) => r.run_id === runId)
+  const Results = registry.taskExtensions.get(m.id)?.results
+  const c = run?.counts
+  return (
+    <div className="task-tab">
+      <div className="task-run-actions">
+        <Button className="btn btn-sm" onClick={() => openEditor('task', { taskId: m.id, runId: null })}>
+          <Icon spec={codicon('arrow-left')} />
+          {t('tasks.backToTask', { title: m.title })}
+        </Button>
+      </div>
+      <h1>{run?.name ?? t('tasks.runResults')}</h1>
+      {run ? (
+        <p className="task-run-head">
+          <RunStatusBadge status={run.status} />
+          <span className="muted">{fmtAgo(run.created_at)}</span>
+          {run.reviewer ? <span className="muted">{t('tasks.byReviewer', { name: run.reviewer })}</span> : null}
+          <span className="muted num">{t('tasks.counts', { ok: c?.ok ?? 0, failed: c?.failed ?? 0, skipped: c?.skipped ?? 0, items: c?.items ?? 0 })}</span>
+        </p>
+      ) : null}
+      {run?.error ? <p className="field-error" role="alert">{run.error}</p> : null}
+      {Results ? <Results pid={pid} runId={runId} /> : null}
+    </div>
+  )
+}
+
 function EstimateView({ est }: { est: TaskEstimate }) {
   const { t } = useTranslation()
   return (
@@ -185,10 +246,11 @@ function EstimateView({ est }: { est: TaskEstimate }) {
   )
 }
 
-function Body({ pid, info }: { pid: string; info: TaskInfo }) {
+function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boolean }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const m = info.manifest
+  const ext = registry.taskExtensions.get(m.id)
   const tasks = useTasks().data?.tasks ?? []
   const taskTitle = (id: string) => tasks.find((x) => x.manifest.id === id)?.manifest.title ?? id
   const explorer = useExplorerFilter()
@@ -264,7 +326,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
     )
 
   return (
-    <div className="task-tab">
+    <div className="task-tab" hidden={hidden}>
       <h1>{m.title}</h1>
       <p className="muted">{m.description}</p>
       {!info.available ? <div className="error-card">{info.unavailable_reason}</div> : null}
@@ -288,6 +350,17 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
         ) : (
           <>
             <RadioSeg label={t('tasks.selection')} value={mode} options={(['all', 'explorer', 'list'] as SelectionMode[]).map((k) => ({ value: k, label: t(`tasks.mode.${k}`) }))} onChange={setMode} />
+            {m.input === 'items' ? (
+              <CurrentShortcuts
+                pid={pid}
+                segId={readsMasks ? (segId ?? project?.default_seg ?? null) : null}
+                needMask={readsMasks}
+                onPick={(ids) => {
+                  setMode('list')
+                  setList(ids.join('\n'))
+                }}
+              />
+            ) : null}
             {mode === 'list' ? <ItemPicker pid={pid} value={list} onChange={setList} onBusyChange={setSelecting} /> : null}
             {readsMasks ? (
               <label className="field">
@@ -303,7 +376,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
 
       <Section title={t('tasks.settings')}>
         {m.runtime.type === 'external' && m.resources?.gpu && m.resources.gpu !== 'none' ? <GpuAvailability info={info} /> : null}
-        <SchemaForm schema={m.settings_schema} values={values} errors={errors} onChange={setValues} />
+        {ext?.settings ? <ext.settings pid={pid} values={values} onChange={setValues} segId={segId} /> : <SchemaForm schema={m.settings_schema} values={values} errors={errors} onChange={setValues} />}
       </Section>
 
       <Section title={t('tasks.preflight')}>
@@ -327,6 +400,7 @@ function Body({ pid, info }: { pid: string; info: TaskInfo }) {
             ) : null}
           </>
         ) : null}
+        {ext?.review ? <ext.review pid={pid} values={values} onChange={setValues} segId={segId ?? project?.default_seg ?? null} itemIds={pre?.ready_item_ids ?? null} /> : null}
         <div className="task-run-actions">
           <button type="button" className="btn" disabled={selecting} onClick={() => void doEstimate()}>{t('tasks.estimate')}</button>
           <Button
@@ -383,7 +457,14 @@ function TaskEditor({ params, panelId }: EditorProps<TaskParams>) {
   if (error) return <ProblemCard error={error} onRetry={() => void refetch()} />
   if (!data) return <div className="empty">{t('common.loading')}</div>
   if (!info) return <div className="error-card">{t('tasks.unknown', { id: params.taskId })}</div>
-  return <Body pid={pid} info={info} />
+  // the run's results sit over the form, which keeps its draft (selection, settings, review)
+  const showRun = !!params.runId && !!registry.taskExtensions.get(info.manifest.id)?.results
+  return (
+    <>
+      {showRun && params.runId ? <RunResults pid={pid} info={info} runId={params.runId} /> : null}
+      <Body pid={pid} info={info} hidden={showRun} />
+    </>
+  )
 }
 
 export default TaskEditor

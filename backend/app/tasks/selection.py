@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from app.core.errors import NotFound, ValidationProblem
 from app.ingest.models import Item
@@ -24,6 +24,8 @@ from app.tasks.records import TaskBase
 _TEXT: Final[dict[str, str]] = {
     "no_image": "no image",
     "modality": "modality {modality}",
+    "scope": "{scope} item, needs {need}",
+    "has_vois": "already has VOIs",
     "no_mask": "no mask in {seg_id}",
     "label_missing": "no {label} label in {seg_id}",
     "blocked": "{qc} in {seg_id}",
@@ -54,8 +56,25 @@ class SelectionBase(TaskBase):
             )
         return seg_id
 
+    def _with_vois(
+        self, pid: str, m: TaskManifest, settings: dict[str, Any]
+    ) -> frozenset[tuple[str, str]]:
+        """The (case, scan) pairs that have active VOI items, for a task that skips them."""
+        if not m.requires.without_vois or settings.get("skip_existing") is False:
+            return frozenset()
+        return frozenset(
+            (i.case_id, i.scan_idx)
+            for i in self.store.load(pid).items
+            if i.scope == "voi" and i.status == "active"
+        )
+
     def _not_ready(
-        self, cfg: ProjectConfig, m: TaskManifest, it: Item, seg_id: str | None
+        self,
+        cfg: ProjectConfig,
+        m: TaskManifest,
+        it: Item,
+        seg_id: str | None,
+        with_vois: frozenset[tuple[str, str]] = frozenset(),
     ) -> str | None:
         """Why an item can't run (`readiness.not_ready`) as text, or None when ready."""
         seg = cfg.segmentation(seg_id) if seg_id is not None else None
@@ -73,6 +92,8 @@ class SelectionBase(TaskBase):
             it,
             need_image=m.input == "items",
             modalities=m.requires.modality,
+            scope=m.requires.scope,
+            with_vois=with_vois,
             seg_id=seg_id if m.requires.seg is not None else None,
             labels=m.requires.seg.labels if m.requires.seg is not None else (),
             label_map={e.name: e.value for e in cfg.label_map},
@@ -130,8 +151,9 @@ class SelectionBase(TaskBase):
         seg_id = self._seg_id(cfg, m, req.selection)
         missing: Counter[str] = Counter()
         ready: list[str] = []
+        with_vois = self._with_vois(pid, m, req.settings)
         for it in items:
-            reason = self._not_ready(cfg, m, it, seg_id)
+            reason = self._not_ready(cfg, m, it, seg_id, with_vois)
             if reason is None:
                 ready.append(it.item_id)
             else:

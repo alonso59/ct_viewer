@@ -47,14 +47,17 @@ async def composed_mask(
     return path, dst.name.removesuffix(".nii.gz")
 
 
-async def _serve(
+async def local_volume(
     ctx: AppContext,
     pid: str,
     iid: str,
     kind: Literal["image", "mask"],
-    request: Request,
     seg: str | None = None,
-) -> Response:
+) -> tuple[Path, str, str]:
+    """A NIfTI file for an item's image or mask: `(path, content key, download name)`.
+
+    Mask sets are composed, `.npy` converted and removed labels filtered, all cached.
+    """
     item = ctx.index.get_item(pid, iid)
     removed: list[int] = []
     if kind == "image":
@@ -75,17 +78,13 @@ async def _serve(
     if vol.format == "nifti_dir" and vol.labels and path.is_dir():  # a mask set
         name = f"{path.name}.nii.gz"
         path, etag = await composed_mask(ctx, pid, path, vol.labels, removed)
-        if streaming.is_not_modified(request, etag):
-            return streaming.not_modified(streaming.quote_etag(etag))
-        return streaming.volume_response(path, etag, name, request)
+        return path, etag, name
     if not path.is_file():
         raise SourceMissing(f"{kind} file is missing")
     fp = await asyncio.to_thread(quick_fingerprint, path)
     name = path.name
     if vol.format == "npy":
         name = npy_convert.nifti_name(name)
-        if not removed and streaming.is_not_modified(request, fp):
-            return streaming.not_modified(streaming.quote_etag(fp))
         spacing = item.geometry.spacing if item.geometry is not None else [1.0, 1.0, 1.0]
         order = npy_convert.axis_order_of(item.extra.get("axis_order")) or "xyz"
         dst = npy_convert.cache_path(ctx.workspace.project_dir(pid), fp, order)
@@ -103,7 +102,21 @@ async def _serve(
         if name.lower().endswith(".nii"):
             name += ".gz"
         ctx.cache_budget.request()
-    return streaming.volume_response(path, fp, name, request)
+    return path, fp, name
+
+
+async def _serve(
+    ctx: AppContext,
+    pid: str,
+    iid: str,
+    kind: Literal["image", "mask"],
+    request: Request,
+    seg: str | None = None,
+) -> Response:
+    path, etag, name = await local_volume(ctx, pid, iid, kind, seg)
+    if streaming.is_not_modified(request, etag):
+        return streaming.not_modified(streaming.quote_etag(etag))
+    return streaming.volume_response(path, etag, name, request)
 
 
 @router.get(

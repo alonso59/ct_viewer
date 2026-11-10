@@ -1,11 +1,11 @@
 {
   "plugin": 1,
   "id": "voi",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "title": "VOI extractor",
   "icon": "screen-full",
-  "pending": true,
-  "description": "Crops VOIs (image + mask, per side) from a segmentation set with the target labels.",
+  "scope": "project",
+  "description": "Finds VOI boxes per organ side from a segmentation set, previews them and crops image + mask for a scan, a patient or a batch.",
   "contributes": {
     "tasks": [
       "voi.extract"
@@ -13,6 +13,7 @@
   },
   "requires": {
     "capabilities": [
+      "derived_root",
       "segmentation"
     ]
   }

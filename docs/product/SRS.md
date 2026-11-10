@@ -55,7 +55,7 @@ Columns added by the build: **Journeys** (the G paths whose refs include the row
 
 ### 3.2 Functions
 
-```{srs-table} PRJ IMP SRC TSK CTF SEG DCM ANZ PHS PLG LBL CUR RAD VAR ANA REC UI VW DB COH
+```{srs-table} PRJ IMP SRC TSK CTF SEG DCM ANZ PHS PLG LBL VOI CUR RAD VAR ANA REC UI VW DB COH
 ```
 
 ### 3.3 Quality

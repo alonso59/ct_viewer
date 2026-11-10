@@ -2,7 +2,7 @@
 import './shell.css'
 
 export { registry } from './registry'
-export type { EditorProps, OutputChannelContribution } from './registry'
+export type { EditorProps, OutputChannelContribution, TaskReviewProps, TaskSettingsProps } from './registry'
 export type { EditorParams } from './workbenchStore'
 export { Workbench, ShellOverlays, ShellProviders } from './Workbench'
 export {

@@ -3018,6 +3018,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins/voi/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Regions */
+        get: operations["list_regions_api_v1_plugins_voi_regions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/voi/projects/{pid}/items/{iid}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Candidates
+         * @description VOI boxes for one scan; the first call reads the volumes, later ones are cached.
+         */
+        post: operations["candidates_api_v1_plugins_voi_projects__pid__items__iid__candidates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/voi/projects/{pid}/previews/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Axial WebP preview of a candidate's middle slice */
+        get: operations["preview_api_v1_plugins_voi_projects__pid__previews__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Results
+         * @description A page of the VOIs a `voi.extract` run wrote (its `voi_catalog.jsonl`), by scan or by case.
+         *
+         *     The summary covers the whole run; the filters (`q` matches case and scan ids; `review` is an
+         *     uncertain side or a warning) cut the rows; a scan or case is listed when a VOI matches.
+         */
+        get: operations["run_results_api_v1_plugins_voi_projects__pid__runs__rid__results_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/results/{n}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** WebP of a written VOI: middle axial slice with its label box */
+        get: operations["result_preview_api_v1_plugins_voi_projects__pid__runs__rid__results__n__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6620,6 +6714,13 @@ export interface components {
             /** Channels */
             channels?: number | null;
             seg?: components["schemas"]["SegRequirement"] | null;
+            /** Scope */
+            scope?: ("complete" | "voi") | null;
+            /**
+             * Without Vois
+             * @default false
+             */
+            without_vois: boolean;
         };
         /** ResolvedTarget */
         ResolvedTarget: {
@@ -8838,6 +8939,237 @@ export interface components {
             view_token: string | null;
             /** View Url */
             view_url: string | null;
+        };
+        /** VoiCandidate */
+        VoiCandidate: {
+            /** Id */
+            id: string;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "L" | "R" | "";
+            /** Voxels */
+            voxels: number;
+            /** Volume Ml */
+            volume_ml: number;
+            /** Centroid Mm */
+            centroid_mm: number[];
+            /** Tight */
+            tight: number[][];
+            /** Crop */
+            crop: number[][];
+            /** Tight Size Mm */
+            tight_size_mm: number[];
+            /** Crop Size Mm */
+            crop_size_mm: number[];
+            /** Z Mid */
+            z_mid: number;
+            /** Warnings */
+            warnings: string[];
+            /** Label Ml */
+            label_ml: {
+                [key: string]: number;
+            };
+            /**
+             * Confidence
+             * @default
+             * @enum {string}
+             */
+            confidence: "verified" | "probable" | "uncertain" | "";
+            /** Preview */
+            preview: string;
+        };
+        /** VoiCandidates */
+        VoiCandidates: {
+            /** Item Id */
+            item_id: string;
+            /** Seg Id */
+            seg_id: string;
+            /**
+             * Region
+             * @enum {string}
+             */
+            region: "kidney" | "lung" | "liver" | "pancreas" | "stomach" | "heart" | "custom";
+            /** Lateral */
+            lateral: boolean;
+            /** Labels */
+            labels: string[];
+            /** Missing Labels */
+            missing_labels: string[];
+            /** Margin Mm */
+            margin_mm: number;
+            /** Min Size Mm */
+            min_size_mm: number[];
+            /** Shape */
+            shape?: number[];
+            /** Spacing Mm */
+            spacing_mm?: number[];
+            /** Candidates */
+            candidates: components["schemas"]["VoiCandidate"][];
+        };
+        /**
+         * VoiCaseRow
+         * @description One case of a run, counted over the VOIs that match the filters.
+         */
+        VoiCaseRow: {
+            /** Case Id */
+            case_id: string;
+            /** N Scans */
+            n_scans: number;
+            /** N Vois */
+            n_vois: number;
+            /** N Review */
+            n_review: number;
+        };
+        /** VoiRegion */
+        VoiRegion: {
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "kidney" | "lung" | "liver" | "pancreas" | "stomach" | "heart" | "custom";
+            /** Lateral */
+            lateral: boolean;
+            /** Max Components */
+            max_components: number;
+            /** Min Volume Ml */
+            min_volume_ml: number;
+            /** Organ */
+            organ: string[];
+            /** Labels */
+            labels: string[];
+            /** Protect */
+            protect: string[];
+            /** Margin Mm */
+            margin_mm: number;
+            /** Min Size Mm */
+            min_size_mm: number[];
+        };
+        /** VoiRequest */
+        VoiRequest: {
+            /** Seg Id */
+            seg_id?: string | null;
+            /**
+             * Region
+             * @default kidney
+             * @enum {string}
+             */
+            region: "kidney" | "lung" | "liver" | "pancreas" | "stomach" | "heart" | "custom";
+            /** Labels */
+            labels?: string[];
+            /** Margin Mm */
+            margin_mm?: number | null;
+            /** Min Size Mm */
+            min_size_mm?: number[] | null;
+        };
+        /** VoiResult */
+        VoiResult: {
+            /** N */
+            n: number;
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id?: string | null;
+            /** Side */
+            side: string;
+            /** Candidate */
+            candidate: string;
+            /**
+             * Side Swapped
+             * @default false
+             */
+            side_swapped: boolean;
+            /** Region */
+            region: string;
+            /** Labels */
+            labels: string[];
+            /** Image */
+            image: string;
+            /** Mask */
+            mask: string;
+            /** Shape */
+            shape: number[];
+            /** Spacing */
+            spacing: number[];
+            /** Crop Size Mm */
+            crop_size_mm: number[];
+            /** Volume Ml */
+            volume_ml: number;
+            /** Warnings */
+            warnings: string[];
+            /**
+             * Side Confidence
+             * @default
+             */
+            side_confidence: string;
+        };
+        /** VoiRunResults */
+        VoiRunResults: {
+            /** Run Id */
+            run_id: string;
+            /** Status */
+            status: string;
+            /** Reviewer */
+            reviewer?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Output Dir */
+            output_dir?: string | null;
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            summary: components["schemas"]["VoiSummary"];
+            /**
+             * View
+             * @enum {string}
+             */
+            view: "scans" | "cases";
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+            /** Scans */
+            scans: components["schemas"]["VoiScanRow"][];
+            /** Cases */
+            cases: components["schemas"]["VoiCaseRow"][];
+        };
+        /**
+         * VoiScanRow
+         * @description One scan of a run with all its written VOIs.
+         */
+        VoiScanRow: {
+            /** Item Id */
+            item_id: string;
+            /** Case Id */
+            case_id?: string | null;
+            /** Phase */
+            phase?: string | null;
+            /** Vois */
+            vois: components["schemas"]["VoiResult"][];
+        };
+        /**
+         * VoiSummary
+         * @description The whole run, whatever the filters.
+         */
+        VoiSummary: {
+            /** N Cases */
+            n_cases: number;
+            /** N Scans */
+            n_scans: number;
+            /** N Vois */
+            n_vois: number;
+            /** By Confidence */
+            by_confidence: {
+                [key: string]: number;
+            };
+            /** N Warnings */
+            n_warnings: number;
+            /** N Review */
+            n_review: number;
         };
         /** VolumeRef */
         VolumeRef: {
@@ -15281,6 +15613,183 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+            /** @description Not modified (If-None-Match) */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_regions_api_v1_plugins_voi_regions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiRegion"][];
+                };
+            };
+        };
+    };
+    candidates_api_v1_plugins_voi_projects__pid__items__iid__candidates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                iid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiCandidates"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_v1_plugins_voi_projects__pid__previews__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebP preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Not modified (If-None-Match) */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_results_api_v1_plugins_voi_projects__pid__runs__rid__results_get: {
+        parameters: {
+            query?: {
+                view?: "scans" | "cases";
+                offset?: number;
+                limit?: number;
+                q?: string;
+                confidence?: ("verified" | "probable" | "uncertain" | "reviewer") | null;
+                review?: boolean;
+                warning?: string | null;
+                side?: ("L" | "R") | null;
+                case?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiRunResults"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    result_preview_api_v1_plugins_voi_projects__pid__runs__rid__results__n__preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebP preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": unknown;
                 };
             };
             /** @description Not modified (If-None-Match) */

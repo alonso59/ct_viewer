@@ -6,7 +6,7 @@ in `missing`; radiomics: `errors.jsonl` codes, `causes.TEXT`).
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final, Literal, Protocol
 
@@ -31,12 +31,12 @@ def blocking(codes: Iterable[str]) -> str | None:
     return next((c.value for c in BLOCKING if c.value in have), None)
 
 
-Code = Literal["no_image", "modality", "no_mask", "label_missing", "blocked"]
+Code = Literal["no_image", "modality", "scope", "has_vois", "no_mask", "label_missing", "blocked"]
 
 
 @dataclass(frozen=True)
 class NotReady:
-    """`code` + params (`modality`, `seg_id`, `label`, `qc`)."""
+    """`code` + params (`modality`, `scope` and `need`, `seg_id`, `label`, `qc`)."""
 
     code: Code
     params: dict[str, str] = field(default_factory=dict)
@@ -111,17 +111,24 @@ def not_ready(
     *,
     need_image: bool = True,
     modalities: Iterable[str] | None = None,
+    scope: str | None = None,
+    with_vois: Collection[tuple[str, str]] = (),
     seg_id: str | None = None,
     labels: Iterable[str] = (),
     label_map: Mapping[str, int] | None = None,
 ) -> NotReady | None:
-    """Why `it` can't run, or None. `labels_present` and the QC codes describe the `imported`
+    """Why `it` can't run, or None. `with_vois`: the (case, scan) pairs that already have VOI
+    items; their scans don't run. `labels_present` and the QC codes describe the `imported`
     set only, so other sets skip the label and QC checks."""
     if need_image and it.image is None:
         return NotReady("no_image")
     mods = list(modalities or [])
     if mods and it.modality is not None and it.modality not in mods:
         return NotReady("modality", {"modality": it.modality})
+    if scope is not None and it.scope != scope:
+        return NotReady("scope", {"scope": it.scope, "need": scope})
+    if (it.case_id, it.scan_idx) in with_vois:
+        return NotReady("has_vois")
     if seg_id is None:
         return None
     if seg_id not in it.masks:

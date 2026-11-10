@@ -7,14 +7,14 @@ Python 3.12 · FastAPI · Pydantic v2. Package `app/`, dev tools `tools/`, tests
 - `core/`: every path resolution and file write (`paths`, `fsio`), problem+json errors, locks, redaction of host paths.
 - Data in: `projects`, `sources` (adapters, Open mode), `ingest` (imports, indexing, manual segmentation manifests; SRC-20), `layers`.
 - Review state: `eventstore` → `curation`, `labeling`, `phase`.
-- Compute: `tasks` (with `plugins` loader and `selection`), `jobs`, `radiomics`, `imaging`, `events` (SSE).
+- Compute: `tasks` (with `plugins` loader and `selection`), `jobs`, `radiomics`, `imaging`, `voi` (VOI candidates and previews over `plugins/voi/engine.py`), `events` (SSE).
 - Analysis: `variables`, `analytics`.
 - `tools/`: OpenAPI snapshot, mock recorder, fixture generator, acceptance and environment checks.
 
 **Entry points:** `app/main.py` (factory, lifespan), `app/context.py` (service container), `app/config.py` (env settings, OPS-03).
 
 **Boundaries**
-- `api → services → core`; services never import `api` (`tests/test_layering.py`). Plugins are reached only through `tasks/`; the converter package `rw_dicom` (`plugins/dicom/src`, an editable install) is a library the backend imports directly.
+- `api → services → core`; services never import `api` (`tests/test_layering.py`). Plugins are reached only through `tasks/` (and `voi/`, which imports the VOI engine lazily); the converter package `rw_dicom` (`plugins/dicom/src`, an editable install) is a library the backend imports directly.
 - Paths only via `core.paths`, writes via `core.fsio`; `source` files opened `rb` only (BE-02/03, R1).
 - Heavy work (radiomics, meshes, thumbnails, npy conversion) runs in job workers, never in the API process (BE-12). No outbound network (BE-11).
 
