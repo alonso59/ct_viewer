@@ -57,3 +57,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0049 | Timeline events are label table rows at an `event` level, dated in days from an anchor | Accepted (extends 0046) |
 | 0050 | The VOI extractor takes sides from patient coordinates and previews boxes before cropping | Accepted (extends 0014, 0016) |
 | 0051 | Native conda is the only production deployment; the image is for tests and local Docker; udocker is removed | Accepted (supersedes 0007; partially supersedes 0043) |
+| 0052 | Source operations: one record owner, flows in their own modules | Accepted (extends 0035) |
