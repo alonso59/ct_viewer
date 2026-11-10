@@ -770,7 +770,7 @@ export default function ConverterOverlay() {
           ) : null}
         </div>
       </Dialog>
-      {importDraft ? <NewProjectDialog open onOpenChange={(o) => { if (!o) setImportDraft(null) }} onCreated={close} prefill={importDraft} /> : null}
+      {importDraft ? <NewProjectDialog open onOpenChange={(o) => { if (!o) { setImportDraft(null); c.restore() } }} onCreated={close} prefill={importDraft} /> : null}
       {createFrom ? <NewProjectDialog open onOpenChange={(o) => { if (!o) useConverter.setState({ createFrom: null }) }} onCreated={close} prefill={{ path: createFrom, adapter: 'nifti-files' }} /> : null}
       {derivedPrompt && pid ? <DerivedRootDialog pid={pid} onClose={() => setDerivedPrompt(false)} /> : null}
     </>
