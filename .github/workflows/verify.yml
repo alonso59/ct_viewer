@@ -3,7 +3,7 @@ name: Verify application and task safety
 on:
   pull_request:
   push:
-    branches: [version_3-dev-seg]
+    branches: [main, version_3-dev-seg]
   workflow_call:
   workflow_dispatch:
 
