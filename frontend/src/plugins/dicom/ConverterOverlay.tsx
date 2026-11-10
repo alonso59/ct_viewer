@@ -212,10 +212,11 @@ export default function ConverterOverlay() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const c = useConverter()
-  const { pid, close, createFrom, patch, step, source, browse, target, settings, allowMixedVersions, estimate, error, scan, run, minimized, operationId, batchPlanId, batchMode, batchSize, batchPreview } = c
+  const { pid, close, createFrom, patch, step, source, browse, target, settings, allowMixedVersions, error, scan, run, minimized, operationId, batchPlanId, batchMode, batchSize, batchPreview } = c
   const qc = useQueryClient()
   const operationQuery = useSourceOperation(operationId)
   const operation = operationQuery.data
+  const estimate = operation?.estimate ?? null
   const plan = useBatchPlan(batchPlanId).data
   const previewPlan = useBatchPlan(batchPreview?.planId ?? null).data
   const isOpening = operation?.purpose === 'open'
@@ -276,7 +277,6 @@ export default function ConverterOverlay() {
         name: native && 'dataset_dir' in native ? native.name : operation.dataset_name ?? current.settings.name,
         destination: operation.dataset_destination ?? (current.settings.destination || defaultDestination(operation.source)),
       },
-      estimate: operation.estimate ?? null,
       run: native ? { kind: operation.project_id ? 'project' : 'dataset', rid: native.run_id } : null,
       step: native ? current.step === 'result' && !isTaskRunPending(native.status) ? 'result' : 'run'
         : operation.work_kind === 'convert' ? 'run' : operation.stage === 'ready' ? 'estimate' : 'settings',
@@ -420,14 +420,14 @@ export default function ConverterOverlay() {
     if (!source) return
     if (operation?.stage === 'ready' && !operation.conversion_run_id && operation.source === source && operation.project_id === (intoProject ? pid : null)) {
       saveOperation(await api.estimateSourceOperation(operation.operation_id, { expected_revision: operation.revision, expected_attempt: operation.attempt, settings: taskSettings, name: settings.name.trim(), ...datasetDestination }))
-      patch({ estimate: null, step: 'settings' })
+      patch({ step: 'settings' })
       return
     }
     const requestKey = useConverter.getState().requestKey ?? scanId()
     patch({ requestKey })
     const value = await api.startSourceOperation({ path: source, project_id: intoProject ? pid : null, purpose: 'convert', prepare_plan: true, settings: taskSettings, name: settings.name.trim() || null, ...datasetDestination, idempotency_key: requestKey })
     saveOperation(value)
-    patch({ operationId: value.operation_id, estimate: null, run: null, scan: null, step: 'settings' })
+    patch({ operationId: value.operation_id, run: null, scan: null, step: 'settings' })
   })
   const control = (action: 'cancel' | 'resume' | 'retry_failed') => guard(async () => {
     if (!operation) return
@@ -482,7 +482,7 @@ export default function ConverterOverlay() {
   /** After the size warning or the limit error: stop this scan and plan the source in batches instead */
   const suggestBatches = () => guard(async () => {
     if (operation && isTaskRunPending(operation.status)) await control('cancel')
-    patch({ operationId: null, requestKey: null, estimate: null, run: null, scan: null, step: 'settings', target: 'dataset', pid: null, batchMode: true })
+    patch({ operationId: null, requestKey: null, run: null, scan: null, step: 'settings', target: 'dataset', pid: null, batchMode: true })
     await createPreview()
   })
   const start = () =>

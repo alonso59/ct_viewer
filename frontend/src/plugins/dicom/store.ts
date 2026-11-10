@@ -4,8 +4,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { TaskEstimate } from '../../api'
-
 export const STEPS = ['source', 'settings', 'estimate', 'run', 'result'] as const
 export type Step = (typeof STEPS)[number]
 export type Target = 'project' | 'dataset'
@@ -37,7 +35,6 @@ export interface Draft {
   settings: ConvSettings
   /** Into a project: add series converted by the current readers next to series from other reader versions (DCM-31) */
   allowMixedVersions: boolean
-  estimate: TaskEstimate | null
   error: unknown
   scan: Scan | null
   /** "Convert in batches" in the settings step, with the batch size and the plan previewed for these exact inputs */
@@ -104,7 +101,6 @@ const draft = (source: string | null, pid: string | null): Draft => ({
   target: pid ? 'project' : 'dataset',
   settings: { target_profile: 'generic', phase_analyzer: true, anonymize: 'none', name: defaultDatasetName(), destination: defaultDestination(source) },
   allowMixedVersions: false,
-  estimate: null,
   error: null,
   scan: null,
   batchMode: false,
