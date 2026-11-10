@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import builtins
-import fcntl
 import hashlib
 import json
 import logging
-import os
-import sqlite3
 import time
 import traceback
 from contextlib import suppress
@@ -37,8 +33,6 @@ from app.ingest.service import IngestService
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
-from app.sources import open as open_mode
-from app.sources.open_service import RETRY as OPEN_ACTIONS
 from app.sources.open_service import guarded_source
 from app.tasks import dry_run, protocol
 from app.tasks.dicom_execution import attempt_cleaned
@@ -53,7 +47,7 @@ from app.tasks.models import (
     TaskSelection,
 )
 from app.tasks.source_import import commit_with_annotations
-from app.tasks.source_inventory import SourceInventory, checked_folders
+from app.tasks.source_inventory import checked_folders
 from app.tasks.source_models import (
     PendingSourceControl,
     SourceImportContext,
@@ -971,136 +965,6 @@ class SourceOperations:
                 )
             self._write(current)
             raise RuntimeError(current.error) from None
-
-    def open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
-        self.get(operation)
-        descriptor = os.open(
-            self._dir(operation) / "inventory-use.lock",
-            os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW,
-            0o600,
-        )
-        try:
-            try:
-                fcntl.flock(descriptor, fcntl.LOCK_SH | fcntl.LOCK_NB)
-            except BlockingIOError:
-                raise JobConflict("Open state is being updated; retry opening the source") from None
-            return self._load_open_session(operation, reopen=reopen)
-        finally:
-            os.close(descriptor)
-
-    def _load_open_session(self, operation: str, *, reopen: bool = False) -> open_mode.OpenSession:
-        """Restore an explicitly prepared Open result; conversion records stay separate."""
-        record = self.get(operation)
-        require_inventory(record)
-        if record.purpose != "open":
-            raise NotFound("This operation has no Open session")
-        if record.stage != "opened" or record.status != "completed" or not record.cleanup_verified:
-            raise JobConflict(
-                "Finish or resume source opening before viewing its result", actions=OPEN_ACTIONS
-            )
-        self.guard.check(Path(record.source))
-        directory = self._dir(operation)
-        closed = directory / "open-closed.json"
-        if closed.exists() and not reopen:
-            raise NotFound("This Open session was closed", actions=["choose_another_path", "home"])
-        artifact = self._attempt_dir(record) / "open-session.json"
-        from app.tasks.source_open import reader_identity
-
-        try:
-            raw = artifact.read_bytes()
-            if hashlib.sha256(raw).hexdigest() != record.summary.get(
-                "open_session_sha256"
-            ) or reader_identity() != record.summary.get("open_reader"):
-                raise JobConflict(
-                    "Open result changed or its reader is incompatible; open the source again",
-                    actions=OPEN_ACTIONS,
-                )
-            session = open_mode.OpenSession.model_validate_json(raw)
-            prepared = session
-            state = directory / "open-session-state.json"
-            if state.exists():
-                saved = read_json(state)
-                if (
-                    saved.get("version") != 2
-                    or saved.get("base_sha256") != record.summary["open_session_sha256"]
-                ):
-                    raise JobConflict(
-                        "Saved Open state is incompatible; open the source again",
-                        actions=OPEN_ACTIONS,
-                    )
-                session = open_mode.OpenSession.model_validate(saved["session"])
-                if saved.get("label_inputs") != self._open_label_inputs(session):
-                    raise JobConflict(
-                        "Attached Open mask changed; attach it again", actions=OPEN_ACTIONS
-                    )
-        except (OSError, ValueError, KeyError):
-            raise JobConflict(
-                "Open result is unreadable; open the source again", actions=OPEN_ACTIONS
-            ) from None
-        if session.sid != operation or session.path != record.source:
-            raise JobConflict("Open result belongs to a different source", actions=OPEN_ACTIONS)
-        from app.tasks.source_open import validate_prepared_open
-
-        database = directory / "inventory.sqlite"
-        try:
-            if not database.is_file():
-                raise JobConflict("Prepared Open inventory is missing")
-            with SourceInventory(database, Path(record.source)) as inventory:
-                validate_prepared_open(inventory, record.summary["generation"], prepared)
-        except (OSError, sqlite3.Error, JobConflict, KeyError, ValueError) as exc:
-            raise JobConflict(
-                "Prepared Open inputs changed or are unavailable; open the source again",
-                actions=OPEN_ACTIONS,
-            ) from exc
-        if reopen:
-            closed.unlink(missing_ok=True)
-        return session
-
-    def _open_label_inputs(self, session: open_mode.OpenSession) -> dict[str, builtins.list[int]]:
-        from app.tasks.source_open import dependency_stat
-
-        pins = {}
-        for item in session.items:
-            if item.kind != "label":
-                continue
-            path = open_mode.source_path(session, item)
-            self.guard.check(path)
-            try:
-                pin = dependency_stat(path.parent, path)
-            except (OSError, JobConflict):
-                raise JobConflict(
-                    "Attached Open mask is unavailable; attach it again", actions=OPEN_ACTIONS
-                ) from None
-            if pin is None:
-                raise JobConflict(
-                    "Attached Open mask is missing; attach it again", actions=OPEN_ACTIONS
-                )
-            pins[item.rel] = pin
-        return pins
-
-    def save_open_session(self, session: open_mode.OpenSession) -> None:
-        try:
-            record = self.get(session.sid)
-        except NotFound:
-            return  # compatibility Open sessions are intentionally ephemeral
-        if record.purpose == "open":
-            atomic_write_json(
-                self._dir(session.sid) / "open-session-state.json",
-                {
-                    "version": 2,
-                    "label_inputs": self._open_label_inputs(session),
-                    "base_sha256": record.summary.get("open_session_sha256"),
-                    "session": session.model_dump(mode="json"),
-                },
-            )
-
-    def close_open_session(self, operation: str) -> None:
-        try:
-            record = self.get(operation)
-        except NotFound:
-            return
-        if record.purpose == "open":
-            atomic_write_json(self._dir(operation) / "open-closed.json", {"closed_at": utc_now()})
 
     async def convert(
         self, operation: str, request: SourceOperationConvert, reviewer: str | None = None

@@ -11,7 +11,7 @@ from app.api.v1.deps import Ctx, Reviewer
 from app.api.v1.paging import Page, Paging, paginate
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult
-from app.tasks import source_queries
+from app.tasks import source_open, source_queries
 from app.tasks.source_inventory import InventoryPage
 from app.tasks.source_models import (
     SourceImportCommit,
@@ -80,7 +80,7 @@ def detection(ctx: Ctx, oid: str) -> DetectResult:
 
 @router.post("/source-operations/{oid}/open", response_model=open_mode.OpenSession, status_code=201)
 def open_result(ctx: Ctx, oid: str) -> open_mode.OpenSession:
-    session = ctx.source_operations.open_session(oid, reopen=True)
+    session = source_open.open_session(ctx.source_operations, oid, reopen=True)
     ctx.open_sessions.put(session)
     return open_mode.preview(session)
 
