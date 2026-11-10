@@ -315,7 +315,7 @@ def analyze(
         midline=midline,
     )
     if preset["lateral"] and cands:
-        mirrored = _mirrored_by_anatomy(grid, anatomy or {}, midline) if anatomy else None
+        mirrored = _mirrored_by_anatomy(grid, anatomy, midline) if anatomy else None
         for c in cands:
             if mirrored and c.side:
                 c.side = SWAP[c.side]
@@ -323,8 +323,8 @@ def analyze(
                 c.warnings = sorted({*c.warnings, "sides_from_anatomy"})
             named = {"L": 0.0, "R": 0.0}
             for v, ml in c.label_ml.items():
-                if int(v) in (hints or {}):
-                    named[(hints or {})[int(v)]] += ml
+                if hints and int(v) in hints:
+                    named[hints[int(v)]] += ml
             said = max(named, key=lambda k: named[k]) if any(named.values()) else None
             if c.side and said and said != c.side:
                 c.warnings = sorted({*c.warnings, "label_side_mismatch"})
@@ -435,19 +435,14 @@ def candidates(
         sl = objs[k]
         assert sl is not None
         comp_mask = labels[sl] == k + 1
+        grid_sl = tuple(slice(sl[a].start + lo[a], sl[a].stop + lo[a]) for a in range(3))
         com = ndimage.center_of_mass(comp_mask)
         comps.append(
             {
                 "voxels": int(sizes[k]),
-                "box": _box_of(tuple(slice(sl[a].start + lo[a], sl[a].stop + lo[a]) for a in range(3))),
+                "box": _box_of(grid_sl),
                 "centroid": [com[a] + sl[a].start + lo[a] for a in range(3)],
-                "protected": bool(
-                    protect
-                    and np.isin(
-                        mask.data[tuple(slice(sl[a].start + lo[a], sl[a].stop + lo[a]) for a in range(3))][comp_mask],
-                        list(protect),
-                    ).any()
-                ),
+                "protected": bool(protect and np.isin(mask.data[grid_sl][comp_mask], list(protect)).any()),
             }
         )
     comps.sort(key=lambda c: c["voxels"], reverse=True)
