@@ -11,7 +11,7 @@ from app.api.v1.deps import Ctx, Reviewer
 from app.api.v1.paging import Page, Paging, paginate
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult
-from app.tasks import source_open, source_queries
+from app.tasks import source_import, source_open, source_queries
 from app.tasks.source_inventory import InventoryPage
 from app.tasks.source_models import (
     SourceImportCommit,
@@ -29,21 +29,21 @@ router = APIRouter(tags=["source-operations"])
 
 @router.post("/source-operations/{oid}/import-draft", response_model=SourceOperation)
 async def import_draft(ctx: Ctx, oid: str, body: SourceImportUpdate) -> SourceOperation:
-    return await ctx.source_operations.save_import(oid, body)
+    return await source_import.save_import(ctx.source_operations, oid, body)
 
 
 @router.post(
     "/source-operations/{oid}/import-preview", response_model=SourceOperation, status_code=202
 )
 async def import_preview(ctx: Ctx, oid: str, body: SourceOperationControl) -> SourceOperation:
-    return await ctx.source_operations.start_import(oid, body)
+    return await source_import.start_import(ctx.source_operations, oid, body)
 
 
 @router.post(
     "/source-operations/{oid}/import-commit", response_model=SourceOperation, status_code=202
 )
 async def import_commit(ctx: Ctx, oid: str, body: SourceImportCommit) -> SourceOperation:
-    return await ctx.source_operations.start_import(oid, body, commit=True)
+    return await source_import.start_import(ctx.source_operations, oid, body, commit=True)
 
 
 @router.post("/source-operations", response_model=SourceOperation, status_code=202)

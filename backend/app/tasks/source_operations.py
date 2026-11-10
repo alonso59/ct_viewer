@@ -28,13 +28,12 @@ from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.core.paths import PathGuard
 from app.core.reviewer import Origin
-from app.ingest.schemas import ImportPreview
 from app.ingest.service import IngestService
 from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
 from app.sources.open_service import guarded_source
-from app.tasks import dry_run, protocol
+from app.tasks import dry_run, protocol, source_import
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_execution import run_dicom_job as run_dicom_worker
 from app.tasks.discovery_rate import DiscoveryRate
@@ -46,12 +45,10 @@ from app.tasks.models import (
     TaskRunStatus,
     TaskSelection,
 )
-from app.tasks.source_import import commit_with_annotations
 from app.tasks.source_inventory import checked_folders
 from app.tasks.source_models import (
     PendingSourceControl,
     SourceImportContext,
-    SourceImportUpdate,
     SourceOperation,
     SourceOperationControl,
     SourceOperationConvert,
@@ -237,7 +234,7 @@ class SourceOperations:
     async def view(self, operation: str, *, include_run: bool = True) -> SourceOperation:
         record = self.get(operation)
         if record.import_context is not None and record.import_context.step != "detect":
-            return await self._import_view(record)
+            return await source_import.import_view(self, record)
         native = await self._conversion_run(record)
         if native is None and record.status in ACTIVE | {"cleanup_pending"}:
             recovered = await self._recover_source(record)
@@ -325,203 +322,6 @@ class SourceOperations:
 
     def _attempt_dir(self, record: SourceOperation) -> Path:
         return self._dir(record.operation_id) / "attempts" / str(record.attempt)
-
-    async def _import_view(self, record: SourceOperation) -> SourceOperation:
-        context = record.import_context
-        assert context is not None and record.project_id is not None
-        if context.preview_id:
-            try:
-                record.import_preview = await asyncio.to_thread(
-                    self.ingest.preview_of, record.project_id, context.preview_id
-                )
-            except NotFound:
-                if context.import_id is None:
-                    context.step = "detect"
-                    record.error = (
-                        "The import preview expired; prepare it again with the saved options"
-                    )
-                    return record
-        if context.step == "preview":
-            return record
-        record.stage = "import_preview" if context.step == "previewing" else "import_index"
-        record.progress_stage = record.stage
-        job = None
-        if context.job_id:
-            with suppress(NotFound):
-                job = self.jobs.get(context.job_id)
-        record.import_job = job
-        if job is not None:
-            record.progress = {"done": job.done, "total": job.total}
-            record.error = job.error
-            record.status = {"succeeded": "completed", "waiting_for_runner": "queued"}.get(
-                job.status, job.status
-            )  # type: ignore[assignment]
-            record.cleanup_verified = False
-            if job.status in {"succeeded", "failed", "cancelled", "interrupted"}:
-                try:
-                    await self.jobs.wait(job.job_id, timeout=0.001)
-                    current = self.get(record.operation_id)
-                    if current.revision != record.revision:
-                        return await self._import_view(current)
-                    record.cleanup_verified = True
-                except TimeoutError:
-                    record.status = "cancelling"
-            return record
-        status = await self.ingest.index_status(record.project_id)
-        if context.step == "index" and context.import_id and status.import_id == context.import_id:
-            record.status = {
-                "ready": "completed",
-                "failed": "failed",
-                "cancelled": "cancelled",
-            }.get(status.state, "interrupted")  # type: ignore[assignment]
-            record.error = status.error
-            record.progress = {"done": status.n_items, "total": status.n_items}
-        else:
-            record.status = (
-                "cancelled" if record.control.get("action") == "cancel" else "interrupted"
-            )
-            record.error = "Import work stopped; resume with the saved options and destination"
-        record.cleanup_verified = True
-        return record
-
-    async def save_import(self, operation: str, request: SourceImportUpdate) -> SourceOperation:
-        async with self.locks(f"_source_operation:{operation}"):
-            record = self.get(operation)
-            if not self._check_control(record, request, "import_draft"):
-                return await self.view(operation)
-            context = record.import_context
-            if record.purpose != "discover" or context is None or record.stage != "discovered":
-                raise JobConflict("Finish import source discovery before editing its draft")
-            if record.project_id not in (None, request.project_id):
-                raise JobConflict("Import belongs to a different project")
-            self.workspace.get(request.project_id)
-            if context.step in {"previewing", "index"}:
-                current = await self._import_view(record.model_copy(deep=True))
-                if current.status in ACTIVE or not current.cleanup_verified:
-                    raise JobConflict("Wait for import work to stop before editing its options")
-            choices = request.model_dump(
-                exclude={
-                    "expected_revision",
-                    "expected_attempt",
-                    "expected_run_attempt",
-                    "project_id",
-                }
-            )
-            before = context.model_dump(include=set(choices))
-            if choices != before:
-                if context.import_id is not None:
-                    raise JobConflict(
-                        "Start a separate import to change an already committed import"
-                    )
-                record.import_context = SourceImportContext(**choices)
-            record.project_id = request.project_id
-            record.control = {"action": "import_draft", **request.model_dump()}
-            self._write(record)
-            return await self.view(operation)
-
-    def _submit_import(self, record: SourceOperation, *, commit: bool) -> SourceOperation:
-        context = record.import_context
-        assert context is not None and record.project_id is not None
-        if context.adapter not in {"metadata-v1", "nifti-files"}:
-            raise ValidationProblem("Choose an import adapter before preparing a preview")
-        if commit and context.preview_id is None:
-            raise JobConflict("Prepare an import preview before committing")
-        context.step = "index" if commit else "previewing"
-        if commit:
-            context.import_id = context.import_id or new_ulid()
-        else:
-            context.preview_id = None
-        context.job_id = new_ulid()
-        record.attempt += 1
-        record.error = None
-        self._write(record)  # intent and identities survive a crash before dispatch
-        attempt, jid, pid = record.attempt, context.job_id, record.project_id
-        allow_incomplete = bool((record.control or {}).get("allow_incomplete"))
-        prepared: ImportPreview | None = None
-        index_job: str | None = None
-
-        async def drive(handle: JobHandle) -> None:
-            nonlocal prepared, index_job
-            if handle.stopped:
-                return
-            handle.set_total(1)
-            if commit:
-                assert context.preview_id is not None and context.import_id is not None
-                result = await commit_with_annotations(
-                    self.ingest,
-                    pid,
-                    context.preview_id,
-                    self.tasks.phase_runs,
-                    import_id=context.import_id,
-                    allow_incomplete=allow_incomplete,
-                )
-                index_job = result.job_id
-                if handle.stopped:
-                    self.jobs.cancel(index_job, drain=True)
-                    await self.jobs.wait(index_job)
-            else:
-                prepared = await self.ingest.preview(
-                    pid,
-                    record.source,
-                    alias=context.alias,
-                    adapter=context.adapter,  # type: ignore[arg-type]
-                    options=context.options,
-                    add=context.add,
-                )
-            handle.set_done(1)
-
-        async def finish(info: JobInfo) -> str | None:
-            async with self.locks(f"_source_operation:{record.operation_id}"):
-                current = self.get(record.operation_id)
-                draft = current.import_context
-                if current.attempt != attempt or draft is None or draft.job_id != jid:
-                    return None
-                if index_job is not None:
-                    draft.job_id = index_job
-                    if current.control.get("action") == "cancel":
-                        self.jobs.cancel(index_job, drain=True)
-                elif info.status == "succeeded" and prepared is not None:
-                    draft.preview_id, draft.step = prepared.preview_id, "preview"
-                current.error = info.error
-                self._write(current)
-            return context.import_id if commit else (prepared.preview_id if prepared else None)
-
-        self.jobs.submit(
-            JobSpec(
-                project_id=pid,
-                kind="task",
-                key=f"source-import:{record.operation_id}",
-                units=[],
-                job_id=jid,
-                driver=drive,
-                on_finish=finish,
-                drain_workers=True,
-            )
-        )
-        return record
-
-    async def start_import(
-        self, operation: str, request: SourceOperationControl, *, commit: bool = False
-    ) -> SourceOperation:
-        async with self.locks(f"_source_operation:{operation}"):
-            record = self.get(operation)
-            action = "import_commit" if commit else "import_preview"
-            if not self._check_control(record, request, action):
-                return await self.view(operation)
-            context = record.import_context
-            if context is None or record.purpose != "discover" or record.project_id is None:
-                raise JobConflict("Save the import draft in an explicit project first")
-            if record.status != "completed" or record.stage != "discovered":
-                raise JobConflict("Finish source discovery before preparing an import")
-            if context.step in {"previewing", "index"}:
-                current = await self._import_view(record.model_copy(deep=True))
-                if current.status in ACTIVE or not current.cleanup_verified:
-                    raise JobConflict("Import work is already active")
-                if current.status == "completed" and context.step == "index":
-                    return current
-            record.control = {"action": action, **request.model_dump()}
-            self._submit_import(record, commit=commit)
-            return await self.view(operation)
 
     def _check_control(
         self, rec: SourceOperation, req: SourceOperationControl, action: str
@@ -1145,7 +945,7 @@ class SourceOperations:
                 "previewing",
                 "index",
             }:
-                current = await self._import_view(record.model_copy(deep=True))
+                current = await source_import.import_view(self, record.model_copy(deep=True))
                 if current.status == "completed":
                     return current
                 record.control = {"action": "cancel", **request.model_dump()}
@@ -1205,13 +1005,15 @@ class SourceOperations:
                     raise JobConflict(
                         "Import work resumes its pending stage; it is not a failed-series retry"
                     )
-                current = await self._import_view(record.model_copy(deep=True))
+                current = await source_import.import_view(self, record.model_copy(deep=True))
                 if current.status == "completed" and record.import_context.step == "index":
                     return current
                 if current.status in ACTIVE or not current.cleanup_verified:
                     raise JobConflict("Wait for import work to stop before resuming")
                 record.control = {"action": action, **request.model_dump()}
-                self._submit_import(record, commit=record.import_context.step == "index")
+                source_import.submit_import(
+                    self, record, commit=record.import_context.step == "index"
+                )
                 return await self.view(operation)
             if failed_only and request.expected_run_attempt is None:
                 raise JobConflict("Retry failed requires the conversion's current attempt")
