@@ -240,9 +240,9 @@ def run(args: argparse.Namespace) -> int:
     models_before = sha_tree(args.results_root.resolve())
     gpu_ids = [value.strip() for value in args.gpus.split(",") if value.strip()]
     if (
-        not 1 <= len(gpu_ids) <= 7
+        not 1 <= len(gpu_ids) <= 8
         or len(set(gpu_ids)) != len(gpu_ids)
-        or any(value not in {str(index) for index in range(7)} for value in gpu_ids)
+        or any(value not in {str(index) for index in range(8)} for value in gpu_ids)
     ):
         raise ValueError("--gpus must list unique approved physical GPU IDs from 0 to 6")
     settings = Settings(
@@ -443,7 +443,7 @@ def main() -> None:
     parser.add_argument("--workspace", type=Path, help="audit workspace; default: new /tmp folder")
     parser.add_argument("--items", type=int, choices=range(1, 5), default=1)
     parser.add_argument(
-        "--gpus", default="0", help="Approved physical GPU IDs 0..6, checked before allocation"
+        "--gpus", default="0", help="Approved physical GPU IDs 0..7, checked before allocation"
     )
     parser.add_argument(
         "--lifecycle",

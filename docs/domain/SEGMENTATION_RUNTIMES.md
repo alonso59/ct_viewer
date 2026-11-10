@@ -23,7 +23,7 @@ The browser and API use the same task/job protocol for every backend. A backend 
 - CUDA visibility selects approved GPUs by UUID. Resolve each UUID to its Linux device minor using the NVIDIA driver's procfs metadata; inventory indices may differ from device minors.
 - Admission follows ADR-0039: fresh total minus used memory must meet the operator's `gpu_min_free_mb` budget (default 16384 MiB per GPU). GPU utilization and unrelated compute processes do not independently block selection. Unknown memory refuses admission. One durable host-pool slot serializes participating attempts across workspaces.
 - Reservations are retained after runner death. Only verified boundary emptiness and fresh accounting with no GPU process in the owned attempt permit release; unrelated contexts may remain. Ambiguous launch/ownership/accounting requires reconciliation. No arbitrary PID kills, resets or eviction.
-- RAM is bounded explicitly. `john` starts with 32 GiB, CPU quota 12, numerical thread count 1 and at most four GPUs selected from physical indices 0..6. Pool membership grants no right to interrupt outside work.
+- RAM is bounded explicitly. `john` starts with 32 GiB, CPU quota 12, numerical thread count 1 and at most four GPUs selected from physical indices 0..7. Pool membership grants no right to interrupt outside work.
 - File-size limits, bounded logs and free-space monitoring reduce storage risk; no aggregate disk quota is claimed. `/dev/shm` is shared runtime storage. Linger is optional: closing a tab does not stop inference, but logout, eviction or reboot may interrupt it.
 - R1/R4/R5 remain in force. No sudo, policy changes, runtime package/model downloads or external network requests.
 
@@ -40,7 +40,7 @@ Create a private (0600), operator-owned JSON file. Paths below are placeholders;
   "source_roots": ["/operator/data"],
   "model_roots": ["/operator/nnUNet_results"],
   "derived_roots": ["/operator/workbench/derived"],
-  "gpu_pool": ["0", "1", "2", "3", "4", "5", "6"],
+  "gpu_pool": ["0", "1", "2", "3", "4", "5", "6", "7"],
   "limits": {"cpus": 12, "memory_mb": 32768, "tasks": 128, "seconds": 43200, "gpus": 4}
 }
 ```

@@ -48,8 +48,8 @@ def main() -> int:
         if missing:
             raise ValueError(f"missing commands: {', '.join(missing)}")
         gpus = [value.strip() for value in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",") if value.strip()]
-        if not 1 <= len(gpus) <= 7 or len(set(gpus)) != len(gpus) or "-1" in gpus:
-            raise ValueError("CUDA_VISIBLE_DEVICES must expose 1 to 7 distinct approved pool devices")
+        if not 1 <= len(gpus) <= 8 or len(set(gpus)) != len(gpus) or "-1" in gpus:
+            raise ValueError("CUDA_VISIBLE_DEVICES must expose 1 to 8 distinct approved pool devices")
     except (OSError, TypeError, ValueError) as exc:
         print(f"segment.nnunet unavailable: {exc}", file=sys.stderr)
         return 1

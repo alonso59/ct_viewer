@@ -96,9 +96,9 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     if (
         not isinstance(pool, list)
         or len(pool) != len(set(map(str, pool)))
-        or any(not isinstance(value, str) or not re.fullmatch(r"(?:[0-6]|GPU-[A-Za-z0-9-]+)", value) for value in pool)
+        or any(not isinstance(value, str) or not re.fullmatch(r"(?:[0-7]|GPU-[A-Za-z0-9-]+)", value) for value in pool)
     ):
-        raise ValueError("gpu_pool must contain unique approved indices 0..6 or GPU UUIDs")
+        raise ValueError("gpu_pool must contain unique approved indices 0..7 or GPU UUIDs")
     scheduler = raw.get("slurm", {})
     if not isinstance(scheduler, dict) or scheduler.keys() - {
         "partition",
