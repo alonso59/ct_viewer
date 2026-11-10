@@ -12,7 +12,7 @@ from app.imaging import streaming
 from app.sources import open as open_mode
 from app.sources.detect import DetectResult, detect
 from app.sources.open_service import OpenService, SaveBody, Saved
-from app.tasks import source_open
+from app.tasks import source_open_session
 
 router = APIRouter(tags=["sources"])
 
@@ -47,8 +47,8 @@ def svc(ctx: Ctx) -> OpenService:
         workspace_root=ctx.settings.workspace_root,
         settings=ctx.settings,
         on_cache_write=ctx.cache_budget.request,
-        restore_session=lambda sid: source_open.open_session(ctx.source_operations, sid),
-        persist_session=lambda session: source_open.save_open_session(
+        restore_session=lambda sid: source_open_session.open_session(ctx.source_operations, sid),
+        persist_session=lambda session: source_open_session.save_open_session(
             ctx.source_operations, session
         ),
     )
@@ -79,7 +79,7 @@ def open_items(
 
 @router.delete("/open/{sid}", status_code=204)
 def close_open(ctx: Ctx, sid: str) -> Response:
-    source_open.close_open_session(ctx.source_operations, sid)
+    source_open_session.close_open_session(ctx.source_operations, sid)
     ctx.open_sessions.drop(sid)
     return Response(status_code=204)
 

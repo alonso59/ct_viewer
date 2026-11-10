@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.tasks import source_open, source_operations
+from app.tasks import source_open_session, source_operations
 from app.tasks.source_inventory import SourceInventory
 from tools.dicom_fixtures import write_series
 
@@ -80,7 +80,7 @@ def test_background_open_prepares_a_durable_complete_session_without_conversion(
         import asyncio
 
         ctx = client.app.state.ctx
-        original_restore = source_open.open_session
+        original_restore = source_open_session.open_session
         restored_calls = []
 
         def checked_restore(
@@ -95,7 +95,7 @@ def test_background_open_prepares_a_durable_complete_session_without_conversion(
             restored_calls.append(True)
             return original_restore(operations, *args, **kwargs)
 
-        monkeypatch.setattr(source_open, "open_session", checked_restore)
+        monkeypatch.setattr(source_open_session, "open_session", checked_restore)
         # Opening by the opaque session URL restores after restart, including byte routes.
         restored_open = client.get(f"/api/v1/open/{oid}")
         assert restored_open.status_code == 200, restored_open.text
