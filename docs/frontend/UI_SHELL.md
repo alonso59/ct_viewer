@@ -193,15 +193,15 @@ Values follow the GitHub Dark Default VS Code theme; check them against the pinn
 | Token | Value | Token | Value |
 |---|---|---|---|
 | `--bg-editor` | `#0D1117` | `--fg` | `#E6EDF3` |
-| `--bg-sidebar` | `#010409` | `--fg-muted` | `#8B949E` |
+| `--bg-sidebar` | `#010409` | `--fg-muted` | `#9BA3AC` |
 | `--bg-activitybar` | `#010409` | `--border` | `#30363D` |
 | `--bg-panel` | `#010409` | `--border-muted` | `#21262D` |
 | `--bg-overlay` (menus, popovers) | `#161B22` | `--focus` | `#1F6FEB` |
 | `--bg-tab-active` | `#0D1117` | `--bg-tab-inactive` | `#010409` |
-| `--tab-active-indicator` | `var(--fg)` (ADR-0028) | `--accent` | `#4493F8` |
+| `--tab-active-indicator` | `var(--fg)` (ADR-0028) | `--accent` (text; fills use `--focus`) | `#58A6FF` |
 | `--bg-statusbar` | `#0D1117` | `--bg-viewport` | `#000000` |
 | `--ok` | `#3FB950` | `--warn` | `#D29922` |
-| `--error` | `#F85149` | `--done` | `#A371F7` |
+| `--error` | `#FF7B72` | `--done` | `#BC8CFF` |
 | `--btn-primary` | `#238636` | `--bg-hover` | `#1F2428` |
 | `--bg-pressed` (active icon toggle) | `#6E7681` (Light `#7D8590`) | `--bg-viewport-overlay` | `#000000A6` |
 | `--border-control` (inputs, selects, secondary buttons, segmented controls) | `#7D8590` | `--bg-selected` (selected rows, pressed chips) | `#1F6FEB1F` (Light opaque `#EBF3FC`) |

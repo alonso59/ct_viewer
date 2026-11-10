@@ -92,17 +92,16 @@ test('the danger button keeps its text readable in both themes', () => {
 test('text, control boundaries and pressed toggles keep their contrast in both themes', () => {
   const dark = themeColours(':root[data-theme="dark"]')
   const light = { ...dark, ...themeColours(':root[data-theme="light"]') }
-  const surfaces = ['--bg-editor', '--bg-sidebar', '--bg-panel', '--bg-overlay', '--bg-input', '--bg-hover', '--btn-secondary']
-  const lists = ['--bg-editor', '--bg-sidebar', '--bg-panel', '--bg-overlay']
+  const surfaces = ['--bg-editor', '--bg-sidebar', '--bg-panel', '--bg-overlay', '--bg-input', '--bg-hover', '--btn-secondary', '--btn-secondary-hover']
+  const lists = ['--bg-editor', '--bg-sidebar', '--bg-panel', '--bg-overlay', '--bg-hover']
   const low: string[] = []
   for (const [theme, c] of [['dark', dark], ['light', light]] as const) {
-    const grounds = [...surfaces.map((s) => [s, c[s]!]), ...lists.map((s) => [`selected row on ${s}`, over(c['--bg-selected']!, c[s]!)])]
+    const grounds = [...surfaces.map((s) => [s, c[s]!]), ...lists.flatMap((s) => [[`selected row on ${s}`, over(c['--bg-selected']!, c[s]!)], [`--danger-bg on ${s}`, over(c['--danger-bg']!, c[s]!)]])]
     for (const text of ['--fg', '--fg-muted', '--accent', '--ok', '--warn', '--error', '--done'])
       for (const [where, ground] of grounds) if (ratio(c[text]!, ground!) < 4.5) low.push(`${theme}: ${text} on ${where}`)
     for (const s of surfaces) if (ratio(c['--border-control']!, c[s]!) < 3) low.push(`${theme}: --border-control on ${s}`)
     for (const s of ['--bg-editor', '--bg-sidebar', '--bg-statusbar', '--bg-hover']) if (ratio(c['--bg-pressed']!, c[s]!) < 3) low.push(`${theme}: --bg-pressed on ${s}`)
     if (ratio(c['--fg']!, c['--bg-pressed']!) < 3) low.push(`${theme}: --fg icon on --bg-pressed`)
-    if (ratio(c['--border-control']!, c['--btn-secondary-hover']!) < 3) low.push(`${theme}: --border-control on --btn-secondary-hover`)
     // filled controls: their --fg-on-emphasis text, and the focus ring drawn in that colour
     for (const fill of ['--btn-primary', '--btn-primary-hover', '--btn-danger', '--btn-danger-hover', '--focus', '--warn-emphasis'])
       if (ratio(c['--fg-on-emphasis']!, c[fill]!) < 4.5) low.push(`${theme}: --fg-on-emphasis on ${fill}`)
