@@ -69,6 +69,7 @@ def accounted(name: str) -> dict[str, str] | None:
             "--noheader",
             "--parsable2",
             "--allocations",
+            "--starttime=now-30days",
             f"--user={os.getuid()}",
             f"--name={name}",
             "--format=JobID,State",
@@ -229,9 +230,12 @@ class SlurmSupervisor(Supervisor):
         if listed and state not in TERMINAL:
             identity = next(iter(listed))
             self.observed(identity, "running" if state == "RUNNING" else "queued")
-            if (job / "cancel").exists():
-                service.command(["scancel", identity])
             self.last_error = ""
+            if (job / "cancel").exists():
+                try:
+                    service.command(["scancel", identity])
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    self.last_error = f"cancel not delivered yet: {exc}"
             return
         try:
             outcome = json.loads((job / "worker-exit.json").read_text())
