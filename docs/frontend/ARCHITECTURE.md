@@ -39,13 +39,17 @@ frontend/src/
 │   ├── phase/      # native phase buttons, history, export (PHS-*, ADR-0026)
 │   ├── variables/  # Variables view: catalog, overrides, derived + external variables (VAR-*)
 │   ├── library/    # Plugin Library view (UI-22, PLG-05)
-│   └── jobs/
+│   ├── cohort/     # cohort dashboard: metadata, clinical and labels columns, panels (COH-*)
+│   ├── console/    # CTFlow console (CTF-*)
+│   └── jobs/       # Jobs panel, Output panel, shared log view (UI-29)
 ├── plugins/        # host.ts (FrontendPlugin, activatePlugins, openerOf) + index.ts (FIRST_PARTY)
 │   ├── curation/   # inspector form, history, queue (CUR-*)
 │   ├── labeling/   # Labeling view + one tab per table (LBL-*)
 │   ├── radiomics/  # schema-driven settings form, profiles, runs (RAD-*)
 │   ├── dashboard/  # views (DB-*)
 │   ├── dicom/      # converter command and overlay (DCM-*)
+│   ├── nnunet/     # nnU-Net segmentation task tab
+│   ├── voi/        # VOI extractor review and crop (VOI-*)
 │   ├── analyzers/  # opens the analyzer task tabs
 │   └── packs/      # study packs: Library entry → Project settings › Plugins (PRJ-16)
 ├── api/          # generated schema.d.ts, client, query keys, useProjectEvents (SSE)
@@ -55,7 +59,7 @@ frontend/src/
 └── lib/          # shared UI pieces (ProblemCard, NumberInput, SliceThumb), number format, item names
 ```
 
-**Boundaries:** a feature or plugin exposes only its `index.ts` (plugins export `plugin: FrontendPlugin`). Features and plugins never import another one's internals; plugins may use feature `index.ts` exports; a feature reaches a plugin through a registry command (`runCommand(id, arg)`, e.g. `tasks.convertDicom` with a source folder), never through its modules. Slices depend on each other one way only and there is no import cycle; `app/boundaries.test.ts` checks all three (AUD-A6-10/11).
+**Boundaries:** a feature or plugin exposes only its `index.ts` (plugins export `plugin: FrontendPlugin`). Features and plugins never import another one's internals; plugins may use feature `index.ts` exports; a feature reaches a plugin through a registry command (`runCommand(id, arg)`, e.g. `tasks.convertDicom` with a source folder), never through its modules. Slices depend on each other one way only and there is no import cycle; `app/boundaries.test.ts` checks all three (AUD-A6-10/11). Known exception, not yet resolved: `features/cohort` renders plugin components inline (`labeling` `CellEditor`; `dashboard` `ContingencyMap`, `EventTimeline`, `ValueSummary`) through their `index.ts`; a registry command cannot return a component, so either those widgets move down into `lib/` or this rule allows feature → plugin `index.ts` imports.
 `shell/` holds no domain logic; features register views and commands through a registry (UI-02); every registry list is an upsert by id, so bootstrap and plugin activation may run again (Vite HMR re-executes them with fresh guards) without duplicates (`shell/registry.idempotent.test.ts`). Error text comes from one helper, `lib/problem.ts` (`problemMessage`, `problemToastText`; `toastProblem` in the shell shows the problem's next steps, UI-18).
 
 ## Routes
@@ -94,7 +98,7 @@ Editor tabs contribute `path()` / `match()` to the registry (`registry.editor`);
 
 ## API layer (P2)
 
-- `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`) as `createHttpApi(fetch)`. `httpApi` uses `globalThis.fetch` per call (tests stub it); the mock (`mock/server.ts`) is the same binding over a replay of responses recorded from the backend (TESTING §Mock API, AUD-A6-03), with no logic of its own. Every feature goes through it, radiomics included (API-30/32/36 and the task routes API-43..47 for `radiomics.pyradiomics`, RAD-13; types from `schema.d.ts`; validation key `keys.validation`). Query keys, prefixes for invalidation included (`keys.scope(pid, part)`, `keys.allJobs()`), come only from `api/keys.ts` (FE-02; `api/keys.test.ts`).
+- `src/api/surface.ts` defines the `Api` interface; `http.ts` implements it against the backend (adapting wire shapes such as the variables `Catalog`) as `createHttpApi(fetch)`. `httpApi` uses `globalThis.fetch` per call (tests stub it); the mock (`mock/server.ts`) is the same binding over a replay of responses recorded from the backend (TESTING §Mock API, AUD-A6-03), with no logic of its own. Exception: the viewer streams volume and mesh bytes with a plain `fetch` (`viewer/engine/fetchVolume.ts`, `viewer/meshes.ts`) from URLs the API layer builds, because NiiVue needs the raw body and progress. Every other feature goes through it, radiomics included (API-30/32/36 and the task routes API-43..47 for `radiomics.pyradiomics`, RAD-13; types from `schema.d.ts`; validation key `keys.validation`). Query keys, prefixes for invalidation included (`keys.scope(pid, part)`, `keys.allJobs()`), come only from `api/keys.ts` (FE-02; `api/keys.test.ts`).
 - Env: `VITE_API_MODE` (`http` | `mock`), `VITE_API_BASE` (FE-07), `VITE_PORT`, `VITE_API_PROXY` (dev proxy target; it flushes SSE headers so the stream opens immediately).
 - Initial JS = gzip -9 of the entry script in `dist/index.html` plus its `modulepreload` set, in KiB (FE-05); `make bundle-size` is part of `make check` (REL-04), and `make bundle-baseline` rewrites `frontend/bundle-baseline.json` after an intended growth (commit it). The editor area (dockview) loads with the first project workbench (`shell/Workbench.tsx`), not with the home; a tab asked for while it loads opens once it is ready. New eager dependencies need a lazy boundary.
 - `CaseFilter.itemIds` (DB-04) is applied client-side on API-20 results (the case id is the `item_id` prefix); `features/explorer` exports a read-only `useExplorerFilter()` and `showItemsInExplorer(ids)`.

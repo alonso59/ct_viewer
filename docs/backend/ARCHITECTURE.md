@@ -51,13 +51,13 @@ backend/app/
 
 Outside `backend/`: first-party plugins and the host runner, mapped in `plugins/AGENTS.md`.
 
-**Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|selection|tasks|ctflow|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`. `tests/test_layering.py` checks that no service imports `api` and that no new two-way package dependency appears (the ones that exist are listed there, to be removed by moving shared models down, AUD-A6-10).
+**Layering:** `api → services (projects|sources|ingest|layers|variables|imaging|eventstore|curation|labeling|phase|selection|tasks|ctflow|plugins|radiomics|analytics) → core`. Builtin plugins are called only through `tasks/`, except `voi/`, which imports `plugins.voi.engine` and runs it in job workers. `tests/test_layering.py` checks that no service imports `api` and that no new two-way package dependency appears (the ones that exist are listed there, to be removed by moving shared models down, AUD-A6-10).
 
 ## Requirements
 
 | ID | Requirement | Pri |
 |---|---|---|
-| BE-01 | Run as a single Uvicorn process (`--workers 1`). CPU-heavy work runs in job worker processes (BE-06). | M |
+| BE-01 | Run as a single Uvicorn process (`--workers 1`). CPU-heavy work runs in job worker processes (BE-06). Exceptions run in API-process threads (`asyncio.to_thread`): the analytics views over DuckDB (ADR-0009), variable profiling, bundle zips and the dataset-table export; moving analytics to workers is the open P7 item for BE-12. | M |
 | BE-02 | Every path access goes through `core.paths.resolve(ref)`, which enforces alias root containment and `ALLOWED_DATA_ROOTS` and rejects symlink escapes. | M |
 | BE-03 | Files under `source` roots are only ever opened `rb`. A test fails if any module opens a resolved `source` path for writing. Writes to a `derived` root happen only in task code, inside the run's `output_dir` or the task's `dataset/` (ADR-0014). | M |
 | BE-04 | Volumes are streamed as the original file bytes (`FileResponse`, HTTP Range, `ETag` = quick fingerprint). The server does not decode volumes for viewing, except npy→NIfTI (IMP-10) and composed/filtered segmentation caches (SRC-04/20). | M |
