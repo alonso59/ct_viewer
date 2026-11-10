@@ -355,6 +355,10 @@ function Body({ pid, info, hidden }: { pid: string; info: TaskInfo; hidden?: boo
       {m.runtime.type === 'external' && info.runner_online === false ? (
         <div className="card" role="note">
           <p>{t('tasks.noRunnerUser')}</p>
+          <details>
+            <summary>{t('tasks.adminDetails')}</summary>
+            <p className="muted">{t('tasks.noRunner', { hint: m.runtime.env_hint ?? '' })}</p>
+          </details>
         </div>
       ) : null}
 

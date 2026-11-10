@@ -713,6 +713,8 @@
     "derivedHelp": "Task outputs (NIfTI volumes, masks, DICOM sidecars) are written here. Only output folders shared with the app are listed.",
     "derivedUse": "Use this folder",
     "radiomicsHere": "Set up radiomics runs in the Radiomics settings tab.",
+    "noRunner": "No runner is online for this task. Start scripts/rw-runner.py on the host ({{hint}}).",
+    "adminDetails": "Details for administrators",
     "noRunnerUser": "The task runner is not running. Ask the administrator to start it. New runs wait until it starts.",
     "waitingUser": "Waiting for the task runner to start; it begins on its own. If it stays here, ask the administrator to start it.",
     "queuedHelp": "Queued: starts when earlier work of this task finishes.",
