@@ -31,3 +31,13 @@ test('shows the configured memory requirement and counts a busy-looking GPU as u
   expect(screen.getByText(/Minimum free memory per GPU: 16.0 GiB/)).toBeInTheDocument()
   expect(screen.getByRole('status')).toHaveTextContent('1 of 1 GPUs can be used')
 })
+
+test('a scheduler-managed runner shows who assigns GPUs instead of a check button', async () => {
+  const template = (await api.listTasks()).tasks[0]!
+  const withExecution = (execution: TaskInfo['execution']): TaskInfo => ({ ...template, execution })
+  const view = render(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={withExecution({ backend: 'slurm', limits: { gpus: 2 }, inventory: { devices: [] } })} /></QueryClientProvider>)
+  expect(screen.getByText('The scheduler assigns GPUs (up to 2 per run)')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Check GPUs' })).toBeNull()
+  view.rerender(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={withExecution({ backend: 'slurm' })} /></QueryClientProvider>)
+  expect(screen.getByText('The scheduler assigns GPUs')).toBeInTheDocument()
+})

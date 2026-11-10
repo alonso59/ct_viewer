@@ -575,6 +575,8 @@
   },
   "tasks": {
     "gpu": {
+      "scheduler": "The scheduler assigns GPUs",
+      "schedulerCap": "The scheduler assigns GPUs (up to {{gpus}} per run)",
       "check": "Check GPUs",
       "checking": "Checking GPUs…",
       "snapshot": "{{available}} of {{total}} GPUs can be used · updated {{age}}",

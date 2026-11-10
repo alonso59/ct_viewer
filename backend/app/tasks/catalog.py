@@ -49,15 +49,24 @@ def _gpu_label(device: dict[str, Any]) -> str:
 
 
 def _gpu_fields(info: TaskInfo) -> None:
-    """List every host GPU with its state; the runner admits only usable ones."""
+    """List every host GPU with its state; the runner admits only usable ones.
+
+    A scheduler-managed runner assigns GPUs itself, so the picker is removed.
+    """
     execution = info.execution or {}
+    schema = info.manifest.settings_schema
+    if execution.get("backend") == "slurm":
+        schema.get("properties", {}).pop("gpu_ids", None)
+        if "gpu_ids" in schema.get("required", []):
+            schema["required"] = [name for name in schema["required"] if name != "gpu_ids"]
+        return
     inventory = execution.get("inventory") or {}
     devices = [
         d
         for d in inventory.get("devices") or []
         if isinstance(d, dict) and isinstance(d.get("index"), str)
     ]
-    ids = info.manifest.settings_schema.get("properties", {}).get("gpu_ids")
+    ids = schema.get("properties", {}).get("gpu_ids")
     if isinstance(ids, dict) and isinstance(ids.get("items"), dict) and devices:
         ids["items"]["enum"] = [d["index"] for d in devices]
         ids["items"]["x-enumNames"] = [_gpu_label(d) for d in devices]

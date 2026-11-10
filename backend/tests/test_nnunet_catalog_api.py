@@ -161,3 +161,19 @@ def test_gpu_settings_follow_the_runner_pool(client: TestClient) -> None:
     assert ok({"gpu_ids": ["0", "1"]})
     assert not ok({"gpu_ids": ["0", "1", "6"]})
     assert not ok({"gpu_ids": ["2"]})
+
+
+def test_slurm_runner_hides_the_gpu_picker(client: TestClient) -> None:
+    advertise(
+        client,
+        execution={
+            "backend": "slurm",
+            "limits": {"cpus": 12, "gpus": 2},
+            "inventory": {"devices": []},
+        },
+    )
+    info = client.get(f"{API}/tasks/segment.nnunet").json()
+    schema = info["manifest"]["settings_schema"]
+    assert "gpu_ids" not in schema["properties"]
+    assert "gpu_ids" not in schema.get("required", [])
+    assert info["execution"]["limits"]["gpus"] == 2

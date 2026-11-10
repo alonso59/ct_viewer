@@ -6,6 +6,12 @@ import { api, keys, type TaskInfo } from '../../api'
 import { fmtAgo, ProblemCard } from '../../lib'
 
 type Inventory = { at?: string; error?: string | null; required_free_mb?: number; devices?: { index?: string; name?: string; total_mb?: number; used_mb?: number; busy?: boolean; status?: 'ready' | 'warning' | 'unavailable'; reason?: string | null }[] }
+const schedulerCapOf = (info: TaskInfo) => {
+  const execution = info.execution
+  if (execution?.backend !== 'slurm') return undefined
+  const limits = execution.limits as { gpus?: unknown } | undefined
+  return { gpus: typeof limits?.gpus === 'number' ? limits.gpus : null }
+}
 const inventoryOf = (info: TaskInfo) => info.execution?.inventory as Inventory | undefined
 
 export function GpuAvailability({ info }: { info: TaskInfo }) {
@@ -44,6 +50,8 @@ export function GpuAvailability({ info }: { info: TaskInfo }) {
       if (alive.current) setChecking(false)
     }
   }
+  const scheduler = schedulerCapOf(info)
+  if (scheduler) return <p className="muted task-help task-gpu-availability">{t(scheduler.gpus == null ? 'tasks.gpu.scheduler' : 'tasks.gpu.schedulerCap', { gpus: scheduler.gpus })}</p>
   return <div className="task-gpu-availability">
     <div className="task-run-actions">
       <button type="button" className="btn btn-sm" disabled={checking} onClick={() => void check()}>{t(checking ? 'tasks.gpu.checking' : 'tasks.gpu.check')}</button>
