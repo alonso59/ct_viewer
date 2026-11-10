@@ -58,3 +58,5 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0050 | The VOI extractor takes sides from patient coordinates and previews boxes before cropping | Accepted (extends 0014, 0016) |
 | 0051 | Native conda is the only production deployment; the image is for tests and local Docker; udocker is removed | Accepted (supersedes 0007; partially supersedes 0043) |
 | 0052 | Source operations: one record owner, flows in their own modules | Accepted (extends 0035) |
+| 0053 | SLURM v2: several jobs at once, job arrays and a sandbox on compute nodes | Proposed (extends 0034) |
+| 0054 | Electron: which backend the desktop app starts on each operating system | Proposed (amends 0001) |
