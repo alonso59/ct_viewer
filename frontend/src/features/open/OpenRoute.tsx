@@ -19,7 +19,6 @@ import { attachStart, attachedTo, autoLabels, importSource, toItemRecord } from 
 import { AddDialog } from './AddDialog'
 import { SaveDialog } from './SaveDialog'
 import { useOpenDialog } from './store'
-import '../import/import.css'
 import './open.css'
 
 const PAGE_ITEMS = 50
@@ -202,7 +201,7 @@ export default function OpenRoute() {
         {session ? (
           <div className="open-body">
             <div className="open-items">
-              <div className="fs-list open-item-list" role="listbox" aria-label={t('open.items')} aria-busy={paged && page.isFetching}>
+              <div className="open-item-list" role="listbox" aria-label={t('open.items')} aria-busy={paged && page.isFetching}>
                 {viewable.map((i) => (
                   <button key={i.n} type="button" role="option" className="list-row" aria-selected={i.n === seed?.n} onClick={() => setPicked({ sid: session.sid, item: i })} title={i.rel} {...itemKeys(String(i.n))}>
                     <Icon spec={codicon(i.format === 'npy' ? 'symbol-array' : 'file-media')} />
