@@ -33,7 +33,7 @@ from app.jobs.manager import JobManager
 from app.jobs.types import JobHandle, JobInfo, JobSpec
 from app.projects.service import Workspace
 from app.sources.open_service import guarded_source
-from app.tasks import dry_run, protocol, source_import
+from app.tasks import dry_run, protocol, source_import, source_recovery
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_execution import run_dicom_job as run_dicom_worker
 from app.tasks.discovery_rate import DiscoveryRate
@@ -42,7 +42,6 @@ from app.tasks.models import (
     TERMINAL_TASK_RUN,
     TaskRunDetail,
     TaskRunRequest,
-    TaskRunStatus,
     TaskSelection,
 )
 from app.tasks.source_inventory import checked_folders
@@ -169,7 +168,7 @@ class SourceOperations:
                 return
             except NotFound:
                 pass
-        retained, cleaned = self._execution_state(record)
+        retained, cleaned = source_recovery.execution_state(self, record)
         if retained or not cleaned:
             record.status = "interrupted" if cleaned else "cleanup_pending"
             record.cleanup_verified = cleaned
@@ -182,62 +181,13 @@ class SourceOperations:
             raise JobConflict(record.error)
         self._submit(record)
 
-    def _execution_state(self, record: SourceOperation) -> tuple[bool, bool]:
-        attempt = self._attempt_dir(record)
-        retained = any(
-            (attempt / name).exists() for name in ("launch.json", "process.json", "dispatch")
-        )
-        cleaned = attempt_cleaned(attempt, record.attempt) if record.job_id or retained else True
-        return retained, cleaned
-
-    async def _recover_source(self, record: SourceOperation) -> SourceOperation:
-        info = None
-        if record.job_id:
-            try:
-                info = self.jobs.get(record.job_id)
-                if info.status not in {"failed", "cancelled", "interrupted"}:
-                    return record
-                await self.jobs.wait(record.job_id, timeout=0.01)
-            except NotFound:
-                info = None
-            except TimeoutError:
-                return record
-        current = self.get(record.operation_id)
-        if (
-            current.attempt != record.attempt
-            or current.job_id != record.job_id
-            or current.status not in ACTIVE | {"cleanup_pending"}
-        ):
-            return current
-        _, cleaned = self._execution_state(current)
-        status: TaskRunStatus
-        if not cleaned:
-            status = "cleanup_pending"
-        elif info and info.status == "cancelled":
-            status = "cancelled"
-        elif info and info.status == "failed":
-            status = "failed"
-        else:
-            status = "interrupted"
-        error = None if status == "cancelled" else current.error
-        if status != "cancelled" and (not error or current.status == "cleanup_pending"):
-            error = (
-                "Source work stopped; verify its source/storage and resume"
-                if cleaned
-                else "Source cleanup is not yet verified"
-            )
-        if (current.status, current.cleanup_verified, current.error) != (status, cleaned, error):
-            current.status, current.cleanup_verified, current.error = status, cleaned, error
-            self._write(current)
-        return current
-
     async def view(self, operation: str, *, include_run: bool = True) -> SourceOperation:
         record = self.get(operation)
         if record.import_context is not None and record.import_context.step != "detect":
             return await source_import.import_view(self, record)
         native = await self._conversion_run(record)
         if native is None and record.status in ACTIVE | {"cleanup_pending"}:
-            recovered = await self._recover_source(record)
+            recovered = await source_recovery.recover_source(self, record)
             if recovered is not record:
                 record = recovered
                 native = await self._conversion_run(record)
@@ -976,7 +926,7 @@ class SourceOperations:
                 return record
             record.control = {"action": "cancel", **request.model_dump()}
             if record.status == "queued":
-                _, cleaned = self._execution_state(record)
+                _, cleaned = source_recovery.execution_state(self, record)
                 if record.job_id:
                     with suppress(NotFound):
                         self.jobs.cancel(record.job_id)
@@ -1088,16 +1038,3 @@ class SourceOperations:
                 record.work_kind = "estimate"
             self._submit(record, reuse_inventory=planning or record.work_kind == "convert")
             return record
-
-    async def recover_all(self) -> None:
-        for record in self.list():
-            if record.status not in ACTIVE | {"cleanup_pending"}:
-                continue
-            attempt = self._attempt_dir(record)
-            cleaned = attempt_cleaned(attempt, record.attempt)
-            if record.status == "queued" and not (attempt / "launch.json").exists():
-                cleaned = True
-            record.status = "interrupted" if cleaned else "cleanup_pending"
-            record.cleanup_verified = cleaned
-            record.error = "Backend interrupted; resume after verified cleanup"
-            self._write(record)

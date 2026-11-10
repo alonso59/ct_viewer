@@ -25,6 +25,7 @@ from app.core.logs import configure
 from app.ctflow.service import Console
 from app.imaging import thumbnails
 from app.ingest.recycle import RecycleService
+from app.tasks import source_recovery
 from app.tasks.dicom_resources import initialize as initialize_dicom_resources
 from app.tasks.service import TaskService
 
@@ -57,7 +58,7 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
             await TaskService(
                 s, ctx.registry, ctx.workspace, ctx.index, ctx.jobs, ctx.bus, ctx.locks
             ).recover_all()
-            await ctx.source_operations.recover_all()
+            await source_recovery.recover_all(ctx.source_operations)
             # script runs execute through the console
             Console(ctx.source_operations, ctx.ctflow_runs, ctx.source_batches)
             await ctx.ctflow_runs.recover_all()
