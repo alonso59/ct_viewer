@@ -15,7 +15,7 @@ FULL_TESTS ?= 0
 TEST_ENV := OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 RW_TEST_REQUIRE_FULL=$(FULL_TESTS)
 # Python env: a venv by default; on remote servers pass VENV=$$CONDA_PREFIX (conda env `rw`).
 VENV ?= backend/.venv
-BPY := $(if $(filter /%,$(VENV)),$(VENV),../$(VENV))/bin/python
+BPY := $(abspath $(VENV))/bin/python
 
 # Docs site tools (dev-only, pinned; never in pyproject.toml, package.json or the image).
 DOCS_TOOLS ?= uvx --from sphinx==9.1.0 --with myst-parser==5.1.0 --with furo==2025.12.19
