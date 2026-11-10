@@ -19,7 +19,7 @@ Knobs: `RUNTIME=native|docker` selects how Node commands run (default `native`);
 
 ## Rules
 
-- No machine-specific absolute paths in repo files; use `.env` (`DATA_HOST`, `WORKSPACE_HOST`, `ALLOWED_DATA_ROOTS`).
+- No machine-specific absolute paths in repo files; use environment variables (`WORKSPACE_ROOT`, `ALLOWED_DATA_ROOTS`; DEPLOYMENT §Config).
 - On remote servers: never use sudo/apt; Node comes from a conda env (AGENTS R4).
 - Remote port forwarding is handled by VS Code (AGENTS R7).
 - The dev workspace defaults to `./.workspace/` (gitignored).
