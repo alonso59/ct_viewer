@@ -8,38 +8,10 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sqlite3
 import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
-
-
-def workspace_database(path: Path) -> sqlite3.Connection:
-    """The caller supplies a managed state path."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # SQLite inherits this file's mode for its WAL/SHM. Never expose cached source headers
-    # through the host user's potentially group/world-readable process umask.
-    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-    try:
-        os.fchmod(fd, 0o600)
-    finally:
-        os.close(fd)
-    for journal in (Path(str(path) + "-wal"), Path(str(path) + "-shm")):
-        try:
-            fd = os.open(journal, os.O_RDWR | os.O_NOFOLLOW)
-        except FileNotFoundError:
-            continue
-        try:
-            os.fchmod(fd, 0o600)
-        finally:
-            os.close(fd)
-    db = sqlite3.connect(path)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA journal_mode=WAL")
-    db.execute("PRAGMA synchronous=FULL")
-    db.execute("PRAGMA busy_timeout=5000")
-    return db
 
 
 def _dumps(obj: Any, *, indent: int | None) -> str:

@@ -27,33 +27,18 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from plugins.protocol import utc_now, write_json_atomic
 from plugins.runner.preflight import inspect_host
 from plugins.runner.slurm import supervisor as configured_supervisor
-from plugins.runner.supervised import Supervisor, isolated_argv
+from plugins.runner.supervised import Supervisor, isolated_argv, stopping
 
 HEARTBEAT_S = 10.0
 KILL_AFTER_S = 30.0
-
-
-def utc_now() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def write_json(path: Path, obj: Any) -> None:
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(obj, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
-
-
-def stopped(job_dir: Path) -> bool:
-    """A `cancel` or supervised `pause` request: nothing new may start for this job."""
-    return (job_dir / "cancel").exists() or (job_dir / "pause").exists()
 
 
 def job_task_id(job_dir: Path) -> str | None:
@@ -181,7 +166,7 @@ class Runner:
             return
         self.last_beat = now
         (self.queue / "runners").mkdir(parents=True, exist_ok=True)
-        write_json(
+        write_json_atomic(
             self.queue / "runners" / f"{self.runner_id}.json",
             {
                 "tasks": sorted(self.manifests),
@@ -218,7 +203,7 @@ class Runner:
         (self.queue / "runners" / f"{self.runner_id}.json").unlink(missing_ok=True)
 
     def claim(self, job_dir: Path) -> bool:
-        if job_dir.is_symlink() or job_dir.resolve().parent != self.queue.resolve() or stopped(job_dir):
+        if job_dir.is_symlink() or job_dir.resolve().parent != self.queue.resolve() or stopping(job_dir):
             return False
         try:
             fd = os.open(job_dir / "claim", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -235,7 +220,7 @@ class Runner:
         for job in sorted(self.queue.iterdir()):
             if job.is_symlink() or job.name == "runners" or not (job / "job.json").is_file():
                 continue
-            if (job / "claim").exists() or stopped(job):
+            if (job / "claim").exists() or stopping(job):
                 continue
             if job_task_id(job) not in self.manifests:
                 continue
@@ -245,7 +230,7 @@ class Runner:
     def start(self, job_dir: Path) -> None:
         if job_dir.is_symlink() or job_dir.resolve().parent != self.queue.resolve():
             return
-        if (job_dir / "job.json").is_symlink() or stopped(job_dir):
+        if (job_dir / "job.json").is_symlink() or stopping(job_dir):
             return
         tid = job_task_id(job_dir)
         if tid in self.manifests and self.supervisor is not None:
@@ -256,13 +241,15 @@ class Runner:
                 except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
                     self.supervisor.last_error = str(exc)
                     if self.claim(job_dir):
-                        write_json(job_dir / "result.json", {"status": "failed", "error": str(exc)})
-                        write_json(job_dir / "exit.json", {"code": 125, "at": utc_now(), "cleanup_verified": True})
+                        write_json_atomic(job_dir / "result.json", {"status": "failed", "error": str(exc)})
+                        write_json_atomic(
+                            job_dir / "exit.json", {"code": 125, "at": utc_now(), "cleanup_verified": True}
+                        )
                 return
         if tid is None or tid not in self.manifests or not self.claim(job_dir):
             return
         if (job_dir / "cancel").exists():
-            write_json(
+            write_json_atomic(
                 job_dir / "exit.json",
                 {"code": -signal.SIGTERM, "at": utc_now(), "runner_id": self.runner_id},
             )
@@ -281,7 +268,7 @@ class Runner:
         except OSError as exc:
             if log is not None:
                 log.close()
-            write_json(
+            write_json_atomic(
                 job_dir / "exit.json",
                 {
                     "code": 1,
@@ -308,7 +295,7 @@ class Runner:
                         r.proc.kill()
                 continue
             r.log.close()
-            write_json(
+            write_json_atomic(
                 r.job_dir / "exit.json",
                 {"code": code, "at": utc_now(), "runner_id": self.runner_id},
             )
