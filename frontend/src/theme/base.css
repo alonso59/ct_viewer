@@ -138,6 +138,16 @@ textarea {
   background: var(--bg-pressed);
   color: var(--fg);
 }
+/* The ring is drawn inside the control, so on a filled one it takes the text colour */
+.btn-primary:focus-visible,
+.btn-danger:focus-visible,
+.recycle-scan-button:focus-visible,
+.icon-btn[aria-pressed='true']:focus-visible,
+.seg button[data-scope][aria-pressed='true']:focus-visible,
+button.badge[data-phase]:not([data-phase='UNK'])[aria-pressed='true']:focus-visible,
+.vp-mask-only[aria-pressed='true']:focus-visible {
+  outline-color: var(--fg-on-emphasis);
+}
 .icon-btn:disabled {
   opacity: 0.4;
   cursor: default;

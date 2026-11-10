@@ -181,7 +181,7 @@ button.rad-issue {
 }
 .rad-err-count {
   margin-left: auto;
-  background: var(--error);
+  background: var(--btn-danger);
   color: var(--fg-on-emphasis);
 }
 .rad-side-title {

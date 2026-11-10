@@ -236,7 +236,7 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--accent);
+  background: var(--focus);
   color: var(--fg-on-emphasis);
   font-size: var(--fs-badge);
   line-height: 16px;

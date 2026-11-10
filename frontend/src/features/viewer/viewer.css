@@ -442,7 +442,7 @@
 .vp-3d-panel p { margin: 0; white-space: normal; font-size: var(--fs-badge); }
 .vp-3d-panel output { width: 4ch; text-align: right; }
 .vp-mask-only { height: 22px; padding-inline: var(--sp-2); }
-.vp-mask-only[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--fg-on-emphasis); }
+.vp-mask-only[aria-pressed='true'] { background: var(--focus); border-color: var(--focus); color: var(--fg-on-emphasis); }
 .vp-overlay[data-3d-background='white'] { color: var(--viewer-light-foreground); }
 .vp-overlay[data-3d-background='white'] .vp-corner { color: var(--viewer-light-foreground); text-shadow: 0 1px 1px var(--viewer-light-halo); }
 

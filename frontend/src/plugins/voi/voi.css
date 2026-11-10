@@ -38,8 +38,8 @@
 .voi-cand-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .voi-include { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 .voi-side { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 3px; font-weight: 700; color: var(--fg-on-emphasis); }
-.voi-side-L { background: var(--accent); }
-.voi-side-R { background: var(--warn); }
+.voi-side-L { background: var(--focus); }
+.voi-side-R { background: var(--warn-emphasis); }
 .voi-metrics { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; }
 .voi-metrics dt { color: var(--fg-muted); }
 .voi-metrics dd { margin: 0; font-variant-numeric: tabular-nums; }

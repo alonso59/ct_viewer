@@ -102,8 +102,16 @@ test('text, control boundaries and pressed toggles keep their contrast in both t
     for (const s of surfaces) if (ratio(c['--border-control']!, c[s]!) < 3) low.push(`${theme}: --border-control on ${s}`)
     for (const s of ['--bg-editor', '--bg-sidebar', '--bg-statusbar', '--bg-hover']) if (ratio(c['--bg-pressed']!, c[s]!) < 3) low.push(`${theme}: --bg-pressed on ${s}`)
     if (ratio(c['--fg']!, c['--bg-pressed']!) < 3) low.push(`${theme}: --fg icon on --bg-pressed`)
+    if (ratio(c['--border-control']!, c['--btn-secondary-hover']!) < 3) low.push(`${theme}: --border-control on --btn-secondary-hover`)
+    // filled controls: their --fg-on-emphasis text, and the focus ring drawn in that colour
+    for (const fill of ['--btn-primary', '--btn-primary-hover', '--btn-danger', '--btn-danger-hover', '--focus', '--warn-emphasis'])
+      if (ratio(c['--fg-on-emphasis']!, c[fill]!) < 4.5) low.push(`${theme}: --fg-on-emphasis on ${fill}`)
+    if (ratio(c['--fg-on-emphasis']!, c['--bg-pressed']!) < 3) low.push(`${theme}: focus ring on --bg-pressed`)
   }
   expect(low).toEqual([])
+  for (const [file, src] of Object.entries(css))
+    for (const rule of src.match(/[^{}]*\{[^{}]*color: var\(--fg-on-emphasis\)[^{}]*\}/g) ?? [])
+      expect(rule, file).not.toMatch(/background: var\(--(accent|ok|warn|error|done)\)/)
   // controls are bounded by the control border, dividers keep the quiet one
   const base = (import.meta.glob('./base.css', { query: '?cssraw', import: 'default', eager: true }) as Record<string, string>)['./base.css'] ?? ''
   for (const rule of ['.btn {', '.input,\n.select {', '.seg {']) {

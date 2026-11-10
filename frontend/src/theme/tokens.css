@@ -68,7 +68,7 @@
   /* Text boxes and lines drawn over the black viewport, both themes */
   --bg-viewport-overlay: #000000A6;
   --viewport-halo: #000000B3;
-  --plane-track: #484F58;
+  --plane-track: #57606A;
 }
 
 /* Large is for big screens at DPR 1 */
@@ -139,12 +139,12 @@
   --border: #30363D;
   --border-muted: #21262D;
   /* inputs, selects, secondary buttons: >= 3:1 on every surface (dividers keep --border) */
-  --border-control: #6E7681;
+  --border-control: #7D8590; /* also >= 3:1 on a hovered secondary button */
   --focus: #1F6FEB;
   --accent: #4493F8; /* >= 4.5:1 on --bg-hover, --btn-secondary and selected rows */
   --tab-active-indicator: var(--fg); /* neutral, not GitHub's orange */
   --btn-primary: #238636;
-  --btn-primary-hover: #2EA043;
+  --btn-primary-hover: #1F7A32; /* darker, not GitHub's lighter green: white text stays >= 4.5:1 */
   --btn-secondary: #21262D;
   --btn-secondary-hover: #30363D;
   /* destructive confirmations only; white text stays >= 4.5:1 */
@@ -152,6 +152,7 @@
   --btn-danger-hover: #A40E26;
   --ok: #3FB950;
   --warn: #D29922;
+  --warn-emphasis: #9E6A03; /* filled warning behind --fg-on-emphasis text */
   --error: #F85149;
   --done: #A371F7;
   --danger-bg: #F851491A;
@@ -204,6 +205,7 @@
   --btn-danger-hover: #A40E26;
   --ok: #197934;
   --warn: #8A5C00;
+  --warn-emphasis: #8A5C00;
   --error: #CB232E;
   --done: #7C4CD4;
   --danger-bg: #FFEBE9;
