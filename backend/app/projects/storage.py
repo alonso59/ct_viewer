@@ -102,6 +102,14 @@ class Storage:
     def _write(self, data: dict[str, Any]) -> None:
         atomic_write_json(self.path, {"format_version": 1, **data})
 
+    def read_only(self, path: Path) -> bool:
+        """Whether the closest registered location around `path` is read-only."""
+        real = realpath(path)
+        around = [row for row in self._read()["locations"] if is_within(real, Path(row["path"]))]
+        return (
+            bool(around) and max(around, key=lambda row: len(row["path"]))["access"] == "read_only"
+        )
+
     def paths(self) -> list[Path]:
         """Registered folders that still lie inside the operator's roots."""
         found = [Path(row["path"]) for row in self._read()["locations"]]

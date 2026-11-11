@@ -153,6 +153,17 @@ test('a new profile uses the discovered lists and never asks for more than two G
   expect(body).toMatchObject({ name: 'Small GPU', account: 'lab', partition: 'gpu_short', gpus: 1, seconds: 28800 })
 })
 
+test('a new profile never replaces one whose name gives the same id', async () => {
+  vi.spyOn(api, 'getCompute').mockResolvedValue(compute({ profiles: [profile({ id: 'gpu-large', name: 'GPU large' })] }))
+  const put = vi.spyOn(api, 'putComputeProfile').mockResolvedValue(compute({}))
+  wrap(<ComputeDialog onClose={() => undefined} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Add profile' }))
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'gpu_large' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(put).toHaveBeenCalled())
+  expect(put.mock.calls[0]![0]).toBe('gpu-large-2')
+})
+
 test('Check now waits for the runner to answer this request', async () => {
   vi.spyOn(api, 'checkCompute').mockResolvedValue({ request: 'r2' })
   const get = vi

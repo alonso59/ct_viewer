@@ -416,3 +416,46 @@ def test_the_site_snapshot_is_read_in_the_background_and_lists_profile_verdicts(
     cluster.supervisor.scheduler_snapshot()
     cluster.supervisor.reader.join(timeout=30)
     assert cluster.supervisor.scheduler_snapshot()["request"] == "r1"
+
+
+def test_the_final_state_and_accounting_are_written_before_the_app_sees_the_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cluster = Cluster(tmp_path, monkeypatch)
+    with_profiles(cluster, "small")
+    written: list[str] = []
+    write = slurm.write_json_atomic
+
+    def record(path: Path, value: Any) -> None:
+        written.append(path.name)
+        write(path, value)
+
+    monkeypatch.setattr(slurm, "write_json_atomic", record)
+    monkeypatch.setattr(
+        scheduler, "accounting", lambda identity: {"accounting": {"state": "COMPLETED"}}
+    )
+    assert cluster.start()
+    cluster.change(state="RUNNING")
+    cluster.supervisor.poll()
+    cluster.execute()
+    cluster.supervisor.poll()
+    final = written.index("exit.json")
+    assert "scheduler.json" in written[:final] and "scheduler.json" not in written[final:]
+    shown = json.loads((cluster.job / "scheduler.json").read_text())
+    assert shown["state"] == "COMPLETED" and shown["accounting"] == {"state": "COMPLETED"}
+
+
+def test_a_refusal_does_not_stick_and_the_next_attempt_starts_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cluster = Cluster(tmp_path, monkeypatch)
+    with_profiles(cluster, "small")
+    (cluster.root / "refuse-profile").touch()
+    cluster.supervisor.scheduler_snapshot()
+    assert cluster.supervisor.reader is not None
+    cluster.supervisor.reader.join(timeout=30)
+    assert cluster.supervisor.scheduler_snapshot()["profiles"][0]["status"] == "rejected"
+    (cluster.root / "refuse-profile").unlink()
+    cluster.supervisor.shown = {"node": "old-node", "efficiency": "old"}
+    assert cluster.start()
+    assert cluster.supervisor.shown == {}

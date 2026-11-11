@@ -56,7 +56,8 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
     derived_guard = PathGuard(settings.derived_roots, name="ALLOWED_DERIVED_ROOTS", strict=True)
     locks = ProjectLocks()
     bus = EventBus()
-    workspace = Workspace(settings, guard, locks, derived_guard)
+    storage = Storage(settings.workspace_root, guard, derived_guard)
+    workspace = Workspace(settings, guard, locks, derived_guard, storage)
     plugins = build_plugins(settings.builtin_plugins_root)
     jobs = JobManager(bus, settings.job_workers, inline=inline_jobs)
     index = IndexStore(
@@ -89,7 +90,7 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
         workspace=workspace,
         index=index,
         server_lock=FileLock(settings.workspace_root / ".server.lock"),
-        storage=Storage(settings.workspace_root, guard, derived_guard),
+        storage=storage,
         backups=Backups(settings.workspace_root, settings.backup_max_mb, settings.backup_total_mb),
         registry=registry,
         plugins=plugins,

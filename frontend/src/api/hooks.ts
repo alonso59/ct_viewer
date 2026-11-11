@@ -824,13 +824,20 @@ export function useRestoreSegmentation(pid: string) {
 }
 /** Polls while a supervised run waits for its verified cleanup: no job event announces it */
 const STOPPING_RUN: readonly string[] = ['pausing', 'cancelling', 'reconciling', 'cleanup_pending']
+/** A scheduler's view of a run (state, pending reason, node, time) changes without a server event */
+const SCHEDULED_RUN: readonly string[] = ['queued', 'running', 'waiting_for_runner']
+const SCHEDULER_POLL_MS = 10_000
 export function useTaskRuns(pid: string) {
   const down = useConnection((s) => s.state !== 'live')
   return useQuery({
     queryKey: keys.taskRuns(pid),
     queryFn: () => api.listTaskRuns(pid),
     enabled: enabled(pid),
-    refetchInterval: (q) => (q.state.data?.some((r) => STOPPING_RUN.includes(r.status)) ? 2000 : down ? POLL_MS : false),
+    refetchInterval: (q) =>
+      q.state.data?.some((r) => STOPPING_RUN.includes(r.status)) ? 2000
+        : down ? POLL_MS
+          : q.state.data?.some((r) => SCHEDULED_RUN.includes(r.status) && r.execution?.scheduler) ? SCHEDULER_POLL_MS
+            : false,
   })
 }
 /** Archived supervised runs, fetched only when asked */

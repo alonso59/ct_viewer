@@ -137,6 +137,20 @@ def test_the_scheduler_s_refusal_is_reported(tools: Path) -> None:
     assert verdict["status"] == "rejected" and "Invalid account" in verdict["reason"]
 
 
+def test_an_empty_account_or_partition_means_the_operator_s_single_value(tools: Path) -> None:
+    single = {**CONFIG, "slurm": {"account": "lab", "partition": "gpu_short"}}
+    profile = {**PROFILE, "account": None, "partition": None}
+    assert scheduler.static_problem(profile, single) == ""
+    assert {"--account=lab", "--partition=gpu_short"} <= set(
+        scheduler.resources(profile, single, 1)
+    )
+    assert (
+        "choose a partition: the operator allows gpu_short, cpu_long"
+        in scheduler.static_problem(profile, CONFIG)
+    )
+    assert scheduler.static_problem({**profile, "partition": "gpu_short"}, CONFIG) == ""
+
+
 def test_without_user_profiles_the_operator_file_is_the_one_profile(tmp_path: Path) -> None:
     config = {**CONFIG, "slurm": {"partition": "gpu", "account": "lab"}}
     (profile,) = scheduler.load_profiles(tmp_path, config)

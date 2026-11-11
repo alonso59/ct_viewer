@@ -48,7 +48,14 @@ function ProfileForm({ state, profile, onDone }: { state: ComputeState; profile:
   }))
   const set = (patch: Partial<ComputeProfileBody>) => setBody((b) => ({ ...b, ...patch }))
   const partition = state.partitions?.find((p) => p.name === body.partition)
-  const save = () => edit.save.mutate({ id: profile && !profile.implicit ? profile.id : slug(body.name), body }, { onSuccess: onDone })
+  const taken = new Set(state.profiles.filter((p) => !p.implicit).map((p) => p.id))
+  const newId = () => {
+    const base = slug(body.name)
+    let id = base
+    for (let n = 2; taken.has(id); n++) id = `${base.slice(0, 36)}-${n}`
+    return id
+  }
+  const save = () => edit.save.mutate({ id: profile && !profile.implicit ? profile.id : newId(), body }, { onSuccess: onDone })
   const nameField = (key: 'account' | 'partition', options: string[] | null) => (
     <div className="field">
       <label className="field-label" htmlFor={`profile-${key}`}>{t(`compute.${key}`)}</label>

@@ -33,12 +33,12 @@ def command(argv: list[str], timeout: float = 15) -> subprocess.CompletedProcess
     return subprocess.run(argv, env=env, capture_output=True, text=True, timeout=timeout, check=False)
 
 
-def answer(argv: list[str]) -> str | None:
+def answer(argv: list[str], timeout: float = 15) -> str | None:
     """Standard output of a query; None when the tool is missing, fails or does not answer."""
     if shutil.which(argv[0]) is None:
         return None
     try:
-        result = command(argv)
+        result = command(argv, timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return None if result.returncode else result.stdout
@@ -94,11 +94,11 @@ def discover() -> dict[str, Any]:
     return found
 
 
-def workspaces() -> dict[str, Any] | None:
+def workspaces(timeout: float = 15) -> dict[str, Any] | None:
     """Managed workspaces `ws_list` reports; None where the site has no such tool."""
     if shutil.which("ws_list") is None:
         return None
-    listed = answer(["ws_list"])
+    listed = answer(["ws_list"], timeout)
     if listed is None:
         return {"at": utc_now(), "error": "ws_list did not answer", "items": []}
     items: list[dict[str, Any]] = []
@@ -125,7 +125,7 @@ def workspaces() -> dict[str, Any] | None:
 
 def expiry_problem(output: Path, seconds_needed: int) -> str:
     """Why a run of this length cannot write to `output`: its workspace, read now, ends first."""
-    for item in (workspaces() or {}).get("items", []):
+    for item in (workspaces(timeout=5) or {}).get("items", []):
         if not item["expires"] or not output.is_relative_to(Path(item["path"]).resolve()):
             continue
         if datetime.fromisoformat(item["expires"]).timestamp() < datetime.now().timestamp() + seconds_needed:
@@ -168,12 +168,14 @@ def static_problem(profile: dict[str, Any], config: dict[str, Any]) -> str:
     if not isinstance(profile.get("id"), str) or not re.fullmatch(PROFILE_ID, profile["id"]):
         return "invalid profile id"
     for name in ("account", "partition"):
-        value = profile.get(name)
-        if value is None and name not in site and not site.get(name + "s"):
+        value = profile.get(name) or site.get(name)
+        allowed = site.get(name + "s") or ([site[name]] if name in site else None)
+        if value is None:
+            if allowed is not None:
+                return f"choose a {name}: the operator allows {', '.join(allowed)}"
             continue
         if not isinstance(value, str) or not re.fullmatch(NAME, value):
             return f"invalid {name}"
-        allowed = site.get(name + "s") or ([site[name]] if name in site else None)
         if allowed is not None and value not in allowed:
             return f"{name} {value} is not allowed by the operator"
     bounds = {
@@ -200,7 +202,11 @@ def resources(profile: dict[str, Any], config: dict[str, Any], gpus: int) -> lis
         f"--mem={profile['memory_mb']}M",
         f"--time={-(-profile['seconds'] // 60)}",
         request,
-        *[f"--{name}={profile[name]}" for name in ("partition", "account") if profile.get(name)],
+        *[
+            f"--{name}={profile.get(name) or site[name]}"
+            for name in ("partition", "account")
+            if profile.get(name) or site.get(name)
+        ],
         *[f"--{name}={site[name]}" for name in ("qos", "constraint") if name in site],
     ]
 
@@ -212,17 +218,19 @@ def check_profile(profile: dict[str, Any], config: dict[str, Any], found: dict[s
     if verdict["reason"]:
         return verdict
     partitions = {entry["name"]: entry for entry in found.get("partitions") or []}
-    if found.get("partitions") is not None and profile.get("partition"):
-        entry = partitions.get(profile["partition"])
+    partition = profile.get("partition") or config.get("slurm", {}).get("partition")
+    if found.get("partitions") is not None and partition:
+        entry = partitions.get(partition)
         if entry is None or not entry["up"]:
-            verdict["reason"] = f"partition {profile['partition']} is not available"
+            verdict["reason"] = f"partition {partition} is not available"
             return verdict
         if entry["max_seconds"] is not None and profile["seconds"] > entry["max_seconds"]:
             verdict["reason"] = "the requested time exceeds the partition's limit"
             return verdict
     accounts = found.get("accounts")
-    if accounts is not None and profile.get("account") and profile["account"] not in accounts:
-        verdict["reason"] = f"account {profile['account']} is not one of yours"
+    account = profile.get("account") or config.get("slurm", {}).get("account")
+    if accounts is not None and account and account not in accounts:
+        verdict["reason"] = f"account {account} is not one of yours"
         return verdict
     argv = ["sbatch", "--test-only", "--export=NONE", *resources(profile, config, profile["gpus"]), "--wrap=true"]
     try:
@@ -268,12 +276,13 @@ def accounting(identity: str) -> dict[str, Any]:
             "--allocations",
             f"--jobs={identity}",
             "--format=State,Elapsed,ExitCode,NodeList",
-        ]
+        ],
+        timeout=5,
     )
     parts = (row or "").strip().split("\n")[0].split("|")
     if len(parts) == 4 and parts[0]:
         report["accounting"] = dict(zip(("state", "elapsed", "exit_code", "nodes"), parts, strict=True))
-    efficiency = answer(["seff", identity])
+    efficiency = answer(["seff", identity], timeout=5)
     if efficiency:
         report["efficiency"] = efficiency.strip()[-2000:]
     return report

@@ -53,6 +53,7 @@ from app.tasks.registration import RegistrationBase
 
 log = logging.getLogger("app.tasks")
 POLL_S: Final = 0.2
+SCHEDULER_COPY_S: Final = 60.0  # how often a running job's elapsed time reaches the run record
 RUNNER_LOST_S: Final = 60.0  # a claimed job whose runner has no fresh heartbeat for this long
 
 
@@ -283,13 +284,22 @@ class DriverBase(RegistrationBase):
             raise JobConflict("External attempt identity does not match the run")
         await self._submit(pid, run_dir, manifest, [], rec.selection.seg_id, [], recover=True)
 
-    async def _show_scheduler(self, live: Live, shown: dict[str, Any]) -> dict[str, Any]:
-        """Copy what the runner last learned from the scheduler into the run record."""
+    async def _show_scheduler(
+        self, live: Live, shown: dict[str, Any], *, final: bool = False
+    ) -> dict[str, Any]:
+        """Copy what the runner last learned from the scheduler into the run record: when more
+        than the clock changed, once a minute while it runs, and once at the end."""
         try:
             status = read_json(live.job_dir / "scheduler.json")
         except (OSError, ValueError):
             return shown
-        if not isinstance(status, dict) or status == shown:
+        if not isinstance(status, dict):
+            return shown
+        steady = {k: v for k, v in status.items() if k not in ("elapsed", "at")}
+        copied = steady == shown.get("steady") and (
+            final or time.monotonic() - shown.get("copied_at", 0.0) < SCHEDULER_COPY_S
+        )
+        if copied and (not final or status == shown.get("status")):
             return shown
 
         def edit(rec: TaskRunRecord) -> bool:
@@ -299,7 +309,7 @@ class DriverBase(RegistrationBase):
             return True
 
         await self.runs.update(live.pid, live.run_dir, edit)
-        return status
+        return {"steady": steady, "status": status, "copied_at": time.monotonic()}
 
     async def _set_status(self, live: Live, status: TaskRunStatus) -> None:
         """Forward only, as `RunStore.set_status`; a pending control keeps pausing/cancelling."""
@@ -425,6 +435,7 @@ class DriverBase(RegistrationBase):
             await asyncio.sleep(POLL_S)
         await self._on_lines(live, tail.read(), cursor=tail.offset)
         h.set_done(live.done)
+        await self._show_scheduler(live, shown, final=True)
 
     async def _on_lines(
         self, live: Live, lines: Sequence[dict[str, Any]], *, cursor: int | None = None

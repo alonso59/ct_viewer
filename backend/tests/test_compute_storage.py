@@ -309,6 +309,27 @@ def test_a_backup_holds_the_project_state_only_and_respects_the_limits(
     assert not archive.exists()
 
 
+def test_a_read_only_location_never_receives_project_state(site: tuple[TestClient, Path]) -> None:
+    client, root = site
+    scans = root / "data/scans"
+    client.post(f"{API}/storage/locations", json={"path": str(scans), "access": "read_only"})
+    created = client.post(f"{API}/projects", json={"name": "Study", "dataset_root": str(scans)})
+    assert created.status_code == 422 and "read-only" in created.json()["detail"]
+    assert not (scans / ".workbench").exists()
+    nested = scans / "nested"
+    nested.mkdir()
+    refused = client.post(f"{API}/projects", json={"name": "Inner", "dataset_root": str(nested)})
+    assert refused.status_code == 422
+    # a read-write location inside it is closer, so it wins
+    client.post(f"{API}/storage/locations", json={"path": str(nested), "access": "read_write"})
+    assert (
+        client.post(
+            f"{API}/projects", json={"name": "Inner", "dataset_root": str(nested)}
+        ).status_code
+        == 201
+    )
+
+
 def test_a_lost_workspace_keeps_the_project_in_the_registry_marked_unavailable(
     site: tuple[TestClient, Path],
 ) -> None:

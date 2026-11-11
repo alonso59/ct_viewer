@@ -45,7 +45,8 @@ SUBMISSION_GRACE_S = 300.0
 # The scheduler is asked about a running attempt, and about the site, no more often than this.
 POLL_S = 10.0
 SITE_REFRESH_S = 300.0
-VERDICT_FRESH_S = 60.0
+# After the scheduler did not answer a submission's check, wait this long before asking again.
+RECHECK_S = 30.0
 CHECK_REQUEST = "compute-check.json"
 
 
@@ -95,13 +96,15 @@ class SlurmSupervisor(Supervisor):
         self.site_key: tuple[Any, ...] = ()
         self.site_read = self.polled = 0.0
         self.reader: threading.Thread | None = None
+        self.recheck_at = 0.0
         self.shown: dict[str, Any] = {}
 
     def scheduler_snapshot(self) -> dict[str, Any]:
         """Partitions, accounts, workspaces and every profile's verdict, as last read.
 
-        Reading happens in a thread, so a slow scheduler never delays the heartbeat. Profiles are
-        tested when they change or when the app asks; the site is read again every few minutes."""
+        Reading happens in a thread, so a slow scheduler never delays the heartbeat. Everything,
+        verdicts included, is read again when the profiles change, when the app asks, and every
+        few minutes."""
         try:
             request = json.loads((self.workspace / CHECK_REQUEST).read_text()).get("id")
         except (OSError, ValueError, AttributeError):
@@ -125,19 +128,17 @@ class SlurmSupervisor(Supervisor):
 
     def read_site(self, profiles: list[dict[str, Any]], request: Any, key: tuple[Any, ...]) -> None:
         found = scheduler.discover()
-        verdicts = (self.site or {}).get("profiles") if key == self.site_key else None
         site = {
             **found,
             "request": request,
             "gpu_request": self.config.get("slurm", {}).get("gpu_request", "gres"),
-            "profiles": verdicts
-            or [{**profile, **scheduler.check_profile(profile, self.config, found)} for profile in profiles],
+            "profiles": [{**profile, **scheduler.check_profile(profile, self.config, found)} for profile in profiles],
             "workspaces": scheduler.workspaces(),
         }
         self.site, self.site_key, self.site_read = site, key, time.monotonic()
 
     def profile_for(self, settings: dict[str, Any]) -> dict[str, Any] | None:
-        """The run's profile with a fresh verdict; None while the scheduler does not answer."""
+        """The run's profile, tested by the scheduler now; None while the scheduler does not answer."""
         profiles = scheduler.load_profiles(self.workspace, self.config)
         wanted = settings.get("compute_profile")
         if wanted is None and len(profiles) == 1:
@@ -145,13 +146,15 @@ class SlurmSupervisor(Supervisor):
         profile = next((p for p in profiles if p.get("id") == wanted), None)
         if profile is None:
             raise ValueError("choose a compute profile for this run")
-        known = next((p for p in (self.site or {}).get("profiles", []) if p.get("id") == wanted), None)
-        fresh = known is not None and time.monotonic() - self.site_read < VERDICT_FRESH_S
-        if known is None or not fresh or {**known, **profile} != known:
-            known = {**profile, **scheduler.check_profile(profile, self.config, self.site or {})}
-        if known["status"] == "rejected":
-            raise ValueError(f"compute profile {profile['name']!r} was refused: {known['reason']}")
-        return profile if known["status"] == "valid" else None
+        if time.monotonic() < self.recheck_at:
+            return None
+        verdict = scheduler.check_profile(profile, self.config, self.site or {})
+        if verdict["status"] == "rejected":
+            raise ValueError(f"compute profile {profile['name']!r} was refused: {verdict['reason']}")
+        if verdict["status"] != "valid":
+            self.recheck_at = time.monotonic() + RECHECK_S
+            return None
+        return profile
 
     def verify(self) -> dict[str, Any]:
         missing = [tool for tool in ("sbatch", "squeue", "scancel") if shutil.which(tool) is None]
@@ -208,6 +211,7 @@ class SlurmSupervisor(Supervisor):
         self.admit(job, manifest, plugin)
         if (spec.get("settings") or {}).get("gpu_ids"):
             raise ValueError("the scheduler assigns GPUs; leave the GPU selection empty")
+        self.shown = {}
         profile = self.profile_for(spec.get("settings") or {})
         if profile is None:
             self.last_error = "waiting: the scheduler did not answer the profile check"
@@ -272,6 +276,9 @@ class SlurmSupervisor(Supervisor):
         record = self.record
         assert record is not None
         job = Path(record["job"])
+        if record["scheduler_job"]:
+            final = {**self.shown, "job_id": record["scheduler_job"], "state": state, "pending_reason": None}
+            self.show(job, {**final, **scheduler.accounting(record["scheduler_job"])})
         write_json_atomic(
             job / "exit.json",
             {
@@ -282,9 +289,6 @@ class SlurmSupervisor(Supervisor):
                 "scheduler_state": state,
             },
         )
-        if record["scheduler_job"]:
-            self.show(job, {**self.shown, "job_id": record["scheduler_job"], "state": state, "pending_reason": None})
-            self.show(job, {**self.shown, **scheduler.accounting(record["scheduler_job"])})
         record["state"] = "finished"
         write_json_atomic(job / "attempt.json", record)
         if not self.pool.release(record["attempt"]):

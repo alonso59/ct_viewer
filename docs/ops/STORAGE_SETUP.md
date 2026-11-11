@@ -50,6 +50,7 @@ Open it from the home screen (Setup › Storage), the Settings view or the palet
 | Locations exist | The folder browser starts at them and stays inside them; adding a location still browses every allowed folder |
 | Test | Writes and removes one probe file where task outputs may go (`ALLOWED_DERIVED_ROOTS`); elsewhere it checks your permissions only, so a source is never written |
 | Use for new projects | The new-project dialog starts browsing there; changing it moves nothing |
+| Read only | No project is created or opened there and no run writes its outputs there; a read-write location inside it is the closer one and wins |
 | Remove | Forgets the location; its files and projects stay |
 | Unavailable | The location and its projects are shown unavailable; other locations and projects keep working |
 | Cluster workspaces | Where the site has `ws_list`, the runner reads it: expiry, remaining time, extensions left, a warning from 14 days before expiry, and copyable `ws_extend` and `ws_allocate` lines. You run them; the app never does |

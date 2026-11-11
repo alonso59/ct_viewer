@@ -60,6 +60,7 @@ from app.projects.models import (
     WorkspaceEntry,
 )
 from app.projects.presets import get_pack, pack_fields
+from app.projects.storage import Storage
 
 WORKSPACE_FORMAT: Final = "radiology-workbench-workspace"
 WORKSPACE_FORMAT_VERSION: Final = 1
@@ -85,9 +86,11 @@ class Workspace:
         guard: PathGuard,
         locks: ProjectLocks,
         derived_guard: PathGuard | None = None,
+        storage: Storage | None = None,
     ) -> None:
         self.settings = settings
         self.guard = guard
+        self.storage = storage
         # ALLOWED_DERIVED_ROOTS; empty allows no derived root at all.
         self.derived_guard = derived_guard or PathGuard(
             settings.derived_roots, name="ALLOWED_DERIVED_ROOTS", strict=True
@@ -446,6 +449,11 @@ class Workspace:
             )
         if root != path:
             raise ValidationProblem("The dataset folder path cannot go through a symlink")
+        if self.storage is not None and self.storage.read_only(root):
+            raise ValidationProblem(
+                "This folder is in a read-only storage location; a project keeps its state in its "
+                "dataset folder, so choose a read-write location"
+            )
         if create and not root.exists():
             if not root.parent.is_dir():
                 raise ValidationProblem("The parent folder must exist before creating a dataset")

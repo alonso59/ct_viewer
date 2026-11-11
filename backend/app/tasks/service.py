@@ -324,6 +324,11 @@ class TaskService(DriverBase):
         )
         rid = run_id or new_ulid()
         out_dir = self._output_dir(pid, m, rid)
+        storage = self.workspace.storage
+        if out_dir is not None and storage is not None and storage.read_only(out_dir):
+            raise ValidationProblem(
+                f"The output folder {out_dir.parent} is in a read-only storage location"
+            )
         if out_dir is not None and m.runtime.type == "external":
             _check_output(out_dir, (info.execution or {}).get("roots"))
         if m.id == DICOM_CONVERT:
