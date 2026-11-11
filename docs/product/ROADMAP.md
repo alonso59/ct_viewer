@@ -29,7 +29,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
 | P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
 | P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
-| P7j | Deployment options: native, HPC (ADR-0043, ADR-0051) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
+| P7j | Deployment options: native, HPC (ADR-0043, ADR-0051, ADR-0055, ADR-0056) | 🟨 Native deployed on `john` 2026-11-04; app as a SLURM job, compute profiles and storage locations implemented 2026-11-11 (phases 1–4 approved by the owner); acceptance pending on Marvin (ops/HPC_ACCEPTANCE.md, OPS-20, OPS-23) |
 | P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | ✅ K1–K3 2026-11-05, exit accepted by the owner (ADR-0049 for K3); COH-11 not built. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
 | P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | ✅ 2026-11-05 (owner accepted the exit); independent of P7k |
 | P8 | Electron shell | ⬜ |
@@ -120,6 +120,14 @@ Owner decision 2026-11-03: all phases implemented in a row, then verified togeth
 - [x] S8 Measured optimizations only (stat-based checks need a new ADR)
 **Exit:** a standalone conversion of the large reference dataset imports into ct_viewer with layers, equals a workspace conversion under the same settings, resumes after interruption without reconverting verified units, and its measured resource use is recorded.
 
+### P7j — HPC: the app as a SLURM job, compute profiles, storage locations (ADR-0055, ADR-0056)
+- [x] Phase 1: ADRs and the reference-site record (ops/HPC_ACCEPTANCE.md)
+- [x] Phase 2: `rw-native.py run`, `scripts/rw-app.sbatch`, per-job session
+- [x] Phase 3: ops/STORAGE_SETUP.md, ops/HPC_INSTALL.md, the Marvin acceptance plan
+- [x] Phase 4: runner discovery and validation, Settings › Compute and Storage, Check queue, scheduler status, backups (owner approved 2026-11-11)
+- [ ] Marvin acceptance M1–M23 (ops/HPC_ACCEPTANCE.md); replace `dev_viewer.sh` only after groups A–F pass; then accept ADR-0055 and ADR-0056
+- [ ] Decide the transport for `BIND=node` (ADR-0055 §Open)
+
 ### P7l — Agent interface (ADR-0048, CTFLOW.md)
 
 Independent of P7k. Exit accepted 2026-11-05.
@@ -144,6 +152,11 @@ Steps as COHORT.md; independent of P7g–P7j. After P7k, a separate cleanup deci
 
 ### Pending plugin after P7g
 - [x] VOI extractor plugin (v3.2.0, ADR-0050, VOI.md): candidates per scan, patient or batch with axial previews; sides from patient coordinates; `voi.extract` crops; the owner's writer used `xyz`, which settles SRC-12 — owner review and release pending
+
+### Pending: runner registration of managed datasets (found 2026-11-10)
+- A segmentation run on a managed dataset not listed in the runner's `nnunet-deployment.json` used to be accepted by the app and fail in the queue with "output is outside approved derived roots"; the operator edits the JSON by hand and restarts the runner. Not planned: letting the app widen the runner's roots (the operator's allow-list; ADR-0056 keeps it the outer bound).
+- [x] (1) The app checks the run's output folder against the runner's reported derived roots at start and names the folder (2026-11-11, API-45)
+- [ ] (2) An operator script registers a dataset (checks `.workbench/projects/`, writes the three lists, keeps a backup, validates)
 
 ### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)
 - [x] Audits A0..A8 and fix batches FB1..FB12, 2026-09-25..27; **closed 2026-09-27**: 129 findings, all fixed. Frozen record: `docs/archive/v3/audit/` (PLAN §Status, REMEDIATION §Owner review). Its only deferred item, the udocker check on the remote server, is P7 above (Step 4).

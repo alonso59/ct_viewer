@@ -13,7 +13,7 @@ __pycache__/
 *.sif
 *.out
 run_viewer.sh
-
+.vscode/
 # Node / frontend
 node_modules/
 frontend/dist/
