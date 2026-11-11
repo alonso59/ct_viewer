@@ -20,19 +20,19 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P4 | Curation + multi-user sync | ✅ 2026-09-24 (human check pending: queue CSV in 3D Slicer) |
 | P5 | Radiomics engine + settings + runs | ✅ 2026-09-24 (human check pending: IBSI map vs manual) |
 | P6 | Dashboard + guided analysis | ✅ 2026-09-24 |
-| P7 | Packaging: test image, E2E, performance | 🟨 Docker image done (arm64 947 MB, amd64 935 MB, TST-10 pass on both); udocker dropped (ADR-0051); remote checks (Step 4) moved to the end, after P7b (user decision 2026-09-24) |
+| P7 | Packaging: test image, E2E, performance | ✅ Closed 2026-11-11 (owner acceptance): Docker image and TST-10 on arm64 and amd64; udocker dropped (ADR-0051); remote checks in §Open after P7 |
 | P7b | Sources, derived data, tasks & plugins (ADR-0013..0017) | ✅ 2026-09-24 (exit criterion met; deferred: `plugins/nnunet/`; human checks pending: 3D Slicer orientation, PHI review) |
 | P7c | Plugin platform, neutral projects, CT tools, curation & labeling plugins (ADR-0018..0022) | ✅ 2026-09-25 (exit criterion met: `e2e/p7c-exit.spec.ts`; pending plugins VOI extractor and nnU-Net follow) |
 | P7d | nnU-Net segmentation planning | ✅ 2026-10-21 (ADR-0032 accepted; Dataset220; 2–4 GPU policy) |
 | P7e | nnU-Net segmentation generation | ✅ 2026-10-21 (TST-21 fake CLI, one-case GPU and two-case/two-GPU acceptance) |
 | P7f | Supervised segmentation job planning and requirement audit | ✅ 2026-10-22: owner accepted ADR-0033 and authorized P7g |
-| P7g | Supervised segmentation jobs, tests first | 🟨 ADR-0034 containment, one/two-GPU inference, catalog, pause/cancel/archive lifecycle verified by unit/API tests and on the GPU host; deployed to local production 2026-10-22; browser journeys and CI image build remain open (domain/SEGMENTATION_JOB_PLAN.md) |
-| P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | 🟨 C0–C7 done 2026-11-03, exit pending owner review (docs; attribution and project-run logs; catalog, targets, one-line evaluation; `ctflow` client; language and sessions; durable script runs; library; web console) |
-| P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | 🟨 S0–S8 implemented 2026-11-03 in one pass (owner decision); release gates and non-ext4 lanes in ops/DICOM_STANDALONE_TEST_PLAN.md |
-| P7j | Deployment options: native, HPC (ADR-0043, ADR-0051, ADR-0055, ADR-0056) | 🟨 Native deployed on `john` 2026-11-04; app as a SLURM job, compute profiles and storage locations implemented 2026-11-11 (phases 1–4 approved by the owner); acceptance pending on Marvin (ops/HPC_ACCEPTANCE.md, OPS-20, OPS-23) |
+| P7g | Supervised segmentation jobs, tests first | ✅ Closed 2026-11-11 (owner acceptance): ADR-0034 containment, one/two-GPU inference, catalog and lifecycle verified by tests and on the GPU host; full browser regression and CI image lane in §Open after P7 |
+| P7h | CTFlow console: commands, scripts, `ctflow` client (ADR-0041) | ✅ Closed 2026-11-11 (owner acceptance): C0–C7 done 2026-11-03 |
+| P7i | Standalone DICOM converter package, per-unit pinning, parallel units (ADR-0042) | ✅ Closed 2026-11-11 (owner acceptance): S0–S8 implemented 2026-11-03; release gates and non-ext4 lanes in §Open after P7 |
+| P7j | Deployment options: native, HPC (ADR-0043, ADR-0051, ADR-0055, ADR-0056) | ✅ Closed 2026-11-11 (owner acceptance): native deployed on `john` 2026-11-04; HPC phases 1–4 implemented; Marvin acceptance (OPS-20, OPS-23) in §Open after P7 |
 | P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | ✅ K1–K3 2026-11-05, exit accepted by the owner (ADR-0049 for K3); COH-11 not built. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
 | P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | ✅ 2026-11-05 (owner accepted the exit); independent of P7k |
-| P8 | Electron shell | ⬜ |
+| P8 | Electron shell | ⬜ Pending start (P7 closed 2026-11-11, R6) |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
 Lanes (branches and owned paths per step): ops/AGENT_RUNBOOK.md §Lanes.
@@ -50,21 +50,16 @@ Finished phases and the done items of open ones (tasks, exit criteria): `docs/ar
 **Exit:** TST-06 passes for the compliant features; a run over the fixtures is reproducible (NFR-15).
 
 ### P7 — Packaging
+Closed 2026-11-11 by owner acceptance; what was not run moved to §Open after P7, unticked.
 - [x] Dockerfile and compose (OPS-*) — done; `udocker-run.sh` and the execution-mode benchmark dropped by ADR-0051
-- [ ] TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done; TST-05, TST-09 in Step 4
-  - TST-09 partial bench 2026-11-11 on this host (Chromium with SwiftShader, no GPU, synthetic 512×512×600 int16 reference-size volume): NFR-01 6.2 s (download + inflate 1.8 s, NiiVue parse 1.1 s of which ~1.0 s is its robust-range scan the app never reads, full-volume texture upload 1.1 s, NiiVue 3D proxy setup 1.1 s); NFR-03 30 ms per filter edit and 60 fps scroll at 3,000 cases; NFR-04 10,000 items in 19.6 s; NFR-08 317 MB. NFR-01 needs a run with a GPU before any change; if it still misses, parse the full volume without constructing a NiiVue image (only the 3D proxy needs one) and build the 3D proxy when the 3D tile is first shown
-- [ ] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12) — measured 2026-11-11 on a synthetic 3,000-case / 10,000-item project with a ~100-feature run: warm views and analyses 25–610 ms, first call after boot up to 1.3 s, `/health` delayed up to 0.7 s while one runs, API RSS 317 MB idle → ~940 MB after the views and kept. Kept in API threads (not slow by this measure); reopen with a real radiomics run or if the retained memory matters
-- [ ] Deferred from P1: Dataset820 import check on the remote server (ops/TESTING.md §Dataset820 import check); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done; Dataset820 check in Step 4
+- [x] Move analytics views/analyses from API-process threads to job workers if slow at 3,000 cases (BE-12) — measured 2026-11-11 on a synthetic 3,000-case / 10,000-item project with a ~100-feature run: warm views and analyses 25–610 ms, first call after boot up to 1.3 s, `/health` delayed up to 0.7 s while one runs, API RSS 317 MB idle → ~940 MB after the views and kept. Kept in API threads (not slow by this measure); reopen with a real radiomics run or if the retained memory matters Closed 2026-11-11 by the owner: not needed at this size.
 - [x] Build the image for amd64 and rerun `make container-smoke` — done (IBSI 20/20); the `docker save` → udocker step dropped by ADR-0051
-- [ ] **Decision (user):** radiomics selection by continuous ranges (`min..max`) in API-44/45, or keep "bin into a derived variable first"
-- [ ] **Human checks:** open the exported correction-queue CSV in 3D Slicer (P4 exit); import a real v2 `curation_review.csv` (API-54)
+- [x] **Decision (user):** radiomics selection by continuous ranges (`min..max`) in API-44/45, or keep "bin into a derived variable first" Decided 2026-11-11: keep binning into a derived variable.
 **Exit:** the image passes TST-10 in CI and the native release runs on the server; NFR targets are met.
 
 ### P7b — Sources, derived data, tasks & plugins (ADR-0013..0017)
 Done 2026-09-24 (exit met; archive).
 - [x] The VOI extractor plugin (§Pending plugin after P7g), built 2026-11-09
-- [ ] **Pending (user decision 2026-09-24):** keep `legacy/` until the owner decides to delete it (fully ported otherwise)
-- [ ] **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
 
 ### P7d — nnU-Net segmentation planning
 - [x] Define the generation-only boundary, model profiles, upstream pipeline preservation, multi-GPU partitioning, output indexing and verification (ADR-0032, SEG-*, TST-21)
@@ -84,15 +79,15 @@ Done 2026-09-24 (exit met; archive).
 **Exit:** review `domain/SEGMENTATION_JOB_PLAN.md` and `ops/SEGMENTATION_JOB_TEST_PLAN.md`; ADR-0033 is Accepted before changing ADR-0032 policies.
 
 ### P7g — Supervised segmentation jobs, tests first
+Closed 2026-11-11 by owner acceptance; what was not run moved to §Open after P7, unticked.
 
 - [x] Accept ADR-0033; add bounded/full test gates, locked test environment and regression-driven initial runner fixes
 - [x] Rebaseline failed strict host requirements through accepted ADR-0034; implement the per-attempt supervisor and pass the effective local/server containment gate
 - [x] Verify official prediction/postprocessing with one and two GPUs, immutable sources/models, geometry and indexing
-- [ ] Run the ordered implementation waves and their red/green checkpoints from `domain/SEGMENTATION_JOB_PLAN.md`
-- [ ] Pass the required environment lanes from `ops/SEGMENTATION_JOB_TEST_PLAN.md`; real host safety/GPU acceptance is mandatory and missing capabilities remain explicit blockers
 **Exit:** accepted criteria have requirement IDs, passing regression tests and real isolation/cleanup evidence; no unrelated process affected, no source/model mutation and no duplicate attempts/output registration.
 
 ### P7h — CTFlow console (ADR-0041, CTFLOW.md)
+Closed 2026-11-11 by owner acceptance; what was not run moved to §Open after P7, unticked.
 
 Each step is a vertical slice with its own tests; stop for owner confirmation after each. Frontend work (C7) is coordinated with the frontend owner.
 - [x] C0 Owner decisions D1–D7 (2026-11-03); ADR-0041, CTFLOW.md, INDEX/SRS registration, glossary, PRD scope
@@ -106,6 +101,7 @@ Each step is a vertical slice with its own tests; stop for owner confirmation af
 **Exit:** a script started from `ctflow` survives the client and a server restart, its children appear in the web UI with reviewer and origin, and no CTFlow path writes runs or outputs outside the existing services.
 
 ### P7i — Standalone DICOM converter (ADR-0042, DICOM_STANDALONE_PLAN.md)
+Closed 2026-11-11 by owner acceptance; what was not run moved to §Open after P7, unticked.
 
 Owner decision 2026-11-03: all phases implemented in a row, then verified together (no per-phase stop, no P7g gate). Cases: `ops/DICOM_STANDALONE_TEST_PLAN.md`. DCM-26..34 are `S` (not a v3.0 dependency); release requires the test plan's §Release gates.
 - [x] S0 (2026-11-03) ADR-0042 accepted; plan, test plan, DCM-26..34
@@ -121,12 +117,11 @@ Owner decision 2026-11-03: all phases implemented in a row, then verified togeth
 **Exit:** a standalone conversion of the large reference dataset imports into ct_viewer with layers, equals a workspace conversion under the same settings, resumes after interruption without reconverting verified units, and its measured resource use is recorded.
 
 ### P7j — HPC: the app as a SLURM job, compute profiles, storage locations (ADR-0055, ADR-0056)
+Closed 2026-11-11 by owner acceptance; what was not run moved to §Open after P7, unticked.
 - [x] Phase 1: ADRs and the reference-site record (ops/HPC_ACCEPTANCE.md)
 - [x] Phase 2: `rw-native.py run`, `scripts/rw-app.sbatch`, per-job session
 - [x] Phase 3: ops/STORAGE_SETUP.md, ops/HPC_INSTALL.md, the Marvin acceptance plan
 - [x] Phase 4: runner discovery and validation, Settings › Compute and Storage, Check queue, scheduler status, backups (owner approved 2026-11-11)
-- [ ] Marvin acceptance M1–M23 (ops/HPC_ACCEPTANCE.md); replace `dev_viewer.sh` only after groups A–F pass; then accept ADR-0055 and ADR-0056
-- [ ] Decide the transport for `BIND=node` (ADR-0055 §Open)
 
 ### P7l — Agent interface (ADR-0048, CTFLOW.md)
 
@@ -156,10 +151,24 @@ Steps as COHORT.md; independent of P7g–P7j. After P7k, a separate cleanup deci
 ### Pending: runner registration of managed datasets (found 2026-11-10)
 - A segmentation run on a managed dataset not listed in the runner's `nnunet-deployment.json` used to be accepted by the app and fail in the queue with "output is outside approved derived roots"; the operator edits the JSON by hand and restarts the runner. Not planned: letting the app widen the runner's roots (the operator's allow-list; ADR-0056 keeps it the outer bound).
 - [x] (1) The app checks the run's output folder against the runner's reported derived roots at start and names the folder (2026-11-11, API-45)
-- [ ] (2) An operator script registers a dataset (checks `.workbench/projects/`, writes the three lists, keeps a backup, validates)
 
 ### Quality audit (after P7c, before the pending plugins; owner decision 2026-09-25)
 - [x] Audits A0..A8 and fix batches FB1..FB12, 2026-09-25..27; **closed 2026-09-27**: 129 findings, all fixed. Frozen record: `docs/archive/v3/audit/` (PLAN §Status, REMEDIATION §Owner review). Its only deferred item, the udocker check on the remote server, is P7 above (Step 4).
+
+### Open after P7
+P7 was closed by the owner on 2026-11-11. These items were not run or decided by then; they do not block P8 and are not passed.
+- [ ] (P7) TST-05, TST-09, TST-10; README quick start — TST-10 under Docker and README quick start done; TST-05, TST-09 in Step 4
+  - TST-09 partial bench 2026-11-11 on this host (Chromium with SwiftShader, no GPU, synthetic 512×512×600 int16 reference-size volume): NFR-01 6.2 s (download + inflate 1.8 s, NiiVue parse 1.1 s of which ~1.0 s is its robust-range scan the app never reads, full-volume texture upload 1.1 s, NiiVue 3D proxy setup 1.1 s); NFR-03 30 ms per filter edit and 60 fps scroll at 3,000 cases; NFR-04 10,000 items in 19.6 s; NFR-08 317 MB. NFR-01 needs a run with a GPU before any change; if it still misses, parse the full volume without constructing a NiiVue image (only the 3D proxy needs one) and build the 3D proxy when the 3D tile is first shown
+- [ ] (P7) Deferred from P1: Dataset820 import check on the remote server (ops/TESTING.md §Dataset820 import check); rerun `tools.spikes.ibsi_phantom_smoke` inside the Linux image (build stage needs `gcc`); add a container-mode signal so an empty `ALLOWED_DATA_ROOTS` refuses to start (OPS-04) — IBSI smoke in the image and OPS-04 `CONTAINER_MODE` done; Dataset820 check in Step 4
+- [ ] (P7) **Human checks:** open the exported correction-queue CSV in 3D Slicer (P4 exit); import a real v2 `curation_review.csv` (API-54)
+- [ ] (P7b) **Pending (user decision 2026-09-24):** keep `legacy/` until the owner decides to delete it (fully ported otherwise)
+- [ ] (P7b) **Human checks:** a converted DICOM series opened next to the original in 3D Slicer (orientation); anonymized sidecar reviewed for PHI
+- [ ] (P7g) The two lanes left in `domain/SEGMENTATION_JOB_PLAN.md` §P7g execution status: the full Chromium and Firefox regression, and the CI product-image acceptance (`ops/SEGMENTATION_JOB_TEST_PLAN.md`)
+- [ ] (P7j) Marvin acceptance M1–M23 (ops/HPC_ACCEPTANCE.md); replace `dev_viewer.sh` only after groups A–F pass; then accept ADR-0055 and ADR-0056
+- [ ] (P7j) Decide the transport for `BIND=node` (ADR-0055 §Open)
+- [ ] (managed datasets) (2) An operator script registers a dataset (checks `.workbench/projects/`, writes the three lists, keeps a backup, validates)
+- [ ] (P7i) Release gates and the open S1 lanes (B06 non-ext4 file systems, temporary disk, repeated large runs) in `ops/DICOM_STANDALONE_TEST_PLAN.md`
+- [ ] (VOI) Owner review and release of the VOI extractor (v3.2.0, §Pending plugin after P7g)
 
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
