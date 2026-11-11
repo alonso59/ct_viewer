@@ -45,6 +45,11 @@ test('cohort clinical editing, balance check and timeline events', async ({ page
   await api('POST', base, { name: 'Review', level: 'case', columns: [{ name: 'Grade', type: 'category', levels: ['G1', 'G2'] }] }, reviewer)
   await api('POST', base, { name: 'Events', level: 'event', columns: [] }, reviewer)
   await page.addInitScript(() => localStorage.setItem('rw.reviewer', JSON.stringify({ state: { name: 'Dr. E2E' }, version: 0 })))
+  // The catalog rebuild after a table write is deferred, and a page that loads before it misses
+  // the `project.updated` event sent before its stream opens; wait for the rebuilt catalog.
+  await expect
+    .poll(async () => (await api<{ variables: { origin: string }[] }>('GET', `/projects/${pid}/variables`)).variables.some((v) => v.origin === 'clinical'), { timeout: 30_000 })
+    .toBe(true)
   await page.goto(`/p/${pid}/cohort`)
   await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Cohort' }).click()
   await page.getByRole('button', { name: /^Clinical & labels/ }).click()
