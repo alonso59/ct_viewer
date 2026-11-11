@@ -233,3 +233,5 @@ Errors: `validation` (not a zip, unsafe entry, no/invalid `project.json`), `form
 | `geometry-mismatch` | 422 |
 | `derived-root-required` | 409 |
 | `roots-overlap` | 409 |
+| `session-required` | 401 (only where the app runs with a session credential, ADR-0055) |
+| `cross-origin` | 403 (same condition; a state-changing request whose `Origin` is not the app) |

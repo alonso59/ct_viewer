@@ -37,7 +37,7 @@ codicons) with a 3D Slicer-style 2×2 CT viewer.
 | # | Rule |
 |---|---|
 | R1 | Never write to `source` roots (images, masks, input metadata). App state lives in the project folder; task outputs are written only into `derived` roots. Exceptions: CUR-16 (ADR-0029), PRJ-19 managed-folder writes (ADR-0030), a new conversion dataset folder in a user-chosen destination (ADR-0044). See ADR-0002, ADR-0014. |
-| R2 | No accounts, no passwords. Reviewer name is a free-text stamp. See ADR-0004. |
+| R2 | No accounts, no passwords. Reviewer name is a free-text stamp. One exception: the app running as a scheduler job requires a per-job session code (ADR-0055). See ADR-0004. |
 | R3 | Production is the native conda release (`scripts/rw-native.py`), on a single server and on HPC alike: same source and lock, not a different product. The one OCI image is for CI and for local development and quick tests under Docker (any OS), never a production deployment. See ADR-0043, ADR-0051. |
 | R4 | No sudo, apt, brew, or system installs on remote servers; only user-space tools (conda). Node there comes from a conda environment, for build and development only, never in production. See ADR-0043, ADR-0051. |
 | R5 | No telemetry, no CDN, no external network calls at runtime. |

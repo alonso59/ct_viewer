@@ -11,7 +11,7 @@ Python 3.12 · FastAPI · Pydantic v2. Package `app/`, dev tools `tools/`, tests
 - Analysis: `variables`, `analytics`.
 - `tools/`: OpenAPI snapshot, mock recorder, fixture generator, acceptance and environment checks.
 
-**Entry points:** `app/main.py` (factory, lifespan), `app/context.py` (service container), `app/config.py` (env settings, OPS-03).
+**Entry points:** `app/main.py` (factory, lifespan), `app/context.py` (service container), `app/config.py` (env settings, OPS-03), `app/session.py` (sign-in gate, on only with `SESSION_CREDENTIAL_FILE`).
 
 **Boundaries**
 - `api → services → core`; services never import `api` (`tests/test_layering.py`). Plugins are reached only through `tasks/` (and `voi/`, which imports the VOI engine lazily); the converter package `rw_dicom` (`plugins/dicom/src`, an editable install) is a library the backend imports directly.

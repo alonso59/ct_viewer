@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     log_level: str = "info"
     static_root: Path = Path("/app/static")
     host_allocation_root: Path | None = None
+    # Set by the scheduler-job launcher: every request then needs a session (`app.session`).
+    session_credential_file: Path | None = None
     dicom_memory_mb: int | None = Field(default=None, ge=512, le=1048576)
     dicom_cpu_threads: int = Field(default=4, ge=1, le=12)
     dicom_workers: int = Field(default=1, ge=1, le=12)

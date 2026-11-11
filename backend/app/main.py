@@ -25,6 +25,7 @@ from app.core.logs import configure
 from app.ctflow.service import Console
 from app.imaging import thumbnails
 from app.ingest.recycle import RecycleService
+from app.session import SessionGate, read_credential
 from app.tasks import source_recovery
 from app.tasks.dicom_resources import initialize as initialize_dicom_resources
 from app.tasks.service import TaskService
@@ -77,7 +78,10 @@ def create_app(settings: Settings | None = None, *, inline_jobs: bool = False) -
     app = FastAPI(title="Radiology Workbench", version=__version__, lifespan=lifespan)
     install_handlers(app)
     app.include_router(v1_router, prefix="/api/v1")
-    mount_spa(app, (settings or get_settings()).static_root)  # after every API router
+    s = settings or get_settings()
+    mount_spa(app, s.static_root)  # after every API router
+    if s.session_credential_file is not None:
+        app.add_middleware(SessionGate, credential=read_credential(s.session_credential_file))
     return app
 
 

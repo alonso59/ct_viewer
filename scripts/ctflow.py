@@ -16,6 +16,8 @@ server owns every run, so closing the terminal never stops one.
 Server: --url, else CTFLOW_URL, else http://127.0.0.1:$PORT with PORT from an env file
 (RW_ENV, default: the repository's `.env`). Reviewer: --reviewer, else CTFLOW_REVIEWER,
 else the name saved in ~/.config/ctflow/config.json (asked once in the console).
+An app running as a scheduler job needs its session code: read from RW_CREDENTIAL_FILE, else
+~/.local/state/radiology-workbench/app-job.credential when that file exists.
 Exit codes: 0 completed · 1 failed, completed with errors or interrupted · 2 refused or usage ·
 3 cancelled, paused or held for attention · 130 stopped following (the work goes on).
 """
@@ -46,6 +48,9 @@ EXIT = {
 SCRIPT_ACTIVE = {"queued", "running", "waiting", "pausing", "cancelling"}
 POLL_S = 1.0
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "ctflow"
+CREDENTIAL = Path(
+    os.environ.get("RW_CREDENTIAL_FILE") or Path.home() / ".local/state/radiology-workbench/app-job.credential"
+)
 LOCAL = {"exit", "quit", "attach", "logs", "plan"}
 # Absolute paths stay out of the saved history: folder names are often patient names (NFR-17).
 _PATH = re.compile(r"(^|\s|\")/[^\s\"]")
@@ -103,6 +108,10 @@ class Client:
             headers["Content-Type"] = "application/json"
         if self.reviewer:
             headers["X-Reviewer"] = self.reviewer
+        try:
+            headers["Authorization"] = "Bearer " + CREDENTIAL.read_text(encoding="utf-8").strip()
+        except OSError:
+            pass
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with urllib.request.urlopen(request, timeout=120) as response:

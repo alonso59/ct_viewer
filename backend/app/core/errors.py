@@ -28,6 +28,8 @@ SLUGS: dict[str, tuple[int, str]] = {
     "roots-overlap": (409, "Roots overlap"),
     "precondition-failed": (412, "Precondition failed"),
     "precondition-required": (428, "Precondition required"),
+    "session-required": (401, "Sign-in required"),
+    "cross-origin": (403, "Cross-origin request refused"),
 }
 
 

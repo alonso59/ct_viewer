@@ -29,8 +29,8 @@ Depends: ADR-0014, ADR-0016, ADR-0043, ADR-0051, backend/ARCHITECTURE.md, domain
 | OPS-19 | Where the accepted backend uses an unprivileged sandbox, verify write/network effects and inheritance before GPU admission. Sandbox installation failure refuses launch; conda, torchrun, and visibility variables never certify OS isolation. Explicit runtime filesystem/device allowances and syscall limitations remain documented in domain/SEGMENTATION_RUNTIMES.md. | M |
 | OPS-20 | SLURM execution is a separate deployment acceptance gate: approved scheduler resources, shared filesystem/environment visibility, durable scheduler identity and cleanup reconciliation. Configuration validation or fake scheduler tests do not certify an inaccessible cluster. | M |
 | OPS-21 | `scripts/ctflow.py` (CTF-18) runs with any Python 3 on the host, standard library only, nothing installed (R4). It reaches the app at `http://127.0.0.1:$PORT` with `PORT` from an env file (`RW_ENV`, default the repository's `.env`; for a native deployment set `RW_ENV` to its `config/runtime.env`), or `--url`/`CTFLOW_URL`. Make it `ctflow` with a link on `PATH`, e.g. `ln -s "$PWD/scripts/ctflow.py" ~/.local/bin/ctflow`. It stores only `~/.config/ctflow/` (reviewer name, history without absolute paths). | S |
-| OPS-22 | Native deployment: `scripts/rw-native.py` runs a frozen release from a conda environment pinned by the lock, as a systemd user service, without sudo. It smoke-tests a release before any restart, refuses to switch while work or a GPU allocation is active, verifies health, projects and the served web app, and restores the previous release on failure. Node is used to build only. | S |
-| OPS-23 | HPC deployment: the app and a light runner run on an approved service or submission node, in a native conda environment (§Native); never compute on a login node. Heavy work runs only in scheduler allocations. GPU segmentation there needs OPS-20. Accepted only on a real cluster. | S |
+| OPS-22 | Native deployment: `scripts/rw-native.py` runs a frozen release from a conda environment pinned by the lock, without sudo. `deploy` runs it as a systemd user service: it smoke-tests a release before any restart, refuses to switch while work or a GPU allocation is active, verifies health, projects and the served web app, and restores the previous release on failure. `run` starts the same release in the foreground without systemd, after checking that the state folder supports file locks and SQLite write-ahead logging (ADR-0055). Node is used to build only. | S |
+| OPS-23 | HPC deployment: the app and a light runner run in a native conda environment (§Native), never on a login node: on an approved service or submission node, or, where a site has none, inside a CPU scheduler job started and stopped from a login node (§HPC, ADR-0055). In a job the app requires a per-job session (`SESSION_CREDENTIAL_FILE`) and writes its node and port to a private connection file in HOME. Heavy work runs only in scheduler allocations. GPU segmentation there needs OPS-20. Accepted only on a real cluster (HPC_ACCEPTANCE.md). | S |
 | OPS-24 | `rw-dicom` under a scheduler: `--state-dir` keeps the inventory on node-local disk while the output stays on shared storage, and losing it costs only a new header scan; the default memory budget is half of the job's allocation; SIGTERM stops dispatch and a new job resumes. The output's file system must support `flock`. | S |
 | OPS-25 | `scripts/rw-mcp.py` (CTF-24) runs with any Python 3, standard library only (R4), and resolves the app URL and reviewer like OPS-21. Register it with an MCP client as a stdio server, e.g. `claude mcp add rw -- python3 scripts/rw-mcp.py`. | S |
 
@@ -66,6 +66,7 @@ The OCI image is for CI and for local development under Docker (§Docker), not a
 | `BUILTIN_PLUGINS_ROOT` | `plugins/` next to `backend/` (`/app/plugins` in the image) | Builtin task plugins (converter, analyzers); normally left unset |
 | `DICOM_MEMORY_MB` | *(unset: headers/Estimate only)* | Explicit pixel-worker virtual-address ceiling, 512..1,048,576 MiB; with `DICOM_WORKERS` > 1 it is the total for all workers. Per-series admission includes current address space, native-library reserve and conservative working buffers. An oversized series waits with a remedy; raise the declared budget and resume after restart. No free-host-memory inference. |
 | `HOST_ALLOCATION_ROOT` | *(development: workspace-private pool)* | In container mode, pixel work requires an explicit canonical, private, writable pool visible to all participating app workspaces and equal to the host runner's `state_dir`. It must not overlap a source root, except inside a dot folder, which discovery and browsing never enter. Same Unix identity; ownership/mode 0700 enforced. Prefer a private directory under an already shared writable mount; the path need not be spelled identically across bind mounts, but device/inode identity must match. |
+| `SESSION_CREDENTIAL_FILE` | *(unset: no sign-in, ADR-0004)* | Set only by `rw-native.py run` inside a scheduler job (ADR-0055): the private file with that job's session code. Every request then needs a session, except `/api/v1/health` and `/sign-in`; scripts send the code as a bearer token. Not for standalone or server deployments. |
 | `DICOM_CPU_THREADS` | `4` | 1..12; plus `JOB_WORKERS` must be ≤12. Owned workers restrict affinity to at most this many available CPUs, header threads to at most four and numerical/ITK threads to one. DICOM and configured GPU attempts serialize through the participating pool. These are application budgets, not host-wide control of other users. |
 | `DICOM_WORKERS` | `1` | 1..`DICOM_CPU_THREADS`; series a conversion converts in parallel inside its owned process group (DCM-32). Workers share `DICOM_MEMORY_MB` as one total: a series starts only while every worker's baseline plus the running series' estimated working sets fit. Raise it after measuring on the host (DICOM_STANDALONE_TEST_PLAN.md §Evidence). |
 | `DICOM_HEADER_MB` | `8` | 1..64; header read cap in owned DICOM workers. Compatibility-adapter/global header-budget consistency remains in DICOM_JOB_PLAN.md. |
@@ -90,7 +91,19 @@ Needs conda, a C compiler for PyRadiomics, and `npm` on `PATH` or a conda enviro
 
 ## HPC (SLURM)
 
-Run the app per OPS-23 as in §Native on the service node. Convert in a job (OPS-24), not through the app:
+Run the app per OPS-23: as in §Native on a service node, or as a scheduler job where the site has none:
+
+```bash
+python3 scripts/rw-native.py prepare        # inside an allocation, not on a login node
+scripts/rw-app.sbatch start                 # on a login node; also stop, status, log [-f], credential
+```
+
+The job runs `rw-native.py run`. Its settings are `config/app-job.env` in the state folder: `TIME` (required), `CPUS` (4), `MEMORY` (16G), and `ACCOUNT`, `PARTITION`, `QOS` where the site needs them; optional `TAG` (release), `BIND` and `DEPLOYMENT` (the runner's operator file; `RUNNER_PYTHON` if its environment differs). The app's own settings stay in `config/runtime.env`.
+`status` prints the node, the port and how to forward it; `credential` prints the session code for the sign-in page.
+`BIND=loopback` (default) listens on the node's `127.0.0.1` only; `BIND=node` listens on the cluster network, where HTTP is not encrypted between login and compute node, so it is not a secure transport for the session code (ADR-0055 §5).
+None of this is accepted on a real cluster yet: HPC_ACCEPTANCE.md lists what is unverified, including the connection path.
+
+Convert in a job (OPS-24), not through the app:
 
 ```bash
 #!/bin/bash
