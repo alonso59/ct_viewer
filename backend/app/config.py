@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     dicom_batch_size: int = Field(default=64, ge=1, le=512)
     dicom_cleanup_seconds: float = Field(default=28.0, ge=0.1, le=28.0)
     dicom_retention_days: int = Field(default=30, ge=1, le=3650)
+    # Explicit project-state backups kept in the application state folder.
+    backup_max_mb: int = Field(default=1024, ge=1, le=1048576)
+    backup_total_mb: int = Field(default=2048, ge=1, le=1048576)
 
     @model_validator(mode="after")
     def _dicom_limits(self) -> Settings:

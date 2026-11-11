@@ -3112,6 +3112,191 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Compute */
+        get: operations["get_compute_api_v1_compute_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compute/profiles/{profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Profile
+         * @description Stores the profile; the runner validates it against the scheduler and reports the verdict.
+         */
+        put: operations["put_profile_api_v1_compute_profiles__profile_id__put"];
+        post?: never;
+        /** Delete Profile */
+        delete: operations["delete_profile_api_v1_compute_profiles__profile_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compute/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Compute */
+        post: operations["check_compute_api_v1_compute_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Storage */
+        get: operations["get_storage_api_v1_storage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/storage/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Location
+         * @description Only at or below a folder the operator allows; nothing on disk is changed.
+         */
+        post: operations["register_location_api_v1_storage_locations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/storage/locations/{location_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Location */
+        delete: operations["remove_location_api_v1_storage_locations__location_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/storage/locations/{location_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Location */
+        post: operations["test_location_api_v1_storage_locations__location_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/storage/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Default Location */
+        put: operations["set_default_location_api_v1_storage_default_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Backups */
+        get: operations["list_backups_api_v1_projects__pid__backups_get"];
+        put?: never;
+        /**
+         * Create Backup
+         * @description Copies the project's state, never images or outputs, into the application state folder.
+         */
+        post: operations["create_backup_api_v1_projects__pid__backups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/backups/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Backup
+         * @description The backup file, to restore with the bundle import.
+         */
+        get: operations["download_backup_api_v1_projects__pid__backups__name__get"];
+        put?: never;
+        post?: never;
+        /** Delete Backup */
+        delete: operations["delete_backup_api_v1_projects__pid__backups__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3276,6 +3461,42 @@ export interface components {
             points: components["schemas"]["UnitPoint"][];
             /** Results */
             results: components["schemas"]["ResultRow"][];
+        };
+        /** Backup */
+        Backup: {
+            /** Name */
+            name: string;
+            /** Created At */
+            created_at: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /**
+         * BackupState
+         * @description `estimate_bytes` is the uncompressed state size, an upper bound for a new backup.
+         *     `free_bytes` is what the file system reports; it does not prove quota.
+         */
+        BackupState: {
+            /** Backups */
+            backups?: components["schemas"]["Backup"][];
+            /** Estimate Bytes */
+            estimate_bytes?: number | null;
+            /**
+             * Total Bytes
+             * @default 0
+             */
+            total_bytes: number;
+            /** Limit Bytes */
+            limit_bytes: number;
+            /** Total Limit Bytes */
+            total_limit_bytes: number;
+            /** Free Bytes */
+            free_bytes?: number | null;
+            /**
+             * Blocked
+             * @default
+             */
+            blocked: string;
         };
         /** BalanceRequest */
         BalanceRequest: {
@@ -3739,6 +3960,11 @@ export interface components {
             /** Events */
             events: components["schemas"]["CellEvent"][];
         };
+        /** CheckRequested */
+        CheckRequested: {
+            /** Request */
+            request: string;
+        };
         /** Cluster */
         Cluster: {
             /** Features */
@@ -3926,6 +4152,99 @@ export interface components {
             job_id: string;
             /** Import Id */
             import_id: string;
+        };
+        /**
+         * ComputeLimits
+         * @description The operator's per-run bounds.
+         */
+        ComputeLimits: {
+            /** Cpus */
+            cpus: number;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Tasks */
+            tasks: number;
+            /** Seconds */
+            seconds: number;
+            /** Gpus */
+            gpus: number;
+        };
+        /** ComputeProfile */
+        ComputeProfile: {
+            /** Name */
+            name: string;
+            /** Account */
+            account?: string | null;
+            /** Partition */
+            partition?: string | null;
+            /** Gpus */
+            gpus: number;
+            /** Cpus */
+            cpus: number;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Seconds */
+            seconds: number;
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @default unchecked
+             * @enum {string}
+             */
+            status: "valid" | "rejected" | "unchecked";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Estimated Start */
+            estimated_start?: string | null;
+            /**
+             * Implicit
+             * @default false
+             */
+            implicit: boolean;
+        };
+        /** ComputeProfileBody */
+        ComputeProfileBody: {
+            /** Name */
+            name: string;
+            /** Account */
+            account?: string | null;
+            /** Partition */
+            partition?: string | null;
+            /** Gpus */
+            gpus: number;
+            /** Cpus */
+            cpus: number;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Seconds */
+            seconds: number;
+        };
+        /**
+         * ComputeState
+         * @description `backend` is None while no runner reports one; unknown scheduler facts are None.
+         */
+        ComputeState: {
+            /** Backend */
+            backend?: string | null;
+            limits?: components["schemas"]["ComputeLimits"] | null;
+            /** Read At */
+            read_at?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Accounts */
+            accounts?: string[] | null;
+            /** Partitions */
+            partitions?: components["schemas"]["Partition"][] | null;
+            /** Answered */
+            answered?: string | null;
+            /** Profiles */
+            profiles?: components["schemas"]["ComputeProfile"][];
         };
         /** ConsistencyRequest */
         ConsistencyRequest: {
@@ -4195,6 +4514,11 @@ export interface components {
             /** Dataset Root */
             dataset_root: string;
         };
+        /** DefaultBody */
+        DefaultBody: {
+            /** Location Id */
+            location_id?: string | null;
+        };
         /**
          * DescriptiveRow
          * @description One feature x group.
@@ -4252,6 +4576,26 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+        };
+        /** DiscoveredWorkspace */
+        DiscoveredWorkspace: {
+            /** Name */
+            name: string;
+            /** Filesystem */
+            filesystem?: string | null;
+            /** Expires */
+            expires?: string | null;
+            /** Extensions */
+            extensions?: number | null;
+            /** Observed At */
+            observed_at?: string | null;
+            /** Path */
+            path: string;
+            /**
+             * Blocked
+             * @default
+             */
+            blocked: string;
         };
         /** Display */
         Display: {
@@ -4798,6 +5142,12 @@ export interface components {
              * @enum {string}
              */
             role: "source" | "derived";
+            /**
+             * Scope
+             * @default locations
+             * @enum {string}
+             */
+            scope: "locations" | "allowed";
         };
         /** FsListing */
         FsListing: {
@@ -5514,6 +5864,33 @@ export interface components {
             /** Weight */
             weight: number;
         };
+        /** LocationBody */
+        LocationBody: {
+            /** Path */
+            path: string;
+            /**
+             * Access
+             * @default read_write
+             * @enum {string}
+             */
+            access: "read_only" | "read_write";
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+        };
+        /** LocationTest */
+        LocationTest: {
+            location: components["schemas"]["StorageLocation"];
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "probe" | "permissions" | "none";
+            /** Error */
+            error?: string | null;
+        };
         /** LogLine */
         LogLine: {
             /** Ts */
@@ -5540,6 +5917,22 @@ export interface components {
             next_cursor: string;
             /** Done */
             done: boolean;
+        };
+        /**
+         * ManagedWorkspace
+         * @description What the site's workspace tool reported, and when; never authoritative.
+         */
+        ManagedWorkspace: {
+            /** Name */
+            name: string;
+            /** Filesystem */
+            filesystem?: string | null;
+            /** Expires */
+            expires?: string | null;
+            /** Extensions */
+            extensions?: number | null;
+            /** Observed At */
+            observed_at?: string | null;
         };
         /** MissingCell */
         MissingCell: {
@@ -6057,6 +6450,22 @@ export interface components {
             /** Matched */
             matched: boolean;
         };
+        /** Partition */
+        Partition: {
+            /** Name */
+            name: string;
+            /** Up */
+            up: boolean;
+            /** Max Seconds */
+            max_seconds?: number | null;
+            /**
+             * Gpus
+             * @default false
+             */
+            gpus: boolean;
+            /** Gpu Types */
+            gpu_types?: string[];
+        };
         /** PathBody */
         PathBody: {
             /** Path */
@@ -6530,6 +6939,11 @@ export interface components {
             curation_progress: number;
             /** Share Url */
             share_url: string;
+            /**
+             * Storage Available
+             * @default true
+             */
+            storage_available: boolean;
         };
         /**
          * QcCode
@@ -7985,6 +8399,66 @@ export interface components {
             next_cursor?: string | null;
             /** Generation */
             generation?: string | null;
+        };
+        /** StorageLocation */
+        StorageLocation: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "local_directory" | "managed_hpc_workspace";
+            /** Path */
+            path: string;
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "read_only" | "read_write";
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            workspace?: components["schemas"]["ManagedWorkspace"] | null;
+            /**
+             * Available
+             * @default false
+             */
+            available: boolean;
+            /**
+             * Readable
+             * @default false
+             */
+            readable: boolean;
+            /**
+             * Writable
+             * @default false
+             */
+            writable: boolean;
+            /** Remaining Seconds */
+            remaining_seconds?: number | null;
+            /** Projects */
+            projects?: string[];
+        };
+        /** StorageState */
+        StorageState: {
+            /** Locations */
+            locations?: components["schemas"]["StorageLocation"][];
+            /** Default Location */
+            default_location?: string | null;
+            /**
+             * Registrable
+             * @default false
+             */
+            registrable: boolean;
+            /** Allowed Roots */
+            allowed_roots?: string[];
+            /** Discovered */
+            discovered?: components["schemas"]["DiscoveredWorkspace"][] | null;
+            /** Discovery Error */
+            discovery_error?: string | null;
         };
         /** Suggestion */
         Suggestion: {
@@ -15807,6 +16281,382 @@ export interface operations {
             };
             /** @description Not modified (If-None-Match) */
             304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compute_api_v1_compute_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeState"];
+                };
+            };
+        };
+    };
+    put_profile_api_v1_compute_profiles__profile_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComputeProfileBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_profile_api_v1_compute_profiles__profile_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputeState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_compute_api_v1_compute_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckRequested"];
+                };
+            };
+        };
+    };
+    get_storage_api_v1_storage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageState"];
+                };
+            };
+        };
+    };
+    register_location_api_v1_storage_locations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_location_api_v1_storage_locations__location_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_location_api_v1_storage_locations__location_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationTest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_default_location_api_v1_storage_default_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefaultBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_backups_api_v1_projects__pid__backups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_backup_api_v1_projects__pid__backups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backup"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_backup_api_v1_projects__pid__backups__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_backup_api_v1_projects__pid__backups__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

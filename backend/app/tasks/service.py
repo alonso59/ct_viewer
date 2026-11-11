@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -20,6 +21,7 @@ from app.core import reviewer as reviewer_stamp
 from app.core.errors import JobConflict, Problem, ValidationProblem
 from app.core.fsio import append_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
+from app.core.paths import is_within, realpath
 from app.core.reviewer import Origin
 from app.jobs.types import TERMINAL, JobHandle, JobSpec
 from app.projects.models import SEG_ID_RE
@@ -48,7 +50,7 @@ from app.tasks.models import (
     TaskRunStarted,
     TaskValidateResult,
 )
-from app.tasks.records import CANCEL_GRACE_S, ITEMS, Live, dicom_history, item_outcomes
+from app.tasks.records import CANCEL_GRACE_S, ITEMS, Live, dicom_history, hashed, item_outcomes
 from app.tasks.registry import RADIOMICS_TASK
 from app.tasks.schema import normalize, settings_hash
 
@@ -236,7 +238,7 @@ class TaskService(DriverBase):
             ok=ok,
             issues=issues,
             settings=norm if ok else None,
-            settings_hash=settings_hash(m.id, m.version, norm) if ok else None,
+            settings_hash=settings_hash(m.id, m.version, hashed(norm)) if ok else None,
         )
 
     async def start(
@@ -322,6 +324,8 @@ class TaskService(DriverBase):
         )
         rid = run_id or new_ulid()
         out_dir = self._output_dir(pid, m, rid)
+        if out_dir is not None and m.runtime.type == "external":
+            _check_output(out_dir, (info.execution or {}).get("roots"))
         if m.id == DICOM_CONVERT:
             require_pixel_budget(self.settings)
         now = utc_now()
@@ -678,3 +682,21 @@ class TaskService(DriverBase):
         if rad.has_run(pid, rid):
             return rad.task_outputs(pid, rid)
         return self.runs.read(self.runs.run_dir(pid, rid)).outputs
+
+
+def _check_output(out_dir: Path, runner_roots: Any) -> None:
+    """Refuse a run whose outputs have nowhere to go, before it is queued."""
+    existing = out_dir
+    while not existing.exists() and existing.parent != existing:
+        existing = existing.parent
+    if not os.access(existing, os.W_OK | os.X_OK):
+        raise ValidationProblem(
+            f"The output folder {existing} is missing or not writable; check Settings, Storage"
+        )
+    approved = (runner_roots or {}).get("derived_roots") if isinstance(runner_roots, dict) else None
+    real = realpath(out_dir)
+    if approved and not any(is_within(real, realpath(root)) for root in approved):
+        raise ValidationProblem(
+            "The runner is not set up to write this project's outputs: its operator file "
+            f"does not list {existing} among its derived roots"
+        )

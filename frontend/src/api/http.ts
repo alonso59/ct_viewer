@@ -7,7 +7,11 @@ import type { paths } from './schema'
 import { viewPath } from './view'
 import { filterByItems, type Api, type CaseFilter, type ConnectionState } from './surface'
 import type {
+  BackupState,
   BundleImportResult,
+  ComputeState,
+  LocationTest,
+  StorageState,
   CurationEvent,
   CurationStateRow,
   DerivedDef,
@@ -430,9 +434,25 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return send<BundleImportResult>('POST', '/projects/import-bundle', fd)
     },
 
-    fsList: (path, role = 'source') =>
+    fsList: (path, role = 'source', scope = 'locations') =>
       // a POST: browsed folders (often patient names) stay out of URLs and access logs
-      unwrap(client.POST('/api/v1/fs/list', { body: { path: path || null, role } })).then(normalizeFs),
+      unwrap(client.POST('/api/v1/fs/list', { body: { path: path || null, role, scope } })).then(normalizeFs),
+    // the server serializes every default, so the domain types make those fields required
+    getCompute: async () => (await unwrap(client.GET('/api/v1/compute'))) as ComputeState,
+    putComputeProfile: async (id, body) => (await unwrap(client.PUT('/api/v1/compute/profiles/{profile_id}', { params: { path: { profile_id: id } }, body }))) as ComputeState,
+    deleteComputeProfile: async (id) => (await unwrap(client.DELETE('/api/v1/compute/profiles/{profile_id}', { params: { path: { profile_id: id } } }))) as ComputeState,
+    checkCompute: () => unwrap(client.POST('/api/v1/compute/check')),
+    getStorage: async () => (await unwrap(client.GET('/api/v1/storage'))) as StorageState,
+    registerLocation: async (body) => (await unwrap(client.POST('/api/v1/storage/locations', { body }))) as StorageState,
+    removeLocation: async (id) => (await unwrap(client.DELETE('/api/v1/storage/locations/{location_id}', { params: { path: { location_id: id } } }))) as StorageState,
+    testLocation: async (id) => (await unwrap(client.POST('/api/v1/storage/locations/{location_id}/test', { params: { path: { location_id: id } } }))) as LocationTest,
+    setDefaultLocation: async (id) => (await unwrap(client.PUT('/api/v1/storage/default', { body: { location_id: id } }))) as StorageState,
+    listBackups: async (pid) => (await unwrap(client.GET('/api/v1/projects/{pid}/backups', { params: { path: { pid } } }))) as BackupState,
+    createBackup: (pid) => unwrap(client.POST('/api/v1/projects/{pid}/backups', { params: { path: { pid } } })),
+    backupUrl: (pid, name) => `${V1}/projects/${enc(pid)}/backups/${enc(name)}`,
+    async deleteBackup(pid, name) {
+      await send('DELETE', `/projects/${enc(pid)}/backups/${enc(name)}`)
+    },
     detectSource: (path) => unwrap(client.POST('/api/v1/sources/detect', { body: { path } })),
     openDicomTags: (sid, n) => unwrap(client.GET('/api/v1/open/{sid}/items/{n}/dicom-tags', { params: { path: { sid, n } } })),
     openPath: (path) => unwrap(client.POST('/api/v1/open', { body: { path } })),

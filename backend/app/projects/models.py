@@ -202,6 +202,8 @@ class ProjectSummary(BaseModel):
     n_cases_excluded: int = 0  # cases whose every item is excluded upstream
     curation_progress: float = 0.0  # 0..1
     share_url: str
+    # False when the project's folder cannot be reached (an expired or unmounted workspace).
+    storage_available: bool = True
 
 
 class ProjectDetail(ProjectConfig):

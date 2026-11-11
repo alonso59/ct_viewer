@@ -543,6 +543,87 @@
     "title": "AssociationResponse",
     "type": "object"
    },
+   "Backup": {
+    "properties": {
+     "created_at": {
+      "title": "Created At",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "size_bytes": {
+      "title": "Size Bytes",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "created_at",
+     "size_bytes"
+    ],
+    "title": "Backup",
+    "type": "object"
+   },
+   "BackupState": {
+    "description": "`estimate_bytes` is the uncompressed state size, an upper bound for a new backup.\n`free_bytes` is what the file system reports; it does not prove quota.",
+    "properties": {
+     "backups": {
+      "items": {
+       "$ref": "#/components/schemas/Backup"
+      },
+      "title": "Backups",
+      "type": "array"
+     },
+     "blocked": {
+      "default": "",
+      "title": "Blocked",
+      "type": "string"
+     },
+     "estimate_bytes": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimate Bytes"
+     },
+     "free_bytes": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Free Bytes"
+     },
+     "limit_bytes": {
+      "title": "Limit Bytes",
+      "type": "integer"
+     },
+     "total_bytes": {
+      "default": 0,
+      "title": "Total Bytes",
+      "type": "integer"
+     },
+     "total_limit_bytes": {
+      "title": "Total Limit Bytes",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "limit_bytes",
+     "total_limit_bytes"
+    ],
+    "title": "BackupState",
+    "type": "object"
+   },
    "BalanceRequest": {
     "properties": {
      "filters": {
@@ -1730,6 +1811,19 @@
     "title": "CellsWritten",
     "type": "object"
    },
+   "CheckRequested": {
+    "properties": {
+     "request": {
+      "title": "Request",
+      "type": "string"
+     }
+    },
+    "required": [
+     "request"
+    ],
+    "title": "CheckRequested",
+    "type": "object"
+   },
    "Cluster": {
     "properties": {
      "features": {
@@ -2292,6 +2386,322 @@
      "import_id"
     ],
     "title": "CommitResult",
+    "type": "object"
+   },
+   "ComputeLimits": {
+    "description": "The operator's per-run bounds.",
+    "properties": {
+     "cpus": {
+      "title": "Cpus",
+      "type": "integer"
+     },
+     "gpus": {
+      "title": "Gpus",
+      "type": "integer"
+     },
+     "memory_mb": {
+      "title": "Memory Mb",
+      "type": "integer"
+     },
+     "seconds": {
+      "title": "Seconds",
+      "type": "integer"
+     },
+     "tasks": {
+      "title": "Tasks",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "cpus",
+     "memory_mb",
+     "tasks",
+     "seconds",
+     "gpus"
+    ],
+    "title": "ComputeLimits",
+    "type": "object"
+   },
+   "ComputeProfile": {
+    "properties": {
+     "account": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account"
+     },
+     "checked_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Checked At"
+     },
+     "cpus": {
+      "maximum": 1024.0,
+      "minimum": 1.0,
+      "title": "Cpus",
+      "type": "integer"
+     },
+     "estimated_start": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimated Start"
+     },
+     "gpus": {
+      "maximum": 2.0,
+      "minimum": 1.0,
+      "title": "Gpus",
+      "type": "integer"
+     },
+     "id": {
+      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+      "title": "Id",
+      "type": "string"
+     },
+     "implicit": {
+      "default": false,
+      "title": "Implicit",
+      "type": "boolean"
+     },
+     "memory_mb": {
+      "maximum": 1048576.0,
+      "minimum": 1.0,
+      "title": "Memory Mb",
+      "type": "integer"
+     },
+     "name": {
+      "maxLength": 60,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "partition": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Partition"
+     },
+     "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+     },
+     "seconds": {
+      "maximum": 604800.0,
+      "minimum": 60.0,
+      "title": "Seconds",
+      "type": "integer"
+     },
+     "status": {
+      "default": "unchecked",
+      "enum": [
+       "valid",
+       "rejected",
+       "unchecked"
+      ],
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "gpus",
+     "cpus",
+     "memory_mb",
+     "seconds",
+     "id"
+    ],
+    "title": "ComputeProfile",
+    "type": "object"
+   },
+   "ComputeProfileBody": {
+    "properties": {
+     "account": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account"
+     },
+     "cpus": {
+      "maximum": 1024.0,
+      "minimum": 1.0,
+      "title": "Cpus",
+      "type": "integer"
+     },
+     "gpus": {
+      "maximum": 2.0,
+      "minimum": 1.0,
+      "title": "Gpus",
+      "type": "integer"
+     },
+     "memory_mb": {
+      "maximum": 1048576.0,
+      "minimum": 1.0,
+      "title": "Memory Mb",
+      "type": "integer"
+     },
+     "name": {
+      "maxLength": 60,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "partition": {
+      "anyOf": [
+       {
+        "maxLength": 64,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Partition"
+     },
+     "seconds": {
+      "maximum": 604800.0,
+      "minimum": 60.0,
+      "title": "Seconds",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "gpus",
+     "cpus",
+     "memory_mb",
+     "seconds"
+    ],
+    "title": "ComputeProfileBody",
+    "type": "object"
+   },
+   "ComputeState": {
+    "description": "`backend` is None while no runner reports one; unknown scheduler facts are None.",
+    "properties": {
+     "accounts": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Accounts"
+     },
+     "answered": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Answered"
+     },
+     "backend": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Backend"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "limits": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ComputeLimits"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "partitions": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/Partition"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Partitions"
+     },
+     "profiles": {
+      "items": {
+       "$ref": "#/components/schemas/ComputeProfile"
+      },
+      "title": "Profiles",
+      "type": "array"
+     },
+     "read_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Read At"
+     }
+    },
+    "title": "ComputeState",
     "type": "object"
    },
    "ConsistencyRequest": {
@@ -3038,6 +3448,23 @@
     "title": "DatasetOpen",
     "type": "object"
    },
+   "DefaultBody": {
+    "properties": {
+     "location_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Location Id"
+     }
+    },
+    "title": "DefaultBody",
+    "type": "object"
+   },
    "DescriptiveRow": {
     "description": "One feature x group.",
     "properties": {
@@ -3192,6 +3619,73 @@
      "ignored"
     ],
     "title": "DetectResult",
+    "type": "object"
+   },
+   "DiscoveredWorkspace": {
+    "properties": {
+     "blocked": {
+      "default": "",
+      "title": "Blocked",
+      "type": "string"
+     },
+     "expires": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires"
+     },
+     "extensions": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Extensions"
+     },
+     "filesystem": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Filesystem"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "observed_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Observed At"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "path"
+    ],
+    "title": "DiscoveredWorkspace",
     "type": "object"
    },
    "Display": {
@@ -4657,6 +5151,15 @@
        "derived"
       ],
       "title": "Role",
+      "type": "string"
+     },
+     "scope": {
+      "default": "locations",
+      "enum": [
+       "locations",
+       "allowed"
+      ],
+      "title": "Scope",
       "type": "string"
      }
     },
@@ -6656,6 +7159,69 @@
     "title": "Loading",
     "type": "object"
    },
+   "LocationBody": {
+    "properties": {
+     "access": {
+      "default": "read_write",
+      "enum": [
+       "read_only",
+       "read_write"
+      ],
+      "title": "Access",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "maxLength": 80,
+      "title": "Label",
+      "type": "string"
+     },
+     "path": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "LocationBody",
+    "type": "object"
+   },
+   "LocationTest": {
+    "properties": {
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "location": {
+      "$ref": "#/components/schemas/StorageLocation"
+     },
+     "method": {
+      "enum": [
+       "probe",
+       "permissions",
+       "none"
+      ],
+      "title": "Method",
+      "type": "string"
+     }
+    },
+    "required": [
+     "location",
+     "method"
+    ],
+    "title": "LocationTest",
+    "type": "object"
+   },
    "LogLine": {
     "properties": {
      "level": {
@@ -6724,6 +7290,64 @@
      "done"
     ],
     "title": "LogPage",
+    "type": "object"
+   },
+   "ManagedWorkspace": {
+    "description": "What the site's workspace tool reported, and when; never authoritative.",
+    "properties": {
+     "expires": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires"
+     },
+     "extensions": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Extensions"
+     },
+     "filesystem": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Filesystem"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "observed_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Observed At"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "ManagedWorkspace",
     "type": "object"
    },
    "MissingCell": {
@@ -8210,6 +8834,47 @@
     "title": "ParsedFile",
     "type": "object"
    },
+   "Partition": {
+    "properties": {
+     "gpu_types": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Gpu Types",
+      "type": "array"
+     },
+     "gpus": {
+      "default": false,
+      "title": "Gpus",
+      "type": "boolean"
+     },
+     "max_seconds": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Seconds"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "up": {
+      "title": "Up",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "up"
+    ],
+    "title": "Partition",
+    "type": "object"
+   },
    "PathBody": {
     "properties": {
      "path": {
@@ -9351,6 +10016,11 @@
      "share_url": {
       "title": "Share Url",
       "type": "string"
+     },
+     "storage_available": {
+      "default": true,
+      "title": "Storage Available",
+      "type": "boolean"
      }
     },
     "required": [
@@ -13544,6 +14214,151 @@
      "total"
     ],
     "title": "SourcePlanPage",
+    "type": "object"
+   },
+   "StorageLocation": {
+    "properties": {
+     "access": {
+      "enum": [
+       "read_only",
+       "read_write"
+      ],
+      "title": "Access",
+      "type": "string"
+     },
+     "available": {
+      "default": false,
+      "title": "Available",
+      "type": "boolean"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "local_directory",
+       "managed_hpc_workspace"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "projects": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Projects",
+      "type": "array"
+     },
+     "readable": {
+      "default": false,
+      "title": "Readable",
+      "type": "boolean"
+     },
+     "remaining_seconds": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Remaining Seconds"
+     },
+     "workspace": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ManagedWorkspace"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "writable": {
+      "default": false,
+      "title": "Writable",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "path",
+     "access"
+    ],
+    "title": "StorageLocation",
+    "type": "object"
+   },
+   "StorageState": {
+    "properties": {
+     "allowed_roots": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Allowed Roots",
+      "type": "array"
+     },
+     "default_location": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default Location"
+     },
+     "discovered": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/DiscoveredWorkspace"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Discovered"
+     },
+     "discovery_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Discovery Error"
+     },
+     "locations": {
+      "items": {
+       "$ref": "#/components/schemas/StorageLocation"
+      },
+      "title": "Locations",
+      "type": "array"
+     },
+     "registrable": {
+      "default": false,
+      "title": "Registrable",
+      "type": "boolean"
+     }
+    },
+    "title": "StorageState",
     "type": "object"
    },
    "Suggestion": {
@@ -17763,6 +18578,143 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/v1/compute": {
+   "get": {
+    "operationId": "get_compute_api_v1_compute_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ComputeState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Compute",
+    "tags": [
+     "compute"
+    ]
+   }
+  },
+  "/api/v1/compute/check": {
+   "post": {
+    "operationId": "check_compute_api_v1_compute_check_post",
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CheckRequested"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Check Compute",
+    "tags": [
+     "compute"
+    ]
+   }
+  },
+  "/api/v1/compute/profiles/{profile_id}": {
+   "delete": {
+    "operationId": "delete_profile_api_v1_compute_profiles__profile_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "profile_id",
+      "required": true,
+      "schema": {
+       "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+       "title": "Profile Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ComputeState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Profile",
+    "tags": [
+     "compute"
+    ]
+   },
+   "put": {
+    "description": "Stores the profile; the runner validates it against the scheduler and reports the verdict.",
+    "operationId": "put_profile_api_v1_compute_profiles__profile_id__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "profile_id",
+      "required": true,
+      "schema": {
+       "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+       "title": "Profile Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ComputeProfileBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ComputeState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Profile",
+    "tags": [
+     "compute"
+    ]
+   }
+  },
   "/api/v1/ctflow/commands": {
    "get": {
     "operationId": "commands_api_v1_ctflow_commands_get",
@@ -21237,6 +22189,176 @@
     "summary": "Archive Project",
     "tags": [
      "projects"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/backups": {
+   "get": {
+    "operationId": "list_backups_api_v1_projects__pid__backups_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BackupState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Backups",
+    "tags": [
+     "storage"
+    ]
+   },
+   "post": {
+    "description": "Copies the project's state, never images or outputs, into the application state folder.",
+    "operationId": "create_backup_api_v1_projects__pid__backups_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Backup"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Create Backup",
+    "tags": [
+     "storage"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/backups/{name}": {
+   "delete": {
+    "operationId": "delete_backup_api_v1_projects__pid__backups__name__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete Backup",
+    "tags": [
+     "storage"
+    ]
+   },
+   "get": {
+    "description": "The backup file, to restore with the bundle import.",
+    "operationId": "download_backup_api_v1_projects__pid__backups__name__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Download Backup",
+    "tags": [
+     "storage"
     ]
    }
   },
@@ -28078,6 +29200,194 @@
     "summary": "Detect Source",
     "tags": [
      "sources"
+    ]
+   }
+  },
+  "/api/v1/storage": {
+   "get": {
+    "operationId": "get_storage_api_v1_storage_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StorageState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Storage",
+    "tags": [
+     "storage"
+    ]
+   }
+  },
+  "/api/v1/storage/default": {
+   "put": {
+    "operationId": "set_default_location_api_v1_storage_default_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DefaultBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StorageState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set Default Location",
+    "tags": [
+     "storage"
+    ]
+   }
+  },
+  "/api/v1/storage/locations": {
+   "post": {
+    "description": "Only at or below a folder the operator allows; nothing on disk is changed.",
+    "operationId": "register_location_api_v1_storage_locations_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LocationBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StorageState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Register Location",
+    "tags": [
+     "storage"
+    ]
+   }
+  },
+  "/api/v1/storage/locations/{location_id}": {
+   "delete": {
+    "operationId": "remove_location_api_v1_storage_locations__location_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "location_id",
+      "required": true,
+      "schema": {
+       "title": "Location Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StorageState"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove Location",
+    "tags": [
+     "storage"
+    ]
+   }
+  },
+  "/api/v1/storage/locations/{location_id}/test": {
+   "post": {
+    "operationId": "test_location_api_v1_storage_locations__location_id__test_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "location_id",
+      "required": true,
+      "schema": {
+       "title": "Location Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LocationTest"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Test Location",
+    "tags": [
+     "storage"
     ]
    }
   },

@@ -1,5 +1,5 @@
 import { isCancelledError, keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { requireReviewer } from '../state'
 import { api } from './client'
@@ -9,6 +9,11 @@ import { isTaskRunPending } from './taskStatus'
 import type { CaseFilter, LogKind } from './surface'
 import type {
   AnalysisSpec,
+  ComputeProfileBody,
+  ComputeState,
+  FsScope,
+  LocationBody,
+  StorageState,
   CaseSummary,
   DashboardView,
   DerivedDef,
@@ -123,8 +128,76 @@ export function useRadiomicsValidation(body: { settings: RadiomicsSettings; labe
     staleTime: Infinity,
   })
 }
-export const useFsList = (path: string | null, role: RootRole = 'source') =>
-  useQuery({ queryKey: keys.fs(path, role), queryFn: () => api.fsList(path, role), placeholderData: (p) => p })
+export const useFsList = (path: string | null, role: RootRole = 'source', scope: FsScope = 'locations') =>
+  useQuery({ queryKey: keys.fs(path, role, scope), queryFn: () => api.fsList(path, role, scope), placeholderData: (p) => p })
+export const useCompute = () => useQuery({ queryKey: keys.compute(), queryFn: () => api.getCompute() })
+export const useStorage = () => useQuery({ queryKey: keys.storage(), queryFn: () => api.getStorage() })
+export const useBackups = (pid: string) => useQuery({ queryKey: keys.backups(pid), queryFn: () => api.listBackups(pid), enabled: enabled(pid) })
+/** Profile edits; a changed profile also changes the task form's choices */
+export function useComputeEdit() {
+  const qc = useQueryClient()
+  const done = (state: ComputeState) => {
+    qc.setQueryData(keys.compute(), state)
+    void qc.invalidateQueries({ queryKey: keys.tasks() })
+  }
+  return {
+    save: useMutation({ mutationFn: ({ id, body }: { id: string; body: ComputeProfileBody }) => api.putComputeProfile(id, body), onSuccess: done }),
+    remove: useMutation({ mutationFn: (id: string) => api.deleteComputeProfile(id), onSuccess: done }),
+  }
+}
+/** Asks the runner to read the scheduler and test every profile again, then waits for its answer.
+ *  `failed` is `'timeout'` when no answer came, or the request's error */
+export function useComputeCheck(timeoutMs = 90_000) {
+  const qc = useQueryClient()
+  const [state, setState] = useState<{ checking: boolean; failed: unknown }>({ checking: false, failed: null })
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
+  const check = async () => {
+    setState({ checking: true, failed: null })
+    try {
+      const { request } = await api.checkCompute()
+      const deadline = Date.now() + timeoutMs
+      while (alive.current && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        const fresh = await api.getCompute()
+        qc.setQueryData(keys.compute(), fresh)
+        if (fresh.answered === request) {
+          void qc.invalidateQueries({ queryKey: keys.tasks() })
+          if (alive.current) setState({ checking: false, failed: null })
+          return
+        }
+      }
+      if (alive.current) setState({ checking: false, failed: 'timeout' })
+    } catch (e) {
+      if (alive.current) setState({ checking: false, failed: e })
+    }
+  }
+  return { ...state, check }
+}
+export function useStorageEdit() {
+  const qc = useQueryClient()
+  const done = (state: StorageState) => {
+    qc.setQueryData(keys.storage(), state)
+    void qc.invalidateQueries({ queryKey: keys.fsAll() })
+  }
+  return {
+    register: useMutation({ mutationFn: (body: LocationBody) => api.registerLocation(body), onSuccess: done }),
+    remove: useMutation({ mutationFn: (id: string) => api.removeLocation(id), onSuccess: done }),
+    setDefault: useMutation({ mutationFn: (id: string | null) => api.setDefaultLocation(id), onSuccess: done }),
+    test: useMutation({ mutationFn: (id: string) => api.testLocation(id) }),
+  }
+}
+export function useBackupEdit(pid: string) {
+  const qc = useQueryClient()
+  const done = () => void qc.invalidateQueries({ queryKey: keys.backups(pid) })
+  return {
+    create: useMutation({ mutationFn: () => api.createBackup(pid), onSuccess: done }),
+    remove: useMutation({ mutationFn: (name: string) => api.deleteBackup(pid, name), onSuccess: done }),
+  }
+}
 /** Server-owned opening of a file or folder */
 export const useStartOpen = () => useMutation({
   mutationFn: ({ path, key }: { path: string; key: string }) => api.startSourceOperation({ path, purpose: 'open', prepare_plan: false, idempotency_key: key }),

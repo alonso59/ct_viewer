@@ -45,7 +45,12 @@ export const keys = {
   schema: () => ['radiomics', 'schema'] as const,
   /** `body` is the serialized request, so equal settings share one answer */
   validation: (body: string) => ['radiomics', 'schema', 'validate', body] as const,
-  fs: (path: string | null, role = 'source') => ['fs', role, path ?? ''] as const,
+  fs: (path: string | null, role = 'source', scope = 'locations') => ['fs', role, scope, path ?? ''] as const,
+  /** Every folder listing */
+  fsAll: () => ['fs'] as const,
+  compute: () => ['compute'] as const,
+  storage: () => ['storage'] as const,
+  backups: (pid: string) => ['project', pid, 'backups'] as const,
   /** The route names the session, never the path */
   open: (sid: string) => ['open', sid] as const,
   openItems: (sid: string, cursor: string | undefined, limit: number) => ['open', sid, 'items', cursor, limit] as const,

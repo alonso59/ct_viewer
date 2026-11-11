@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.api.v1.deps import Ctx
-from app.core.errors import DerivedRootRequired, NotFound, ValidationProblem
+from app.core.errors import DerivedRootRequired, NotFound, PathOutsideRoot, ValidationProblem
 from app.core.paths import PathGuard, is_within, realpath
 
 router = APIRouter(tags=["fs"])
@@ -94,6 +94,9 @@ def list_dir(real: Path, guard: PathGuard) -> FsListing:
 class FsListRequest(BaseModel):
     path: str | None = None  # absolute; empty = the allowed roots
     role: Literal["source", "derived"] = "source"
+    # `locations`: the registered storage locations when there are any. `allowed`: every folder
+    # the operator allows, for choosing a new location.
+    scope: Literal["locations", "allowed"] = "locations"
 
 
 @router.post("/fs/list", response_model=FsListing)
@@ -104,6 +107,9 @@ def fs_list(ctx: Ctx, body: FsListRequest) -> FsListing:
     """
     path, role = body.path, body.role
     guard = ctx.workspace.derived_guard if role == "derived" else ctx.guard
+    registered = ctx.storage.paths() if role == "source" and body.scope == "locations" else []
+    if registered:
+        guard = PathGuard(registered)
     if role == "derived" and not guard.allowed_roots:
         raise DerivedRootRequired(
             "ALLOWED_DERIVED_ROOTS is empty: the server has no writable derived folder",
@@ -118,6 +124,8 @@ def fs_list(ctx: Ctx, body: FsListRequest) -> FsListing:
             "path must be absolute", errors=[{"loc": ["body", "path"], "msg": "not absolute"}]
         )
     real = guard.check(p)
+    if role == "source" and is_within(real, realpath(ctx.settings.workspace_root)):
+        raise PathOutsideRoot("The application's own state folder is not browsable")
     if not real.is_dir():
         raise NotFound("Directory not found")
     return list_dir(real, guard)

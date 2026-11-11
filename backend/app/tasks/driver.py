@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from app.core.errors import JobConflict
-from app.core.fsio import append_jsonl, iter_jsonl
+from app.core.fsio import append_jsonl, iter_jsonl, read_json
 from app.core.ids import new_ulid, utc_now
 from app.ingest.models import Item
 from app.ingest.segsets import record_masks
@@ -283,6 +283,24 @@ class DriverBase(RegistrationBase):
             raise JobConflict("External attempt identity does not match the run")
         await self._submit(pid, run_dir, manifest, [], rec.selection.seg_id, [], recover=True)
 
+    async def _show_scheduler(self, live: Live, shown: dict[str, Any]) -> dict[str, Any]:
+        """Copy what the runner last learned from the scheduler into the run record."""
+        try:
+            status = read_json(live.job_dir / "scheduler.json")
+        except (OSError, ValueError):
+            return shown
+        if not isinstance(status, dict) or status == shown:
+            return shown
+
+        def edit(rec: TaskRunRecord) -> bool:
+            if rec.job_id != live.job_dir.name:
+                return False
+            rec.execution = {**(rec.execution or {}), "scheduler": status}
+            return True
+
+        await self.runs.update(live.pid, live.run_dir, edit)
+        return status
+
     async def _set_status(self, live: Live, status: TaskRunStatus) -> None:
         """Forward only, as `RunStore.set_status`; a pending control keeps pausing/cancelling."""
 
@@ -361,9 +379,11 @@ class DriverBase(RegistrationBase):
         claimed_by: str | None = None
         lost_since: float | None = None
         stop_at: float | None = None
+        shown: dict[str, Any] = {}
         while True:
             await self._on_lines(live, tail.read(), cursor=tail.offset)
             h.set_done(live.done)
+            shown = await self._show_scheduler(live, shown)
             if protocol.external_finished(live.job_dir):
                 break
             claim = protocol.read_claim(live.job_dir)

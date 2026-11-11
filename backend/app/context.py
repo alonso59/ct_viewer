@@ -15,7 +15,9 @@ from app.ingest.service import IndexHook
 from app.ingest.store import IndexStore
 from app.jobs.manager import JobManager
 from app.plugins.registry import PluginRegistry, build_plugins
+from app.projects.backups import Backups
 from app.projects.service import Workspace
+from app.projects.storage import Storage
 from app.sources.open import OpenSessions
 from app.tasks.registry import Registry, build_registry
 from app.tasks.service import TaskService
@@ -34,6 +36,8 @@ class AppContext:
     workspace: Workspace
     index: IndexStore
     server_lock: FileLock
+    storage: Storage
+    backups: Backups
     registry: Registry
     plugins: PluginRegistry
     source_operations: SourceOperations
@@ -85,6 +89,8 @@ def build_context(settings: Settings, *, inline_jobs: bool = False) -> AppContex
         workspace=workspace,
         index=index,
         server_lock=FileLock(settings.workspace_root / ".server.lock"),
+        storage=Storage(settings.workspace_root, guard, derived_guard),
+        backups=Backups(settings.workspace_root, settings.backup_max_mb, settings.backup_total_mb),
         registry=registry,
         plugins=plugins,
         source_operations=source_operations,

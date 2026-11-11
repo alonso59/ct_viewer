@@ -435,13 +435,17 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
             for it in scan["items"]:
                 get(f"{P}/items/{it['item_id']}")
     # Folder browser and source detection over the fixtures
-    call("POST", f"{API}/fs/list", {"path": None, "role": "source"})
+    call("POST", f"{API}/fs/list", {"path": None, "role": "source", "scope": "locations"})
     for sub in ("", "Dataset900", "Dataset900/nifti", "dicom"):
         call(
             "POST",
             f"{API}/fs/list",
-            {"path": str(data / sub) if sub else str(data), "role": "source"},
+            {"path": str(data / sub) if sub else str(data), "role": "source", "scope": "locations"},
         )
+    # Settings: storage, compute (no runner: nothing about a scheduler is known) and backups
+    get(f"{API}/storage")
+    get(f"{API}/compute")
+    get(f"{P}/backups")
     call("POST", f"{API}/sources/detect", {"path": root})
 
 

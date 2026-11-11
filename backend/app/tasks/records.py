@@ -35,6 +35,13 @@ from app.tasks.radiomics_task import RadiomicsTask
 from app.tasks.registry import Registry
 from app.tasks.schema import normalize, settings_hash
 
+
+def hashed(settings: dict[str, Any]) -> dict[str, Any]:
+    """Settings that identify a run's result. Where it ran is not one: the same run may be
+    repeated on other resources."""
+    return {name: value for name, value in settings.items() if name != "compute_profile"}
+
+
 TASKS: Final = "tasks"
 RUNS: Final = "runs"
 ITEMS: Final = "items.jsonl"  # per-item outcomes of every attempt (last line per item wins)
@@ -200,7 +207,7 @@ class TaskBase:
         errors = issue_errors(issues, ["body", "settings"])
         if errors:
             raise ValidationProblem(f"Invalid settings for {m.id}", errors=errors)
-        return norm, settings_hash(m.id, m.version, norm)
+        return norm, settings_hash(m.id, m.version, hashed(norm))
 
     def _radiomics(self) -> RadiomicsTask:
         return RadiomicsTask(self.workspace, self.store, self.jobs, self.bus, self.locks)

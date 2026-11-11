@@ -2,6 +2,14 @@
 // mock (VITE_API_MODE=mock, the standalone prototype and unit tests). Hooks only see this interface.
 import type {
   Analysis,
+  Backup,
+  BackupState,
+  ComputeProfileBody,
+  ComputeState,
+  FsScope,
+  LocationBody,
+  LocationTest,
+  StorageState,
   AnalysisExportFile,
   AnalysisSpec,
   AnalysisSummary,
@@ -214,8 +222,25 @@ export interface Api {
   /** A new .nii.gz under ALLOWED_DERIVED_ROOTS; never overwrites */
   saveOpen(sid: string, n: number, body: SaveOpenBody): Promise<SavedOpen>
 
-  /** `role: 'derived'` browses ALLOWED_DERIVED_ROOTS */
-  fsList(path: string | null, role?: RootRole): Promise<FsListing>
+  /** `role: 'derived'` browses ALLOWED_DERIVED_ROOTS; `scope: 'allowed'` ignores the storage locations */
+  fsList(path: string | null, role?: RootRole, scope?: FsScope): Promise<FsListing>
+  getCompute(): Promise<ComputeState>
+  /** Stores the profile; the runner checks it against the scheduler and reports the verdict */
+  putComputeProfile(id: string, body: ComputeProfileBody): Promise<ComputeState>
+  deleteComputeProfile(id: string): Promise<ComputeState>
+  /** Asks the runner to read the scheduler again; it answers in `ComputeState.answered` */
+  checkCompute(): Promise<{ request: string }>
+  getStorage(): Promise<StorageState>
+  registerLocation(body: LocationBody): Promise<StorageState>
+  /** Forgets the location; nothing on disk changes */
+  removeLocation(id: string): Promise<StorageState>
+  testLocation(id: string): Promise<LocationTest>
+  setDefaultLocation(id: string | null): Promise<StorageState>
+  listBackups(pid: string): Promise<BackupState>
+  createBackup(pid: string): Promise<Backup>
+  deleteBackup(pid: string, name: string): Promise<void>
+  /** Download of a backup, restored with the bundle import; `#` in the mock */
+  backupUrl(pid: string, name: string): string
   importPreview(pid: string, req: PreviewRequest): Promise<ImportPreview>
   /** `allowIncomplete`: acknowledge a converter dataset with failed or pending series (DCM-34) */
   commitImport(pid: string, previewId: string, allowIncomplete?: boolean): Promise<CommitResult>

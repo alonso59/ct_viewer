@@ -43,6 +43,7 @@ from app.core.locks import FileLock, LockHeldError, ProjectLocks
 from app.core.paths import MANAGED_DIRS, PathGuard, PathResolver, is_within, realpath
 from app.curation.state import case_reviews
 from app.ingest.counting import split_cases
+from app.projects.backups import Backup, Backups
 from app.projects.bundle import extract_bundle, write_bundle
 from app.projects.migrations import check_version, migrate
 from app.projects.models import (
@@ -144,6 +145,9 @@ class Workspace:
             self._entries()[entry.project_id] = entry
             self._write_registry()
 
+    def entries(self) -> builtins.list[WorkspaceEntry]:
+        return [*self._entries().values()]
+
     def entry(self, project_id: str) -> WorkspaceEntry:
         entry = self._entries().get(project_id) if is_ulid(project_id) else None
         if entry is None:
@@ -225,6 +229,7 @@ class Workspace:
             n_cases_excluded=len(excluded),
             curation_progress=reviewed / len(case_ids) if case_ids else 0.0,
             share_url=self.share_url(project_id),
+            storage_available=folder.is_dir(),
         )
 
     def list(self, *, archived: bool = False) -> list[ProjectSummary]:
@@ -755,6 +760,20 @@ class Workspace:
                 raise
         slug = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-.") or "project"
         return out, f"{slug}-{project_id}.zip"
+
+    async def backup(self, project_id: str, backups: Backups) -> Backup:
+        """An explicit backup of a dataset-local project's state; refused with the reason when
+        the storage is unavailable or a limit would be exceeded."""
+        entry = self.entry(project_id)
+        local = bool(entry.dataset_root)
+        state = backups.state(project_id, self.folder(project_id) if local else None, local)
+        if state.blocked:
+            raise ValidationProblem(state.blocked)
+        folder = self.project_dir(project_id)
+        async with self.locks(project_id):
+            folders = [str(self.settings.workspace_root), *map(str, self.guard.allowed_roots)]
+            folders += map(str, self.derived_guard.allowed_roots)
+            return await asyncio.to_thread(backups.create, project_id, folder, folders)
 
     async def import_bundle(self, fileobj: IO[bytes]) -> tuple[ProjectConfig, str]:
         """Extract a bundle as a new project; returns (config, the bundle's project_id).

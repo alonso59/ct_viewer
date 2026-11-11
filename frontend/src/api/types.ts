@@ -453,3 +453,31 @@ export type LabelCellRow = S['CellRow']
 export type LabelCellIn = S['CellIn']
 export type LabelCellEvent = S['CellEvent']
 export type LabelImportReport = S['ImportReport']
+
+/** `locations`: inside the registered storage locations when any exist; `allowed`: every folder the operator allows */
+export type FsScope = NonNullable<S['FsListRequest']['scope']>
+/** Scheduler facts and compute profiles as the runner last reported them; `null` facts are unknown */
+export type ComputeProfile = Required<S['ComputeProfile']>
+export type Partition = Required<S['Partition']>
+export type ComputeState = Omit<Required<S['ComputeState']>, 'profiles' | 'partitions'> & { profiles: ComputeProfile[]; partitions: Partition[] | null }
+export type ComputeProfileBody = S['ComputeProfileBody']
+export type StorageLocation = Required<S['StorageLocation']>
+export type DiscoveredWorkspace = Required<S['DiscoveredWorkspace']>
+export type StorageState = Omit<Required<S['StorageState']>, 'locations' | 'discovered'> & { locations: StorageLocation[]; discovered: DiscoveredWorkspace[] | null }
+export type LocationBody = S['LocationBody']
+export type LocationTest = Omit<Required<S['LocationTest']>, 'location'> & { location: StorageLocation }
+export type BackupState = Required<S['BackupState']>
+export type Backup = S['Backup']
+/** What the runner last read from the scheduler about one run (`execution.scheduler`) */
+export interface SchedulerStatus {
+  job_id?: string
+  state?: string
+  pending_reason?: string | null
+  node?: string | null
+  elapsed?: string | null
+  time_limit?: string | null
+  profile?: string | null
+  accounting?: { state?: string; elapsed?: string; exit_code?: string; nodes?: string }
+  efficiency?: string
+  at?: string
+}

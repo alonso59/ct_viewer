@@ -48,6 +48,15 @@ def _gpu_label(device: dict[str, Any]) -> str:
     return label + (f" · {device['reason']}" if device.get("reason") else "")
 
 
+def _profile_label(profile: dict[str, Any]) -> str:
+    hours = profile["seconds"] / 3600
+    memory = profile["memory_mb"] / 1024
+    return (
+        f"{profile['name']} · {profile['gpus']} GPU · {profile['cpus']} CPU · "
+        f"{memory:g} GiB · {hours:g} h"
+    )
+
+
 def _gpu_fields(info: TaskInfo) -> None:
     """List every host GPU with its state; the runner admits only usable ones.
 
@@ -55,11 +64,24 @@ def _gpu_fields(info: TaskInfo) -> None:
     """
     execution = info.execution or {}
     schema = info.manifest.settings_schema
+    choice = schema.get("properties", {}).get("compute_profile")
     if execution.get("backend") == "slurm":
         schema.get("properties", {}).pop("gpu_ids", None)
         if "gpu_ids" in schema.get("required", []):
             schema["required"] = [name for name in schema["required"] if name != "gpu_ids"]
+        if isinstance(choice, dict):
+            reported = (execution.get("scheduler") or {}).get("profiles") or []
+            valid = [p for p in reported if isinstance(p, dict) and p.get("status") == "valid"]
+            choice["enum"] = [p["id"] for p in valid]
+            choice["x-enumNames"] = [_profile_label(p) for p in valid]
+            schema["required"] = [*schema.get("required", []), "compute_profile"]
+            if valid:
+                choice["default"] = valid[0]["id"]
+            else:
+                info.available = False
+                info.unavailable_reason = "No compute profile is valid yet; check Settings, Compute"
         return
+    schema.get("properties", {}).pop("compute_profile", None)
     inventory = execution.get("inventory") or {}
     devices = [
         d

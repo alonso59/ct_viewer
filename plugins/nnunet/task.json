@@ -28,6 +28,11 @@
         "default": [],
         "x-help": "Pick up to 2 GPUs, or leave empty for automatic selection of ready GPUs. Green is ready, yellow is shared with other work, red cannot be used."
       },
+      "compute_profile": {
+        "title": "Compute profile",
+        "type": "string",
+        "x-help": "The scheduler resources this run asks for. Profiles are made in Settings › Compute and checked against the scheduler; only valid ones are listed."
+      },
       "seg_id": {
         "title": "Segmentation set name",
         "type": "string",
