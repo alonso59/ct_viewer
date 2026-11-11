@@ -2,8 +2,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, keys, type TaskInfo } from '../../api'
-import { fmtAgo, ProblemCard } from '../../lib'
+import { api, keys, useCompute, useComputeCheck, type TaskInfo } from '../../api'
+import { fmtAgo, fmtDate, ProblemCard } from '../../lib'
+import { runCommand } from '../../shell'
 
 type Inventory = { at?: string; error?: string | null; required_free_mb?: number; devices?: { index?: string; name?: string; total_mb?: number; used_mb?: number; busy?: boolean; status?: 'ready' | 'warning' | 'unavailable'; reason?: string | null }[] }
 const schedulerCapOf = (info: TaskInfo) => {
@@ -50,7 +51,7 @@ export function GpuAvailability({ info }: { info: TaskInfo }) {
     }
   }
   const scheduler = schedulerCapOf(info)
-  if (scheduler) return <p className="muted task-help task-gpu-availability">{t(scheduler.gpus == null ? 'tasks.gpu.scheduler' : 'tasks.gpu.schedulerCap', { gpus: scheduler.gpus })}</p>
+  if (scheduler) return <QueueCheck gpus={scheduler.gpus} />
   return <div className="task-gpu-availability">
     <div className="task-run-actions">
       <button type="button" className="btn btn-sm" disabled={checking} onClick={() => void check()}>{t(checking ? 'tasks.gpu.checking' : 'tasks.gpu.check')}</button>
@@ -60,4 +61,30 @@ export function GpuAvailability({ info }: { info: TaskInfo }) {
     {inventory?.required_free_mb != null ? <p className="muted task-help">{t('tasks.gpu.memoryRequired', { gib: (inventory.required_free_mb / 1024).toFixed(1) })}</p> : null}
     {error ? <ProblemCard error={error} onRetry={() => void check()} /> : null}
   </div>
+}
+
+/** Under a scheduler: the GPU cap, and the scheduler's own start estimate per valid profile.
+ *  An estimate is a prediction for a request made now, never a promise. */
+function QueueCheck({ gpus }: { gpus: number | null }) {
+  const { t } = useTranslation()
+  const compute = useCompute().data
+  const check = useComputeCheck()
+  const valid = compute?.profiles.filter((p) => p.status === 'valid') ?? []
+  return (
+    <div className="task-gpu-availability">
+      <p className="muted task-help">{t(gpus == null ? 'tasks.gpu.scheduler' : 'tasks.gpu.schedulerCap', { gpus })}</p>
+      <div className="task-run-actions">
+        <button type="button" className="btn btn-sm" disabled={check.checking} onClick={() => void check.check()}>{t(check.checking ? 'tasks.queue.checking' : 'tasks.queue.check')}</button>
+        <button type="button" className="btn btn-sm" onClick={() => runCommand('setup.compute')}>{t('cmd.compute')}</button>
+      </div>
+      {valid.map((p) => (
+        <p key={p.id} className="muted task-help" role="status">
+          {p.estimated_start ? t('tasks.queue.estimate', { name: p.name, at: fmtDate(p.estimated_start) }) : t('tasks.queue.noEstimate', { name: p.name })}
+        </p>
+      ))}
+      {compute?.read_at ? <p className="muted task-help">{t('tasks.queue.readAt', { ago: fmtAgo(compute.read_at) })}</p> : null}
+      <p className="muted task-help">{t('tasks.queue.help')}</p>
+      {check.failed === 'timeout' ? <p className="field-error" role="alert">{t('tasks.queue.timeout')}</p> : check.failed ? <ProblemCard error={check.failed} /> : null}
+    </div>
+  )
 }

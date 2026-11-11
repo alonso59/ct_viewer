@@ -74,10 +74,10 @@ Allocation, renewal and release are yours to run; the app never runs them.
 | List yours, with expiry | `ws_list` |
 | Allocate | `ws_allocate -F <filesystem> <name> <days>` — always give the duration |
 | Extend | `ws_extend -F <filesystem> <name> <days>` — the same filesystem as the allocation |
-| Use in the app | Put the folder that `ws_list` shows into `ALLOWED_DATA_ROOTS`, then restart the app job |
+| Use in the app | Put the workspace's parent folder (or the folder itself) into `ALLOWED_DATA_ROOTS` and restart the app job; then add it under Setup › Storage, which lists the workspaces `ws_list` reports |
 
 A workspace has a maximum lifetime and a limited number of extensions, and its data is deleted after expiry.
-Keep the wall time of long work inside the remaining lifetime; the app does not check this yet.
+A run whose output workspace expires before the profile's wall time ends is refused when it is submitted.
 The site's limits and filesystems are recorded in HPC_ACCEPTANCE.md.
 
 ## Daily use
@@ -127,8 +127,8 @@ Choose `BIND=node` explicitly, and only knowing what it exposes; no TLS is provi
 | Item | State |
 |---|---|
 | Compute jobs submitted by the app (GPU segmentation) | The v1 SLURM adapter exists (../domain/SEGMENTATION_RUNTIMES.md §SLURM backend) but is untested from inside an app job; whether a site allows `sbatch` from a compute node is unverified, and blocked where it does not (ADR-0055 §9) |
-| Compute profiles, Settings → Compute, Check queue | Planned (ADR-0055 §7–§10) |
-| Settings → Storage, workspace expiry in the app, project-state backup | Planned (ADR-0056) |
+| Compute profiles and Check queue | Implemented (Setup › Compute, the task form, ../domain/SEGMENTATION_RUNTIMES.md §SLURM backend); tested against fake scheduler tools only |
+| Storage locations, workspace expiry, project-state backup | Implemented (STORAGE_SETUP.md); `ws_list` output read from its usual format, unverified on a site |
 | An encrypted path for `BIND=node` | Open (ADR-0055 §5) |
 
 `dev_viewer.sh` at the repository root remains the tested reference for the app-as-job pattern until `rw-app.sbatch` passes the same checks on a real site.

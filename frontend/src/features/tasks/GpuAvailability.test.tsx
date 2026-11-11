@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import '../../i18n'
 import '../../i18n/lazy'
-import { api, type TaskInfo } from '../../api'
+import { api, type ComputeState, type TaskInfo } from '../../api'
 import { GpuAvailability } from './GpuAvailability'
 
 afterEach(() => vi.restoreAllMocks())
@@ -40,4 +40,16 @@ test('a scheduler-managed runner shows who assigns GPUs instead of a check butto
   expect(screen.queryByRole('button', { name: 'Check GPUs' })).toBeNull()
   view.rerender(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={withExecution({ backend: 'slurm' })} /></QueryClientProvider>)
   expect(screen.getByText('The scheduler assigns GPUs')).toBeInTheDocument()
+})
+
+test('under a scheduler, Check queue shows the estimate of each valid profile as a prediction', async () => {
+  const template = (await api.listTasks()).tasks[0]!
+  const valid = { id: 'a', name: 'One A100', account: null, partition: null, gpus: 1, cpus: 4, memory_mb: 4096, seconds: 3600, status: 'valid' as const, reason: '', checked_at: null, estimated_start: '2026-11-12T10:00:00', implicit: false }
+  const state: ComputeState = { backend: 'slurm', limits: null, read_at: null, error: null, accounts: null, partitions: null, answered: null, profiles: [valid, { ...valid, id: 'b', name: 'Refused', status: 'rejected' }] }
+  vi.spyOn(api, 'getCompute').mockResolvedValue(state)
+  render(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={{ ...template, execution: { backend: 'slurm', gpus_per_run: 2 } }} /></QueryClientProvider>)
+  expect(await screen.findByText(/One A100: the scheduler estimates a start at/)).toBeInTheDocument()
+  expect(screen.queryByText(/Refused/)).toBeNull()
+  expect(screen.getByRole('button', { name: 'Check queue' })).toBeEnabled()
+  expect(screen.getByText(/Estimates are predictions, not guarantees/)).toBeInTheDocument()
 })

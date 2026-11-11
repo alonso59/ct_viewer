@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, keys, useArchivedTaskRuns, useCase, useJobs, useStaleLive, useProject, useSegmentations, useTaskRuns, useTasks, type TaskEstimate, type TaskInfo, type TaskRunOutput, type TaskRunSummary } from '../../api'
-import { Button, ConfirmInline, Progress, ProblemCard, RadioSeg, RunStatusBadge, fmtAgo, fmtDuration } from '../../lib'
+import { Button, ConfirmInline, Progress, ProblemCard, RadioSeg, RunStatusBadge, SchedulerLine, fmtAgo, fmtDuration, schedulerOf } from '../../lib'
 import { openEditor, registry, toast, useWorkbench, type EditorProps, toastProblem } from '../../shell'
 import { useLayout, useReviewer, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -65,6 +65,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
     setPending(false)
   }
   const c = run.counts
+  const scheduler = schedulerOf(run.execution)
   const hasResults = !!registry.taskExtensions.get(run.task.id)?.results && !ACTIVE_RUN.includes(run.status)
   return (
     <li className="task-run" data-status={run.status}>
@@ -75,6 +76,7 @@ export function RunRow({ pid, run }: { pid: string; run: TaskRunSummary }) {
       </div>
       {live ? <Progress value={job.done} total={job.total || 1} label={t('progress.run')} stale={stale} /> : null}
       {live && !run.execution?.phase_step && job.eta_s != null ? <span className="muted">{t('tasks.eta', { eta: fmtDuration(job.eta_s) })}</span> : null}
+      {scheduler ? <SchedulerLine status={scheduler} /> : null}
       {run.status === 'waiting_for_runner' ? <p className="muted">{t('tasks.waitingUser')}</p> : null}
       {run.status === 'queued' ? <p className="muted">{t('tasks.queuedHelp')}</p> : null}
       {run.status === 'waiting_for_resources' ? <p className="muted">{t('tasks.resourcesHelp')}</p> : null}

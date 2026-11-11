@@ -93,5 +93,5 @@ Procedures: HPC_INSTALL.md. Record each result in the Level column with its date
 | `rw-native.py run`, `rw-app.sbatch`, session sign-in | Implemented, tested locally only: UNVERIFIED — MARVIN (A, B, C, E) |
 | Secure transport | UNVERIFIED — MARVIN (D); `BIND=node` is not a verified secure deployment |
 | Compute-job submission from the app | UNVERIFIED — MARVIN (G); BLOCKED — MARVIN if M14 fails and M15 finds nothing |
-| Compute profiles, storage registry, workspace status in the app | Not implemented (ADR-0055 §7–§10, ADR-0056) |
+| Compute profiles, scheduler status, storage registry, workspace status, backups | Implemented, tested locally and against fake scheduler tools only: UNVERIFIED — MARVIN (G, H, I, J, K) |
 | BLOCKED — MARVIN items | None recorded |

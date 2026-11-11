@@ -97,7 +97,9 @@
       "orbitUp": "Rotate the 3D view up",
       "orbitDown": "Rotate the 3D view down",
       "measurePoint": "Place a measurement point at the crosshair"
-    }
+    },
+    "storage": "Storage",
+    "compute": "Compute"
   },
   "shell": {
     "activityBar": "Activity bar",
@@ -322,7 +324,10 @@
     "datasetOpen": "View without a project",
     "datasetCreate": "Create project",
     "viewFiles": "View files",
-    "projects": "Projects"
+    "projects": "Projects",
+    "setup": "Setup",
+    "storageHelp": "Choose the folders you work in; workspace expiry on a cluster",
+    "computeHelp": "Compute profiles for a scheduler; check the queue"
   },
   "projects": {
     "alias": "Alias",
@@ -384,7 +389,9 @@
     "switchNamed": "Project {{name}}: switch project",
     "unavailable": "Project unavailable",
     "casesShort_one": "{{count}} case",
-    "casesShort_other": "{{count}} cases"
+    "casesShort_other": "{{count}} cases",
+    "storageUnavailable": "Storage unavailable",
+    "storageUnavailableHelp": "The project's folder cannot be reached (an expired workspace or a missing mount). The project stays listed; nothing was deleted."
   },
   "welcome": {
     "commands": "Show all commands",
@@ -815,7 +822,9 @@
     "pressKeysFor": "Press keys for {{command}}",
     "keyConflict": "{{keys}} is already used by {{command}}. Replace takes it from there.",
     "replaceKey": "Replace",
-    "resetMockConfirm": "Reset the prototype's tabs and layout? The page reloads."
+    "resetMockConfirm": "Reset the prototype's tabs and layout? The page reloads.",
+    "setup": "Workspace setup",
+    "setupHelp": "Where projects and data live, and what a scheduler is asked for. The same for a workstation and a cluster."
   },
   "design": {
     "open": "Open design reference",
@@ -1044,7 +1053,9 @@
     "labeling": "labeling",
     "phase": "phase",
     "focus": "focus",
-    "hu": "HU value"
+    "hu": "HU value",
+    "storage": "storage folder workspace location backup",
+    "compute": "compute scheduler slurm gpu partition account profile queue"
   },
   "about": {
     "statusTip": "Radiology Workbench {{version}} · Research use only"
@@ -1100,10 +1111,9 @@
   "reason": {
     "working": "Still working…",
     "checking": "Checking what is ready…",
-    "chooseSource": "Choose what to run on",
+    "chooseSource": "Choose a file or folder first",
     "preflightFailed": "The readiness check failed; see above",
     "chooseFolder": "Choose a folder first",
-    "chooseSource": "Choose a file or folder first",
     "fixAlias": "Fix the alias above",
     "uploadMetadata": "Upload the metadata file first",
     "chooseSourceType": "Choose how to read this folder",
@@ -1138,5 +1148,19 @@
     "error": "Error",
     "warning": "Warning",
     "info": "Info"
+  },
+  "sched": {
+    "state": "Scheduler: {{state}}",
+    "reason": "{{reason}}",
+    "job": "job {{id}}",
+    "node": "node {{node}}",
+    "time": "{{elapsed}} of {{limit}}",
+    "profile": "profile {{name}}",
+    "accounting": "Accounting: {{state}} · {{elapsed}} · exit {{code}}",
+    "efficiency": "Efficiency report"
+  },
+  "session": {
+    "ended": "Your session for this app job has ended. Sign in again with the session code.",
+    "signIn": "Sign in"
   }
 }

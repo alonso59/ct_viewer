@@ -12,8 +12,10 @@ import { registerConsole } from '../features/console'
 import { registerJobs } from '../features/jobs'
 import { registerLibrary } from '../features/library'
 import { registerProjects } from '../features/projects'
+import { registerSetup } from '../features/setup'
 import { registerVariables } from '../features/variables'
 import { registerViewer } from '../features/viewer'
+import { ProblemError, queryClient } from '../api'
 import { activatePlugins, FIRST_PARTY } from '../plugins'
 import {
   closeActiveEditor,
@@ -23,6 +25,7 @@ import {
   pinEditor,
   registry,
   splitActiveEditor,
+  toast,
   useWorkbench,
 } from '../shell'
 import { changeReviewer, useLayout, useSettings } from '../state'
@@ -40,6 +43,26 @@ const Help = lazy(() => Promise.all([import('./HelpDialogs'), import('../i18n/la
 function HelpDialogs() {
   const open = useHelp((s) => s.open)
   return open ? createElement(Suspense, { fallback: null }, createElement(Help)) : null
+}
+
+/** An app that runs as a scheduler job asks for a session; when it ends (sign-out by a restart or a
+ *  new job) every request answers `session-required`. One prompt says so and leads to sign-in. */
+function watchSession() {
+  const ended = (e: unknown) => e instanceof ProblemError && e.type.endsWith('/session-required')
+  const prompt = () =>
+    toast({
+      message: i18n.t('session.ended'),
+      tone: 'warn',
+      key: 'session.ended',
+      sticky: true,
+      action: { label: i18n.t('session.signIn'), run: () => window.location.assign('/sign-in') },
+    })
+  queryClient.getQueryCache().subscribe((e) => {
+    if (e.type === 'updated' && e.action.type === 'error' && ended(e.action.error)) prompt()
+  })
+  queryClient.getMutationCache().subscribe((e) => {
+    if (e.type === 'updated' && e.action.type === 'error' && ended(e.action.error)) prompt()
+  })
 }
 
 let done = false
@@ -60,6 +83,8 @@ export function bootstrap() {
   registerJobs()
   registerConsole()
   registerLibrary()
+  registerSetup()
+  watchSession()
 
   registry.view({ id: 'settings', title: 'view.settings', icon: codicon('settings-gear'), order: 100, position: 'bottom', component: SettingsView, hideImageSection: true })
   registry.editor({ type: 'design', component: DesignReference, id: () => 'design', title: () => i18n.t('design.title'), icon: () => codicon('symbol-color') })

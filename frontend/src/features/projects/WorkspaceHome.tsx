@@ -38,6 +38,7 @@ function ProjectCard({ p, onRelink }: { p: ProjectSummary; onRelink: () => void 
           <span className="home-project-name">
             {p.name}
             {empty ? <span className="badge">{t('projects.empty')}</span> : null}
+            {p.storage_available === false ? <span className="badge" data-tone="warn" title={t('projects.storageUnavailableHelp')}>{t('projects.storageUnavailable')}</span> : null}
           </span>
           {/* excluded cases are not counted in n_cases */}
           <span className="muted" title={p.n_cases_excluded ? t('projects.casesHelp', { excluded: p.n_cases_excluded }) : undefined}>
@@ -218,6 +219,17 @@ export function WorkspaceHome() {
                   if (f) setBundle(f)
                 }}
               />
+            </div>
+            <h2>{t('home.setup')}</h2>
+            <div className="home-actions">
+              <button type="button" className="home-action" onClick={() => runCommand('setup.storage')}>
+                <Icon spec={codicon('database')} size={20} />
+                <span><strong>{t('cmd.storage')}</strong><span className="muted">{t('home.storageHelp')}</span></span>
+              </button>
+              <button type="button" className="home-action" onClick={() => runCommand('setup.compute')}>
+                <Icon spec={codicon('server-process')} size={20} />
+                <span><strong>{t('cmd.compute')}</strong><span className="muted">{t('home.computeHelp')}</span></span>
+              </button>
             </div>
             <h2>{t('home.tips')}</h2>
             <ul className="home-tips muted">

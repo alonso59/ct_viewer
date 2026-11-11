@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { MODALITIES, useCreateProject, type ProjectModality } from '../../api'
+import { MODALITIES, useCreateProject, useStorage, type ProjectModality } from '../../api'
 import { Button, Dialog, ProblemCard } from '../../lib'
 import { FolderBrowser } from './FolderBrowser'
 import { codicon } from '../../theme'
@@ -22,6 +22,9 @@ function ProjectDialog({ open, onOpenChange, onCreated, prefill, name: suggested
   const [name, setName] = useState(suggested ?? '')
   const [dataset, setDataset] = useState(prefill?.kind === 'folder' ? prefill.path : prefill?.kind === 'file' ? prefill.path.slice(0, prefill.path.lastIndexOf('/')) || '/' : (prefill?.path ?? '').replace(/\/[^/]+\.(nii(?:\.gz)?|npy|dcm)$/i, ''))
   const [browse, setBrowse] = useState(false)
+  const storage = useStorage().data
+  // browsing starts at the default location for new projects; it never moves anything
+  const defaultFolder = storage?.locations.find((l) => l.id === storage.default_location && l.available)?.path ?? null
   const [modality, setModality] = useState<ProjectModality>('CT')
   const create = useCreateProject()
   const navigate = useNavigate()
@@ -66,7 +69,7 @@ function ProjectDialog({ open, onOpenChange, onCreated, prefill, name: suggested
           <input id="dataset-folder" className="input mono" value={dataset} onChange={(e) => setDataset(e.target.value)} placeholder={t('dataset.pathPlaceholder')} />
           <span className="muted small">{t('dataset.storageHelp')}</span>
           <button type="button" className="btn" onClick={() => setBrowse(!browse)}>{t('dataset.browse')}</button>
-          {browse ? <FolderBrowser path={dataset || null} onPath={(p) => setDataset(p ?? '')} /> : null}
+          {browse ? <FolderBrowser path={dataset || defaultFolder} onPath={(p) => setDataset(p ?? '')} /> : null}
         </div>
         <div className="field">
           <span className="field-label">{t('projects.modality')}</span>

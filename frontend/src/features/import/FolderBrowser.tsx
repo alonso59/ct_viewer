@@ -2,7 +2,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useFsList, type RootRole } from '../../api'
+import { useFsList, type FsScope, type RootRole } from '../../api'
 import { ProblemCard, midEllipsis, useRowKeys } from '../../lib'
 import { Icon, codicon } from '../../theme'
 import { ACCEPTED } from './store'
@@ -12,13 +12,14 @@ const FILTER_FROM = 12
 /** The Parent folder / All shared folders row's id among the options */
 const UP = '..'
 
-/** Browse folders under ALLOWED_DATA_ROOTS (or ALLOWED_DERIVED_ROOTS); `null` = the roots */
+/** Browse folders under the storage locations, else ALLOWED_DATA_ROOTS (or ALLOWED_DERIVED_ROOTS); `null` = the roots */
 export function FolderBrowser({
   path,
   onPath,
   selected,
   onSelectFile,
   role = 'source',
+  scope = 'locations',
   fileFilter = (name: string) => ACCEPTED.test(name),
 }: {
   path: string | null
@@ -28,11 +29,13 @@ export function FolderBrowser({
   /** Makes accepted files clickable */
   onSelectFile?: (p: string) => void
   role?: RootRole
+  /** `allowed`: every folder the operator allows, not only the storage locations */
+  scope?: FsScope
   fileFilter?: (name: string) => boolean
 }) {
   const { t } = useTranslation()
-  const { data, isLoading, isError, error, refetch } = useFsList(path, role)
-  const roots = useFsList(null, role).data
+  const { data, isLoading, isError, error, refetch } = useFsList(path, role, scope)
+  const roots = useFsList(null, role, scope).data
   // the filter resets per folder
   const [filter, setFilter] = useState({ path, text: '' })
   const text = filter.path === path ? filter.text : ''

@@ -2,8 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
 
 import i18n from '../../i18n'
-import { useCancelJob, useJobs, useStaleLive, useTasks, type Job, type LogLine, type ServerEvent } from '../../api'
-import { ConfirmInline, ProblemCard, Progress, RunStatusBadge, fmtDuration, runStatusKey } from '../../lib'
+import { useCancelJob, useJobs, useStaleLive, useTaskRuns, useTasks, type Job, type LogLine, type ServerEvent } from '../../api'
+import { ConfirmInline, ProblemCard, Progress, RunStatusBadge, SchedulerLine, fmtDuration, runStatusKey, schedulerOf } from '../../lib'
 import { toastProblem, useWorkbench } from '../../shell'
 import { useLayout } from '../../state'
 import { Icon, codicon } from '../../theme'
@@ -57,8 +57,13 @@ export function JobsPanel() {
   const { data, error, isLoading, refetch } = useJobs(pid)
   const jobs = data ?? []
   const tasks = useTasks().data?.tasks
+  const runs = useTaskRuns(pid).data
   const cancel = useCancelJob(pid)
   const stale = useStaleLive()
+  const scheduled = (j: Job) => {
+    const status = j.kind === 'task' ? schedulerOf(runs?.find((r) => r.run_id === j.ref)?.execution) : null
+    return status ? <SchedulerLine status={status} /> : null
+  }
   const nameOf = (j: Job) => (j.kind === 'task' ? tasks?.find((x) => x.manifest.id === j.key)?.manifest.title : undefined) ?? t(JOB_KIND[j.kind])
   if (isLoading) return <div className="empty">{t('common.loading')}</div>
   if (error && !jobs.length) return <ProblemCard error={error} onRetry={() => void refetch()} />
@@ -82,7 +87,11 @@ export function JobsPanel() {
           return (
           <tr key={j.job_id}>
             <td>{name}</td>
-            <td><RunStatusBadge status={j.status} title={j.error ?? undefined} />{j.error ? <p className="field-error">{j.error}</p> : null}</td>
+            <td>
+              <RunStatusBadge status={j.status} title={j.error ?? undefined} />
+              {j.error ? <p className="field-error">{j.error}</p> : null}
+              {scheduled(j)}
+            </td>
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1 }}><Progress value={j.done} total={j.total} label={name} stale={stale} /></div>

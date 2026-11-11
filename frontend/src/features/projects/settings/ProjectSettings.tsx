@@ -9,6 +9,8 @@ import {
   MODALITIES,
   ProblemError,
   useApplyPack,
+  useBackupEdit,
+  useBackups,
   usePacks,
   usePlugins,
   useProject,
@@ -22,7 +24,7 @@ import {
   type Project,
   type ProjectPatch,
 } from '../../../api'
-import { ConfirmInline, NumberInput, ProblemCard } from '../../../lib'
+import { Button, ConfirmInline, NumberInput, ProblemCard, fmtBytes, fmtDate } from '../../../lib'
 import { runCommand, toast, toastProblem, useWorkbench, type EditorProps } from '../../../shell'
 import { useLayout } from '../../../state'
 import { Icon, autoLabelColor, codicon } from '../../../theme'
@@ -348,7 +350,64 @@ function Data({ pid, project }: { pid: string; project: Project }) {
         <input type="checkbox" checked={sensitive} onChange={(e) => setSensitive(e.target.checked)} />
         {t('psettings.exportSensitive')}
       </label>
+      <Backups pid={pid} />
     </div>
+  )
+}
+
+/** Explicit copies of the project's state (never images or outputs) into the app's own folder */
+function Backups({ pid }: { pid: string }) {
+  const { t } = useTranslation()
+  const backups = useBackups(pid)
+  const edit = useBackupEdit(pid)
+  const s = backups.data
+  return (
+    <>
+      <h3>{t('psettings.backups')}</h3>
+      <p className="muted psettings-help">{t('psettings.backupsHelp')}</p>
+      {backups.isError ? <ProblemCard error={backups.error} onRetry={() => void backups.refetch()} /> : null}
+      {s ? (
+        <>
+          <p className="muted small">
+            {s.estimate_bytes != null ? `${t('psettings.backupSize', { size: fmtBytes(s.estimate_bytes) })} · ` : ''}
+            {t('psettings.backupUse', { used: fmtBytes(s.total_bytes), total: fmtBytes(s.total_limit_bytes), each: fmtBytes(s.limit_bytes) })}
+            {s.free_bytes != null ? ` · ${t('psettings.backupFree', { free: fmtBytes(s.free_bytes) })}` : ''}
+          </p>
+          {s.blocked ? <p className="muted small" role="status">{s.blocked}</p> : null}
+          <div className="psettings-row">
+            <Button className="btn btn-sm" disabled={!!s.blocked || edit.create.isPending} reason={s.blocked || t('reason.working')} onClick={() => edit.create.mutate(undefined, { onSuccess: () => toast({ message: t('psettings.backupDone'), tone: 'ok' }) })}>
+              {t(edit.create.isPending ? 'psettings.backingUp' : 'psettings.backupNow')}
+            </Button>
+          </div>
+          {edit.create.isError ? <ProblemCard error={edit.create.error} /> : null}
+          {s.backups.length ? (
+            <table className="psettings-table">
+              <thead><tr><th>{t('psettings.backupDate')}</th><th className="num">{t('psettings.backupBytes')}</th><th /></tr></thead>
+              <tbody>
+                {s.backups.map((b) => (
+                  <tr key={b.name}>
+                    <td>{fmtDate(b.created_at)}</td>
+                    <td className="num">{fmtBytes(b.size_bytes)}</td>
+                    <td>
+                      <div className="row">
+                        <a className="btn btn-sm" href={api.backupUrl(pid, b.name)} download title={t('psettings.backupRestoreHelp')}>{t('psettings.backupDownload')}</a>
+                        <ConfirmInline
+                          question={t('psettings.backupDeleteQuestion')}
+                          confirm={t('psettings.backupDelete')}
+                          onConfirm={() => edit.remove.mutate(b.name)}
+                          trigger={(ask) => <button type="button" className="btn btn-sm" onClick={ask}>{t('psettings.backupDelete')}</button>}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <p className="muted small">{t('psettings.noBackups')}</p>}
+          <p className="muted small">{t('psettings.backupRestoreHelp')}</p>
+        </>
+      ) : null}
+    </>
   )
 }
 

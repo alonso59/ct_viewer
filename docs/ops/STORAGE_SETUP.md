@@ -1,6 +1,6 @@
 # Storage setup
 
-Scope: where the application keeps its state and where project data lives, on a workstation or server and on a cluster; what works today and what ADR-0056 plans.
+Scope: where the application keeps its state and where project data lives, on a workstation or server and on a cluster.
 Read when: installing the app, adding a dataset folder, or working on Settings → Storage.
 Depends: DEPLOYMENT.md (§Config, OPS-04, OPS-11, OPS-12, OPS-15), ../domain/PROJECT_FORMAT.md (PRJ-19), ../adr/0056-storage-locations-local-and-managed-workspaces.md.
 
@@ -17,9 +17,9 @@ No step here needs root, sudo or a change of file ownership or modes. Standalone
 Application state is small and must persist; project data is large and stays where the user put it.
 The registry records where each project is; it never holds images, masks or outputs.
 
-## Today: configured by the operator
+## The operator's folders
 
-The allowed folders are settings in `config/runtime.env` of the state folder (DEPLOYMENT.md §Config). There is no Settings → Storage screen yet.
+The allowed folders are settings in `config/runtime.env` of the state folder (DEPLOYMENT.md §Config). They are the outer bound: the app never goes beyond them.
 
 | Step | How |
 |---|---|
@@ -29,7 +29,7 @@ The allowed folders are settings in `config/runtime.env` of the state folder (DE
 | A folder the app must not write | List it in `ALLOWED_DATA_ROOTS` and keep it read-only for your Unix user; a project on it cannot use dataset-local storage (PRJ-19 needs a writable dataset folder) |
 | Outputs outside a dataset | A separate writable folder in `ALLOWED_DERIVED_ROOTS` (OPS-11); it must not overlap a data root (OPS-12) |
 | A project | In the app: new project → choose a dataset folder under an allowed root; its state goes to `.workbench/` and its outputs to `derived/` in that folder (PRJ-19) |
-| The segmentation runner | Its operator file lists the same folders (../domain/SEGMENTATION_RUNTIMES.md §Operator configuration); today that list is edited by hand |
+| The segmentation runner | Its operator file lists the same folders (../domain/SEGMENTATION_RUNTIMES.md §Operator configuration); a run whose output folder it does not list is refused when it starts, naming the folder |
 
 Validation that exists today:
 
@@ -40,19 +40,27 @@ Validation that exists today:
 
 Compatibility: projects keep their absolute paths and aliases. Moving a dataset folder is handled by "Reopen from a dataset folder…" (PRJ-19) and relink (PRJ-05); nothing is moved or rewritten automatically.
 
-## Planned: Settings → Storage (ADR-0056, not implemented)
+## In the app: Storage (ADR-0056)
 
-| Planned | Meaning |
+Open it from the home screen (Setup › Storage), the Settings view or the palette. Nothing here needs SLURM, Lustre or root, and nothing changes data on disk.
+
+| Action | What happens |
 |---|---|
-| Storage registry | Named locations (`local_directory` or `managed_hpc_workspace`, read-only or read-write) in one file in the application state, read by the app and the runner |
-| Registration in the app | Add a location at or below a root the operator allows; the app cannot widen that policy |
-| Test | Canonical path, symlinks, permissions and one probe file for a writable location |
-| Default location | For new projects only; changing it moves nothing |
-| Unavailable storage | The project stays in the registry, marked unavailable; other projects are unaffected |
-| Workspace status | Expiry, remaining time and extensions of a managed workspace, with copyable site commands; the app never runs them |
-| Project-state backup | An explicit action; 1 GiB per backup and 2 GiB in total by default; never automatic, never images or outputs |
+| Add a location | Pick a folder inside the operator's folders, read-write or read-only, with an optional name. Refused outside them, through a symlink that leaves them, inside the application state, when missing, or when your permissions do not allow the chosen access (API-83) |
+| Locations exist | The folder browser starts at them and stays inside them; adding a location still browses every allowed folder |
+| Test | Writes and removes one probe file where task outputs may go (`ALLOWED_DERIVED_ROOTS`); elsewhere it checks your permissions only, so a source is never written |
+| Use for new projects | The new-project dialog starts browsing there; changing it moves nothing |
+| Remove | Forgets the location; its files and projects stay |
+| Unavailable | The location and its projects are shown unavailable; other locations and projects keep working |
+| Cluster workspaces | Where the site has `ws_list`, the runner reads it: expiry, remaining time, extensions left, a warning from 14 days before expiry, and copyable `ws_extend` and `ws_allocate` lines. You run them; the app never does |
 
-Until these exist, the table under §Today is the whole procedure.
+The registry is `storage.json` in `WORKSPACE_ROOT`. Existing projects keep their paths and are not migrated.
+
+### Project-state backup
+
+Project settings › Data › Backups copies one dataset-local project's state (curation, labels, settings; never images, masks, outputs or caches) into `WORKSPACE_ROOT/backups/` as a project bundle, only when you ask (API-84).
+It shows the estimated size and the space used, and refuses above `BACKUP_MAX_MB` (1 GiB) per backup or `BACKUP_TOTAL_MB` (2 GiB) for all of them; free space is shown but does not prove quota.
+A failed backup leaves the earlier ones untouched. To restore, download a backup and use Import bundle on the home screen.
 
 ## On a cluster
 
@@ -61,8 +69,8 @@ Until these exist, the table under §Today is the whole procedure.
 | HOME | Application state, releases and conda environments only. It is small: never set a data, derived or managed derived root there |
 | Managed workspaces | Datasets and outputs. Allocate and renew them yourself with the site's commands (HPC_INSTALL.md §Workspaces); list the workspace folder in `ALLOWED_DATA_ROOTS` |
 | Group-shared workspace | List its folder the same way; your effective permissions decide what works. Dataset-local projects need the dataset folder writable by you |
-| Expiry | A workspace is deleted some time after it expires, with the project state inside it. The app does not track expiry yet: keep your own reminder (the site's reminder file, where it has one) |
-| Copies | Keep anything irreplaceable (curation, labels) also outside the workspace; until the backup action exists, copy the dataset's `.workbench/projects/` folder yourself while the app is stopped |
+| Expiry | A workspace is deleted some time after it expires, with the project state inside it. Storage shows the expiry the runner last read and warns before it; a run whose output workspace ends before its wall time is refused. Keep the site's own reminder too |
+| Copies | Back up a project's state to HOME before a workspace can expire (§Project-state backup) |
 | Job-local disk | For temporary files only. It is private to one job and removed when the job ends: never the only copy of a result |
 | Lustre | Follow the site's guide for striping and many small files. Set striping on a folder before writing into it; moving files does not change it. The app sets none |
 

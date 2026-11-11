@@ -1,10 +1,10 @@
-// Settings view (activity bar, bottom): theme, interface size, reviewer, list density, keybindings
+// Settings view (activity bar, bottom): theme, interface size, reviewer, storage and compute, list density, keybindings
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { API_MODE } from '../api'
 import { ConfirmInline } from '../lib'
-import { bindingOf, chordOf, commandMatches, commandTitle, formatChord, keyConflicts, openEditor, registry, toast } from '../shell'
+import { bindingOf, chordOf, commandMatches, commandTitle, formatChord, keyConflicts, openEditor, registry, runCommand, toast } from '../shell'
 import { useReviewer, useSettings } from '../state'
 import { INTERFACE_SIZES, type ThemeChoice } from '../theme'
 
@@ -63,6 +63,14 @@ export function SettingsView() {
         </div>
         <span id="settings-reviewer-help" className="muted small">{t('reviewer.help')}</span>
       </form>
+      <div className="field">
+        <span className="field-label">{t('settings.setup')}</span>
+        <div className="row wrap">
+          <button type="button" className="btn btn-sm" onClick={() => runCommand('setup.storage')}>{t('cmd.storage')}</button>
+          <button type="button" className="btn btn-sm" onClick={() => runCommand('setup.compute')}>{t('cmd.compute')}</button>
+        </div>
+        <span className="muted small">{t('settings.setupHelp')}</span>
+      </div>
       <div className="field">
         <span className="field-label" id="settings-rows">{t('settings.rows')}</span>
         <div className="seg" role="group" aria-labelledby="settings-rows">

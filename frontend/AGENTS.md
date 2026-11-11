@@ -5,7 +5,7 @@ React 19 · TypeScript ~5.9 strict · Vite · Vitest · Playwright · i18next. P
 **Owns** (folder detail: `docs/frontend/ARCHITECTURE.md` §Folder layout)
 - `src/shell/`: workbench chrome, command registry, keybindings; no domain logic.
 - `src/features/viewer/`: viewer, inspector display controls and the dedicated segmentation management editor.
-- `src/features/<name>/`: product areas (projects, import, open, explorer, viewer, tasks, phase, variables, library, jobs).
+- `src/features/<name>/`: product areas (projects, import, open, explorer, viewer, tasks, phase, variables, library, jobs, setup: storage locations and compute profiles).
 - `src/plugins/<name>/`: first-party UI plugins (curation, labeling, radiomics, dashboard, dicom, analyzers, packs); `host.ts` activates them.
 - `src/api/`: typed client over the generated schema, query keys, SSE; `src/state/` cross-feature stores; `src/i18n/`, `src/theme/`, `src/lib/` shared pieces.
 - `e2e/`: Playwright specs against a real backend on the fixtures.
