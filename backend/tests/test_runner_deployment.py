@@ -97,6 +97,16 @@ def test_scheduler_settings_cannot_contain_extra_flags_or_shell_text() -> None:
         validate_config(raw)
 
 
+@pytest.mark.parametrize(
+    "path", ["/lustre/operator/source/tmp", "/lustre/operator/models", "/lustre"]
+)
+def test_scheduler_scratch_cannot_be_written_inside_a_source_or_model_root(path: str) -> None:
+    raw = config("slurm")
+    raw["slurm"]["scratch"] = path
+    with pytest.raises(ValueError, match=r"scratch.*overlap"):
+        validate_config(raw)
+
+
 def test_browser_commands_and_unrecognized_configuration_are_refused() -> None:
     raw = config()
     raw["command"] = ["sh", "-c", "anything"]

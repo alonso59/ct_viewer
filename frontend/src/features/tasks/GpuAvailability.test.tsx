@@ -35,7 +35,7 @@ test('shows the configured memory requirement and counts a busy-looking GPU as u
 test('a scheduler-managed runner shows who assigns GPUs instead of a check button', async () => {
   const template = (await api.listTasks()).tasks[0]!
   const withExecution = (execution: TaskInfo['execution']): TaskInfo => ({ ...template, execution })
-  const view = render(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={withExecution({ backend: 'slurm', limits: { gpus: 2 }, inventory: { devices: [] } })} /></QueryClientProvider>)
+  const view = render(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={withExecution({ backend: 'slurm', limits: { gpus: 4 }, gpus_per_run: 2, inventory: { devices: [] } })} /></QueryClientProvider>)
   expect(screen.getByText('The scheduler assigns GPUs (up to 2 per run)')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Check GPUs' })).toBeNull()
   view.rerender(<QueryClientProvider client={new QueryClient()}><GpuAvailability info={withExecution({ backend: 'slurm' })} /></QueryClientProvider>)

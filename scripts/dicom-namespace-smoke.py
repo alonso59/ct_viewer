@@ -21,16 +21,16 @@ from app.tasks import protocol
 from app.tasks.dicom_execution import run_dicom_job
 from app.tasks.dicom_process import process_identity
 
-name, workspace_name, evidence = sys.argv[1:4]
+name, label, evidence = sys.argv[1:4]
 root = Path(evidence)
-workspace = root / workspace_name / 'workspace'
+workspace = root / 'workspace'
 workspace.mkdir(parents=True, exist_ok=True)
 job = workspace / name
 source = root / 'source'
 protocol.write_job(job, {
     'operation': 'open', 'attempt': 1, 'source': str(source),
     'files': sorted(p.name for p in source.iterdir()),
-    'destination': str(root / 'derived' / (workspace_name + '.nii.gz')),
+    'destination': str(root / 'derived' / (label + '.nii.gz')),
 })
 atomic_write_json(root / (name + '.driver.json'), process_identity(os.getpid()))
 def started(pid):
@@ -45,6 +45,9 @@ outcome = asyncio.run(run_dicom_job(job, workspace=workspace, settings=settings,
     cancelled=lambda: (root / (name + '.cancel')).exists(), on_started=started))
 atomic_write_json(root / (name + '.outcome.json'), outcome)
 """
+
+# Both containers share one workspace, so its DICOM lease is the only cross-namespace admission.
+LEASE = "workspace/plugins/dicom/execution.json"
 
 SIGNAL = """
 import json, os, signal, sys
@@ -85,10 +88,10 @@ def run(image: str, root: Path) -> None:
             time.sleep(0.05)
         raise TimeoutError(f"No acknowledgment: {name}")
 
-    def start(container: str, name: str, workspace: str) -> subprocess.Popen[str]:
+    def start(container: str, name: str, label: str) -> subprocess.Popen[str]:
         log = (root / f"{name}.log").open("w")
         process = subprocess.Popen(
-            ["docker", "exec", container, "python", "-c", ACTOR, name, workspace, "/evidence"],
+            ["docker", "exec", container, "python", "-c", ACTOR, name, label, "/evidence"],
             stdout=log,
             stderr=subprocess.STDOUT,
             text=True,
@@ -98,14 +101,14 @@ def run(image: str, root: Path) -> None:
 
     def waiting(name: str) -> None:
         wait_file(f"{name}.driver.json")
-        progress = root / "B/workspace" / name / "progress.jsonl"
+        progress = root / "workspace" / name / "progress.jsonl"
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             if progress.exists() and "waiting_for_resources" in progress.read_text():
                 assert not (root / f"{name}.started.json").exists()
                 return
             time.sleep(0.05)
-        raise AssertionError(f"Foreign workspace did not wait: {name}")
+        raise AssertionError(f"Foreign namespace did not wait: {name}")
 
     try:
         for label in ("A", "B"):
@@ -151,14 +154,14 @@ write_series(Path('/evidence/source'), shape=(5,4,12), marker=(2,1,3), seed='nam
         first = start(a, "A1", "A")
         owner = wait_file("A1.started.json")
         assert owner["namespace"] == namespaces[0]
-        lease = (root / "pool/lease.json").read_bytes()
+        lease = (root / LEASE).read_bytes()
         queued = start(b, "B1", "B")
         waiting("B1")
         (root / "B1.cancel").touch()
         cancelled = wait_file("B1.outcome.json")
         assert cancelled["cleanup_verified"] and cancelled["cancelled"]
         assert queued.wait(timeout=10) == 0
-        assert (root / "pool/lease.json").read_bytes() == lease
+        assert (root / LEASE).read_bytes() == lease
         execute(a, SIGNAL, "/evidence/A1.driver.json", str(signal.SIGKILL))
         assert first.wait(timeout=15) == 137
         execute(
@@ -175,7 +178,7 @@ assert not group_running(owner['group'])
         )
         second = start(b, "B2", "B")
         waiting("B2")
-        assert (root / "pool/lease.json").read_bytes() == lease
+        assert (root / LEASE).read_bytes() == lease
         resumed = start(a, "A2", "A")
         wait_file("A2.started.json")
         assert not (root / "B2.started.json").exists()
@@ -184,7 +187,7 @@ assert not group_running(owner['group'])
             result = wait_file(f"{name}.outcome.json")
             assert result["cleanup_verified"] and result["exit_code"] == 0, result
             assert process.wait(timeout=15) == 0
-        assert not (root / "pool/lease.json").exists()
+        assert not (root / LEASE).exists()
         execute(
             a,
             """

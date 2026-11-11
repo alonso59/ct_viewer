@@ -116,7 +116,9 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("unknown slurm configuration")
     for name, value in scheduler.items():
         if name == "scratch":
-            absolute_path(value, "slurm scratch")
+            scratch = absolute_path(value, "slurm scratch").resolve()
+            if any(overlaps(scratch, root.resolve()) for root in readonly):
+                raise ValueError("slurm scratch overlaps source/model roots")
         elif name == "max_parallel":
             if type(value) is not int or not 1 <= value <= 64:
                 raise ValueError("invalid max_parallel")

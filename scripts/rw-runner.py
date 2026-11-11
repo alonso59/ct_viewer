@@ -33,6 +33,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from plugins.protocol import utc_now, write_json_atomic
+from plugins.runner import gpu
 from plugins.runner.preflight import inspect_host
 from plugins.runner.slurm import supervisor as configured_supervisor
 from plugins.runner.supervised import Supervisor, isolated_argv, stopping
@@ -189,6 +190,7 @@ class Runner:
                 "execution": {
                     "backend": self.supervisor.config["backend"],
                     "limits": self.supervisor.config["limits"],
+                    "gpus_per_run": min(gpu.MAX_GPUS, self.supervisor.config["limits"]["gpus"]),
                     "allocation": self.supervisor.pool.identity(),
                     **self.supervisor.capabilities,
                     "last_error": self.supervisor.last_error,

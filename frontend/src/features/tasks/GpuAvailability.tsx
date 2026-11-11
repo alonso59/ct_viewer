@@ -9,8 +9,7 @@ type Inventory = { at?: string; error?: string | null; required_free_mb?: number
 const schedulerCapOf = (info: TaskInfo) => {
   const execution = info.execution
   if (execution?.backend !== 'slurm') return undefined
-  const limits = execution.limits as { gpus?: unknown } | undefined
-  return { gpus: typeof limits?.gpus === 'number' ? limits.gpus : null }
+  return { gpus: typeof execution.gpus_per_run === 'number' ? execution.gpus_per_run : null }
 }
 const inventoryOf = (info: TaskInfo) => info.execution?.inventory as Inventory | undefined
 
