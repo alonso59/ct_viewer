@@ -8,3 +8,5 @@ Status: Accepted · Date: 2026-09-23
 **Consequences.** + One codebase, same UX everywhere; + remote servers work unchanged. − The desktop app still needs a running backend (Docker locally). The frontend must avoid Node APIs (FE-07).
 
 **Rejected.** Electron-first with a bundled Python sidecar (PyInstaller): heavy packaging and no remote-server use. Tauri: same bundling problem, and no benefit for a web-first app.
+
+**Amended by ADR-0054.** The shell starts one of three backends: the native release on Linux, Docker compose on Windows and macOS for development and tests only, or a forwarded remote server; production stays the native release.

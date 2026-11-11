@@ -6,7 +6,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 
 | ADR | Title | Status |
 |---|---|---|
-| 0001 | Web app first; Electron as a thin shell later | Accepted |
+| 0001 | Web app first; Electron as a thin shell later | Accepted (amended by 0054) |
 | 0002 | Project-folder storage; no database server | Accepted (amended by 0014) |
 | 0003 | Client-side rendering with NiiVue | Accepted |
 | 0004 | No accounts; link sharing; reviewer name stamp | Accepted (amended by 0019) |
@@ -59,4 +59,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0051 | Native conda is the only production deployment; the image is for tests and local Docker; udocker is removed | Accepted (supersedes 0007; partially supersedes 0043) |
 | 0052 | Source operations: one record owner, flows in their own modules | Accepted (extends 0035) |
 | 0053 | SLURM v2: several jobs at once, job arrays and a sandbox on compute nodes | Proposed (extends 0034) |
-| 0054 | Electron: which backend the desktop app starts on each operating system | Proposed (amends 0001) |
+| 0054 | Electron: which backend the desktop app starts on each operating system | Accepted (amends 0001) |

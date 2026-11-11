@@ -150,7 +150,7 @@ Steps as COHORT.md; independent of P7g–P7j. After P7k, a separate cleanup deci
 
 ### P8 — Electron
 - [ ] Thin shell + preload bridge for native folder dialogs (ADR-0001)
-**Exit:** the desktop app connects to a local Docker backend and a forwarded remote one.
+**Exit:** the desktop app connects to a local native release (Linux), a local Docker compose backend for development and tests (Windows, macOS) and a forwarded remote one (ADR-0054).
 
 ## Migration from v2
 
