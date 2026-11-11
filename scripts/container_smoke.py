@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
-"""Container smoke: health OK, SPA served, one item viewable.
+"""Container smoke under Docker, plus the image gates.
 
-Talks HTTP only (stdlib, runs with any host python3): it creates a project, imports DATA_ROOT, waits for the index job and reads the first bytes of one
-item's image.
+Image size <= 1.5 GB · IBSI phantom smoke in the image · empty ALLOWED_DATA_ROOTS refuses to start ·
+runs as an arbitrary UID · health, SPA, import + one item viewable · Docker HEALTHCHECK ·
+source files unchanged (R1). Standard library only; talks to Docker through its CLI.
 
-    python3 scripts/container_smoke.py --url http://127.0.0.1:8000 --root /abs/data/root
+    make fixtures && make image && python3 scripts/container_smoke.py
+
+Env: IMAGE (default radiology-workbench:<backend/pyproject.toml version>), DATA_ROOT (default the
+synthetic fixtures; a custom root skips the mask label checks), SMOKE_PORT (default 8099),
+SMOKE_UID (default 12345).
 """
 
 from __future__ import annotations
 
-import argparse
 import json
+import os
+import re
+import subprocess
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 API = "/api/v1"
@@ -111,15 +119,93 @@ def run(base: str, root: str, timeout: float, segmentations: bool = False) -> No
     check(restored == original, "label restore returns original mask bytes")
 
 
+MAX_IMAGE_BYTES = 1_500_000_000
+
+
+def docker(*args: str, check_exit: bool = True) -> str:
+    done = subprocess.run(["docker", *args], capture_output=True, text=True, check=False)
+    if check_exit and done.returncode:
+        raise SystemExit(f"FAIL docker {args[0]}: {done.stderr.strip()}")
+    return done.stdout.strip()
+
+
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
-    ap.add_argument("--url", default="http://127.0.0.1:8000")
-    ap.add_argument("--root", required=True, help="data root as seen inside the container")
-    ap.add_argument("--timeout", type=float, default=120)
-    ap.add_argument("--segmentations", action="store_true", help="Require the synthetic mask label lifecycle checks")
-    args = ap.parse_args()
-    run(args.url.rstrip("/"), args.root, args.timeout, args.segmentations)
-    print("container smoke pass")
+    repo = Path(__file__).resolve().parent.parent
+    version = re.search(r'^version = "(.*)"', (repo / "backend/pyproject.toml").read_text(), re.MULTILINE)
+    image = os.environ.get("IMAGE") or f"radiology-workbench:{version.group(1) if version else 'dev'}"
+    root = Path(os.environ.get("DATA_ROOT") or repo / ".fixtures/synthetic/Dataset900")
+    if not root.is_dir():
+        raise SystemExit(f"missing data root {root} (run: make fixtures)")
+    root = root.resolve()
+    port = os.environ.get("SMOKE_PORT", "8099")
+    uid = os.environ.get("SMOKE_UID", "12345")
+    name = f"rw-smoke-{os.getpid()}"
+    # Named volumes seeded with `docker cp`, not bind mounts: works on any Docker host (remote
+    # contexts, VMs without host shares). The data path inside the container is /data/<root name>.
+    croot = f"/data/{root.name}"
+    try:
+        # Uncompressed root filesystem (`docker image inspect .Size` is the compressed content
+        # size under the containerd image store).
+        size = int(docker("run", "--rm", image, "du", "-sxb", "/").split()[0])
+        check(size <= MAX_IMAGE_BYTES, f"image size {size // 1_000_000} MB uncompressed <= 1500 MB")
+        docker("run", "--rm", image, "python", "-m", "tools.spikes.ibsi_phantom_smoke")
+        check(True, "IBSI phantom smoke in the image")
+
+        docker("run", "-d", "--name", f"{name}-empty", "-e", "ALLOWED_DATA_ROOTS=", image)
+        for _ in range(60):
+            if docker("inspect", "-f", "{{.State.Running}}", f"{name}-empty") == "false":
+                break
+            time.sleep(0.5)
+        code = docker("inspect", "-f", "{{.State.Running}} {{.State.ExitCode}}", f"{name}-empty")
+        check(code.startswith("false ") and code != "false 0", f"empty ALLOWED_DATA_ROOTS refuses to start ({code})")
+        logs = subprocess.run(["docker", "logs", f"{name}-empty"], capture_output=True, text=True, check=False)
+        check("ALLOWED_DATA_ROOTS" in logs.stdout + logs.stderr, "refusal names ALLOWED_DATA_ROOTS")
+
+        docker("create", "--name", f"{name}-seed", "-v", f"{name}-data:/data", image)
+        docker("cp", "-q", str(root), f"{name}-seed:{croot}")
+        docker("run", "--rm", "-u", "0", "-v", f"{name}-ws:/workspace", image, "chown", f"{uid}:{uid}", "/workspace")
+
+        def hashes() -> str:
+            listing = "cd /data && find . -type f -print0 | sort -z | xargs -0 sha256sum"
+            return docker("run", "--rm", "-v", f"{name}-data:/data:ro", image, "sh", "-c", listing)
+
+        before = hashes()
+        docker(
+            "run",
+            "-d",
+            "--name",
+            name,
+            "--user",
+            f"{uid}:{uid}",
+            "-p",
+            f"127.0.0.1:{port}:8000",
+            "-v",
+            f"{name}-ws:/workspace",
+            "-v",
+            f"{name}-data:/data:ro",
+            "-e",
+            f"ALLOWED_DATA_ROOTS={croot}",
+            image,
+        )
+        check(True, f"started as arbitrary uid {uid}")
+        try:
+            run(f"http://127.0.0.1:{port}", croot, 120, segmentations=not os.environ.get("DATA_ROOT"))
+        except SystemExit:
+            print(docker("logs", "--tail", "40", name, check_exit=False))
+            raise
+
+        health = "starting"
+        for _ in range(90):
+            health = docker("inspect", "-f", "{{.State.Health.Status}}", name)
+            if health != "starting":
+                break
+            time.sleep(1)
+        check(health == "healthy", f"Docker HEALTHCHECK {health}")
+        check(hashes() == before, f"{len(before.splitlines())} source files unchanged (R1)")
+        print(f"container smoke pass: {image}")
+    finally:
+        subprocess.run(["docker", "rm", "-f", name, f"{name}-empty", f"{name}-seed"], capture_output=True, check=False)
+        subprocess.run(["docker", "volume", "rm", "-f", f"{name}-ws", f"{name}-data"], capture_output=True, check=False)
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ jobs:
         run: |
           docker run --rm radiology-workbench:verification \
             python -c 'import pyarrow as pa; assert pa.default_memory_pool().backend_name == "system"'
-          IMAGE=radiology-workbench:verification scripts/container-smoke.sh
+          IMAGE=radiology-workbench:verification python3 scripts/container_smoke.py
       - name: Verify native DICOM conversion and durable Open after API restart
         run: |
           mkdir -p build/ci/image-lifecycle

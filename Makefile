@@ -32,7 +32,7 @@ else
   $(error RUNTIME must be native or docker)
 endif
 
-.PHONY: help setup setup-backend setup-frontend fixtures dev-backend dev-frontend gen-api gen-dicom-schema record-mock check lint typecheck test test-env test-runner test-host test-host-browser deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image container-smoke shellcheck up down logs
+.PHONY: help setup setup-backend setup-frontend fixtures dev-backend dev-frontend gen-api gen-dicom-schema record-mock check lint typecheck test test-env test-runner test-host test-host-browser deadcode api-types bundle-size reqs fix bundle-baseline coverage e2e e2e-one e2e-servers docs docs-srs trace image container-smoke up down logs
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "} /^##@ / {printf "\n%s\n", substr($$0, 5)} /^[a-z0-9-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -166,10 +166,7 @@ image: ## Build the test image radiology-workbench:VERSION (Docker)
 	docker build $(if $(PLATFORM),--platform $(PLATFORM),) -t radiology-workbench:$(VERSION) .
 
 container-smoke: ## Smoke-test the built image (Docker)
-	scripts/container-smoke.sh
-
-shellcheck: ## Lint scripts/*.sh with koalaman/shellcheck:stable (Docker, files piped on stdin; not in `make check`)
-	@for f in scripts/*.sh; do echo "shellcheck $$f"; docker run --rm -i koalaman/shellcheck:stable -f gcc - < "$$f" || exit 1; done
+	python3 scripts/container_smoke.py
 
 ##@ Local Docker (development and quick tests; production is `scripts/rw-native.py`)
 
