@@ -195,6 +195,11 @@ class Runner:
                     **self.supervisor.capabilities,
                     "last_error": self.supervisor.last_error,
                     "inventory": self.supervisor.inventory_snapshot(),
+                    "scheduler": self.supervisor.scheduler_snapshot(),
+                    "roots": {
+                        name: self.supervisor.config.get(name, [])
+                        for name in ("source_roots", "derived_roots", "managed_datasets")
+                    },
                 }
                 if self.supervisor
                 else None,

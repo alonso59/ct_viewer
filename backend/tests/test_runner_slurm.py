@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from plugins.runner import service, slurm
+from plugins.runner import scheduler, slurm
 from plugins.runner.deployment import validate_config
 from plugins.runner.supervised import Supervisor
 
@@ -29,6 +29,11 @@ options = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") a
 if (root / "down").exists() or (tool == "sacct" and (root / "no-accounting").exists()):
     sys.exit(1)
 if tool == "sbatch":
+    if "--test-only" in sys.argv:
+        if (root / "refuse-profile").exists():
+            sys.exit("sbatch: error: Invalid partition name specified")
+        print("sbatch: Job 9 to start at 2026-11-12T10:00:00 using 3 processors", file=sys.stderr)
+        sys.exit(0)
     if (root / "refuse").exists():
         sys.exit("sbatch: error: invalid account")
     identity = str(100 + len(jobs))
@@ -43,7 +48,8 @@ else:
     for identity, job in jobs.items():
         if job["name"] == options["name"] and (tool == "sacct" or job["listed"]):
             suffix = " by 1008" if job["state"] == "CANCELLED" else ""
-            print(f"{identity}|{job['state']}{suffix}")
+            extra = "|Priority|n01|0:05|1:00" if tool == "squeue" else ""
+            print(f"{identity}|{job['state']}{suffix}{extra}")
 """
 TASK = (
     "import os, sys; from pathlib import Path; "
@@ -63,6 +69,7 @@ class Cluster:
             (tools / name).chmod(0o700)
         monkeypatch.setenv("PATH", f"{tools}:{os.environ['PATH']}")
         monkeypatch.setenv("FAKE_SLURM", str(self.root))
+        monkeypatch.setattr(slurm, "POLL_S", 0.0)
         self.supervisor, self.job, _dataset, self.spec = setup(
             tmp_path, backend="slurm", slurm={"scratch": str(self.scratch), **scheduler}
         )
@@ -191,15 +198,15 @@ def test_a_lost_submission_answer_is_recovered_by_the_job_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cluster = Cluster(tmp_path, monkeypatch)
-    command = service.command
+    command = scheduler.command
 
     def lost(argv: list[str], timeout: float = 15) -> subprocess.CompletedProcess[str]:
         result = command(argv, timeout)
-        if argv[0] == "sbatch":
+        if argv[0] == "sbatch" and "--test-only" not in argv:
             raise subprocess.TimeoutExpired(argv, timeout)
         return result
 
-    monkeypatch.setattr(service, "command", lost)
+    monkeypatch.setattr(scheduler, "command", lost)
     assert cluster.start()
     record = cluster.supervisor.record
     assert record is not None and record["scheduler_job"] == ""
@@ -300,3 +307,112 @@ def test_scratch_must_be_an_absolute_path() -> None:
     raw["slurm"]["scratch"] = "$TMPDIR/../x"
     with pytest.raises(ValueError, match="scratch"):
         validate_config(raw)
+
+
+PROFILES = [
+    {
+        "id": "small",
+        "name": "Small",
+        "account": "lab",
+        "partition": "gpu",
+        "gpus": 1,
+        "cpus": 2,
+        "memory_mb": 64,
+        "seconds": 30,
+    },
+    {
+        "id": "other",
+        "name": "Other",
+        "account": "lab",
+        "partition": "gpu",
+        "gpus": 1,
+        "cpus": 1,
+        "memory_mb": 32,
+        "seconds": 30,
+    },
+]
+
+
+def with_profiles(cluster: Cluster, profile: str | None) -> None:
+    (cluster.supervisor.workspace / scheduler.PROFILES_FILE).write_text(
+        json.dumps({"profiles": PROFILES})
+    )
+    spec = {**cluster.spec, "settings": {**cluster.spec.get("settings", {})}}
+    if profile:
+        spec["settings"]["compute_profile"] = profile
+    (cluster.job / "job.json").write_text(json.dumps(spec))
+
+
+def test_a_run_uses_the_resources_of_its_compute_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SLURM_JOB_ID", "41")
+    cluster = Cluster(tmp_path, monkeypatch, gpu_request="gpus")
+    with_profiles(cluster, "small")
+    assert cluster.start()
+    record = cluster.supervisor.record
+    assert record is not None and record["profile"]["id"] == "small"
+    argv = cluster.scheduled()["argv"]
+    assert {
+        "--cpus-per-task=2",
+        "--mem=64M",
+        "--time=1",
+        "--gpus=1",
+        "--partition=gpu",
+        "--account=lab",
+    } <= set(argv)
+    assert record["environment"]["RW_CPU_WORKERS"] == "2" and record["limits"]["cpus"] == 2
+    cluster.supervisor.poll()
+    shown = json.loads((cluster.job / "scheduler.json").read_text())
+    assert (shown["job_id"], shown["state"], shown["pending_reason"], shown["node"]) == (
+        "100",
+        "PENDING",
+        "Priority",
+        "n01",
+    )
+    assert (shown["elapsed"], shown["time_limit"], shown["profile"]) == ("0:05", "1:00", "Small")
+    cluster.execute()
+    cluster.supervisor.poll()
+    assert json.loads((cluster.job / "scheduler.json").read_text())["state"] == "COMPLETED"
+
+
+def test_a_run_must_name_one_of_several_profiles_and_a_refused_profile_never_queues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cluster = Cluster(tmp_path, monkeypatch)
+    with_profiles(cluster, None)
+    with pytest.raises(ValueError, match="choose a compute profile"):
+        cluster.start()
+    with_profiles(cluster, "missing")
+    with pytest.raises(ValueError, match="choose a compute profile"):
+        cluster.start()
+    with_profiles(cluster, "small")
+    (cluster.root / "refuse-profile").touch()
+    with pytest.raises(ValueError, match="Invalid partition"):
+        cluster.start()
+    assert not list(cluster.root.glob("*.json")) and cluster.supervisor.record is None
+
+
+def test_the_site_snapshot_is_read_in_the_background_and_lists_profile_verdicts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cluster = Cluster(tmp_path, monkeypatch)
+    with_profiles(cluster, "small")
+    first = cluster.supervisor.scheduler_snapshot()
+    assert first["at"] is None and [p["status"] for p in first["profiles"]] == [
+        "unchecked",
+        "unchecked",
+    ]
+    cluster.supervisor.reader.join(timeout=30)
+    site = cluster.supervisor.scheduler_snapshot()
+    assert [(p["id"], p["status"], p["estimated_start"]) for p in site["profiles"]] == [
+        ("small", "valid", "2026-11-12T10:00:00"),
+        ("other", "valid", "2026-11-12T10:00:00"),
+    ]
+    assert (
+        site["partitions"] is None and site["workspaces"] is None and site["gpu_request"] == "gres"
+    )
+    (cluster.supervisor.workspace / slurm.CHECK_REQUEST).write_text(json.dumps({"id": "r1"}))
+    cluster.supervisor.scheduler_snapshot()
+    cluster.supervisor.reader.join(timeout=30)
+    assert cluster.supervisor.scheduler_snapshot()["request"] == "r1"

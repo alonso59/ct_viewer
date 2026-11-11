@@ -112,6 +112,9 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
         "constraint",
         "max_parallel",
         "scratch",
+        "accounts",
+        "partitions",
+        "gpu_request",
     }:
         raise ValueError("unknown slurm configuration")
     for name, value in scheduler.items():
@@ -119,6 +122,16 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
             scratch = absolute_path(value, "slurm scratch").resolve()
             if any(overlaps(scratch, root.resolve()) for root in readonly):
                 raise ValueError("slurm scratch overlaps source/model roots")
+        elif name in ("accounts", "partitions"):
+            if (
+                not isinstance(value, list)
+                or not value
+                or any(not isinstance(v, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]*", v) for v in value)
+            ):
+                raise ValueError(f"invalid slurm {name}")
+        elif name == "gpu_request":
+            if value not in ("gres", "gpus"):
+                raise ValueError("slurm gpu_request is gres or gpus")
         elif name == "max_parallel":
             if type(value) is not int or not 1 <= value <= 64:
                 raise ValueError("invalid max_parallel")

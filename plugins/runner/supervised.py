@@ -104,6 +104,10 @@ class Supervisor:
         except (OSError, ValueError, subprocess.TimeoutExpired):
             return {"at": utc_now(), "devices": [], "error": "GPU inventory unavailable"}
 
+    def scheduler_snapshot(self) -> dict[str, Any] | None:
+        """Only a scheduler backend has one."""
+        return None
+
     def verify(self) -> dict[str, Any]:
         from plugins.runner.probe import run_probe
 
