@@ -2,7 +2,7 @@
 
 Scope: what is known about each cluster the HPC deployment is tried on, and what must be run there before it is accepted (OPS-20, OPS-23).
 Read when: working on ADR-0055 or ADR-0056, or recording a result from a cluster.
-Depends: DEPLOYMENT.md (OPS-20, OPS-23, OPS-24), ../adr/0055-app-as-slurm-job-validated-compute-profiles.md, ../adr/0056-storage-locations-local-and-managed-workspaces.md.
+Depends: DEPLOYMENT.md (OPS-20, OPS-23, OPS-24), HPC_INSTALL.md, STORAGE_SETUP.md, ../adr/0055-app-as-slurm-job-validated-compute-profiles.md, ../adr/0056-storage-locations-local-and-managed-workspaces.md.
 
 The application and its ADRs are site-agnostic; this file is where a site is named. One section per site.
 
@@ -39,28 +39,59 @@ These are site facts, not application defaults; none is built into the code.
 | Job-local `/tmp` | Local SSD, about 2 TB per node, private to the job, removed at job end | DOCUMENTED |
 | Software | `Miniforge3` module and conda-forge; Anaconda default channels not allowed; Lmod, EasyBuild, Apptainer | DOCUMENTED |
 | App as a job | `dev_viewer.sh` on `intelsr_long` (7 days, 4 CPUs, 16 GB): development backend and Vite inside the job; `start`, `stop`, `status`, `log` from the login node | USER-TESTED |
-| Connection | VS Code "Forward a Port" to `node:port` reaches the app in the job; the app listens on the node's interface. Works, but whether the login-to-compute segment is encrypted is not established (M12) | USER-TESTED |
+| Connection | VS Code "Forward a Port" to `node:port` reaches the app in the job; the app listens on the node's interface. Works, but whether the login-to-compute segment is encrypted is not established (M7) | USER-TESTED |
 
-### Checklist
+### Acceptance plan
 
-| # | Check on Marvin | Decides | Level |
+Ordered by priority. `dev_viewer.sh` stays the USER-TESTED reference; `rw-app.sbatch` replaces it only after groups A to F pass here.
+Procedures: HPC_INSTALL.md. Record each result in the Level column with its date; a failed or forbidden item becomes BLOCKED — MARVIN.
+
+| # | Check on Marvin | Pass when | Level |
 |---|---|---|---|
-| M1 | The site formally permits an HTTP application server inside a compute allocation | ADR-0055 §1 as a supported deployment, beyond the tested run | UNVERIFIED — MARVIN |
-| M2 | `sbatch --test-only`, then a real `sbatch`, from inside an allocation | ADR-0055 §9 primary path; a refusal makes job submission BLOCKED — MARVIN | UNVERIFIED — MARVIN |
-| M3 | If M2 fails: a site-supported submission service (scheduler REST API, user token) | The only permitted alternative, ADR-0055 §9 | UNVERIFIED — MARVIN |
-| M4 | `squeue`, `sacct`, `scancel` and `seff` answer from inside an allocation | Watching, cancel and accounting in the Jobs panel | UNVERIFIED — MARVIN |
-| M5 | `--gres=gpu:N` is accepted as well as `--gpus=N` | The site's GPU request form | UNVERIFIED — MARVIN |
-| M6 | Accounts, partitions, GPU and concurrent-job limits of the owner's association (`sshare -U`, `sacctmgr`, `scontrol show partitions`) | Which profiles validate | UNVERIFIED — MARVIN |
-| M7 | `sinfo` reports GPU types in a form discovery can read | The GPU type of a profile | UNVERIFIED — MARVIN |
-| M8 | `flock` works on HOME and on a Lustre workspace | Project locks, allocation pool, OPS-24 | UNVERIFIED — MARVIN |
-| M9 | HOME filesystem type; SQLite WAL works there | The start probe of ADR-0055 §11 | UNVERIFIED — MARVIN |
-| M10 | Compute nodes reach conda-forge, PyPI and npm | Whether `prepare` can run in a job | UNVERIFIED — MARVIN |
-| M11 | Another user can reach a port opened by a job, on the node's interface and on its loopback | The exposure that ADR-0055 §4 closes | UNVERIFIED — MARVIN |
-| M12 | The real connection path: which segments of the VS Code forward are encrypted; whether a forward can end on the job node's loopback (VS Code Remote on the node); whether the site approves it | The production transport, ADR-0055 §5; until settled no deployment here is called secure | UNVERIFIED — MARVIN |
-| M13 | Open OnDemand or JupyterHub is offered | Optional launcher, ADR-0055 §5 | UNVERIFIED — MARVIN |
-| M14 | `ws_list` output format; `ws_allocate` and `ws_extend` inside a job | Workspace discovery and commands, ADR-0056 §11 | UNVERIFIED — MARVIN |
-| M15 | Workspace, release, environment and model paths are identical on login and compute nodes | OPS-20 shared visibility | UNVERIFIED — MARVIN |
-| M16 | SIGTERM reaches the job before the time limit; the app and a task stop cleanly | ADR-0055 §6, OPS-24 | UNVERIFIED — MARVIN |
-| M17 | `rw-native.py run` through `rw-app.sbatch`: start, stop, status, log; sign-in with the per-job credential; a second user is refused | ADR-0055 §1–§4; replaces `dev_viewer.sh` | UNVERIFIED — MARVIN |
-| M18 | Compute jobs survive the end of the app job and are found again by the next one | ADR-0055 §6 | UNVERIFIED — MARVIN |
-| M19 | One GPU segmentation run through a validated profile, end to end | OPS-20 | UNVERIFIED — MARVIN |
+| **A** | **Application job startup and shutdown** | | |
+| M1 | `rw-native.py prepare` inside an interactive allocation | A release is built; compute nodes reach conda-forge, PyPI and npm | UNVERIFIED — MARVIN |
+| M2 | `rw-app.sbatch start`, `status`, `log`, `stop` with the owner's account and a CPU partition | The job runs, the app answers, `status` shows node and port, `stop` ends it and removes both files in HOME | UNVERIFIED — MARVIN |
+| M3 | The site formally permits an HTTP application server inside a compute allocation | A written answer from the site; the tested run alone is not approval | UNVERIFIED — MARVIN |
+| **B** | **VS Code forwarding with `BIND=loopback`** | | |
+| M4 | Open the job's node in VS Code Remote-SSH and forward the port | The sign-in page loads through the forward; record whether the site allows a VS Code server on a compute node | UNVERIFIED — MARVIN |
+| **C** | **Existing forwarding with `BIND=node`** | | |
+| M5 | From VS Code on the login node, "Forward a Port" to `<node>:<port>` | The sign-in page loads, as with `dev_viewer.sh` | UNVERIFIED — MARVIN |
+| **D** | **Network exposure and transport security** | | |
+| M6 | From a second account or node, connect to the job's port in both bind modes | Recorded: who can reach the interface and who can reach loopback | UNVERIFIED — MARVIN |
+| M7 | Establish which segments of each forward are encrypted (site documentation or support) | Recorded per bind mode; until then no deployment here is called secure | UNVERIFIED — MARVIN |
+| M8 | Open OnDemand, JupyterHub or another site-approved forward is offered | Recorded; optional launcher only | UNVERIFIED — MARVIN |
+| **E** | **Session authentication and credential protection** | | |
+| M9 | Unauthenticated request, wrong code, right code, second browser | Refused, refused, accepted, asks again | UNVERIFIED — MARVIN |
+| M10 | Inspect the job log, `scontrol show job` and `squeue` output; modes of the two HOME files | The code appears nowhere but its 0600 file; the folder is 0700 | UNVERIFIED — MARVIN |
+| M11 | After `stop` and after a time-limit end | The old code no longer signs in; a new job has a new one | UNVERIFIED — MARVIN |
+| **F** | **HOME file locking and SQLite WAL** | | |
+| M12 | `rw-native.py run` start check on HOME; HOME filesystem type | The check passes, or names what fails; recorded | UNVERIFIED — MARVIN |
+| M13 | `flock` on a Lustre workspace (project locks, OPS-24) | Two processes on two nodes exclude each other | UNVERIFIED — MARVIN |
+| **G** | **Nested `sbatch` from the app job** | | |
+| M14 | `sbatch --test-only`, then a trivial `sbatch`, from inside the app job; also `squeue`, `sacct`, `scancel`, `seff` | Accepted; a refusal sets job submission to BLOCKED — MARVIN | UNVERIFIED — MARVIN |
+| M15 | Only if M14 fails: a site-supported submission service (scheduler REST API with a user token) | Identified and documented by the site, or submission stays blocked | UNVERIFIED — MARVIN |
+| **H** | **Scheduler permissions and account associations** | | |
+| M16 | `sshare -U`, `sacctmgr show assoc`, `scontrol show partitions`, `sinfo` for the owner | Accounts, partitions, limits, GPU types and concurrent-job limits recorded | UNVERIFIED — MARVIN |
+| M17 | `--gres=gpu:N` and `--gpus=N` with `--test-only` | The site's GPU request form recorded | UNVERIFIED — MARVIN |
+| **I** | **Workspace discovery, expiration and renewal** | | |
+| M18 | `ws_list` output; `ws_allocate` and `ws_extend` on a login node and inside a job | Format recorded; where the commands work recorded | UNVERIFIED — MARVIN |
+| M19 | A dataset in a workspace listed in `ALLOWED_DATA_ROOTS`: create and reopen a project | Works; paths are identical on login and compute nodes | UNVERIFIED — MARVIN |
+| **J** | **Independent lifecycle of application and compute jobs** | | |
+| M20 | Stop the app job while a compute job it submitted runs (needs M14) | The compute job continues and writes its outputs | UNVERIFIED — MARVIN |
+| **K** | **Recovery after restarting the application** | | |
+| M21 | `start` again after M20 | The app finds the compute job again and shows its real state; projects and settings are intact | UNVERIFIED — MARVIN |
+| **L** | **Graceful termination before the wall-time limit** | | |
+| M22 | An app job with a short `TIME` | SIGTERM arrives before the limit, the app shuts down cleanly, both HOME files are removed | UNVERIFIED — MARVIN |
+| M23 | One GPU segmentation run end to end (needs M14, M16) | OPS-20 for this site | UNVERIFIED — MARVIN |
+
+### Status
+
+| Area | Status |
+|---|---|
+| App as a job with the development servers (`dev_viewer.sh`, `intelsr_long`) | USER-TESTED |
+| Forward to `<node>:<port>` from the login node | USER-TESTED for reachability; its encryption is UNVERIFIED — MARVIN (M7) |
+| `rw-native.py run`, `rw-app.sbatch`, session sign-in | Implemented, tested locally only: UNVERIFIED — MARVIN (A, B, C, E) |
+| Secure transport | UNVERIFIED — MARVIN (D); `BIND=node` is not a verified secure deployment |
+| Compute-job submission from the app | UNVERIFIED — MARVIN (G); BLOCKED — MARVIN if M14 fails and M15 finds nothing |
+| Compute profiles, storage registry, workspace status in the app | Not implemented (ADR-0055 §7–§10, ADR-0056) |
+| BLOCKED — MARVIN items | None recorded |

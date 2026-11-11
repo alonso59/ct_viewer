@@ -84,7 +84,7 @@ The other keys are those of §Operator configuration. Every `slurm` key is optio
 - **Boundary.** The scheduler's allocation is the only resource boundary: no Landlock sandbox, user-service cgroup or native-command broker on compute nodes. One attempt at a time; `max_parallel` and job arrays are not implemented.
 - **Needs** the workspace, plugins, conda environment, model, source and derived roots at the same paths on the submission host and the compute nodes.
 
-Unverified, because no cluster was available: the site's GRES syntax, `sacct` availability, signal delivery, shared-storage visibility, quotas, and whether the site allows a long-lived runner on the submission host. Reported for the target site: quota-controlled `/lustre/`, separate from HOME and compute-node storage.
+Unverified, because no cluster was available (per-site plan: ../ops/HPC_ACCEPTANCE.md): the site's GRES syntax, `sacct` availability, signal delivery, shared-storage visibility, quotas, and whether the site allows a long-lived runner on the submission host. Reported for the target site: quota-controlled `/lustre/`, separate from HOME and compute-node storage.
 
 ## Closure
 

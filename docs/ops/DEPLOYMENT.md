@@ -39,7 +39,7 @@ Depends: ADR-0014, ADR-0016, ADR-0043, ADR-0051, backend/ARCHITECTURE.md, domain
 | Option | Use when | Section |
 |---|---|---|
 | Native | One server or workstation with conda, no sudo, performance matters | §Native |
-| HPC | SLURM cluster | §HPC |
+| HPC | SLURM cluster | §HPC, HPC_INSTALL.md |
 
 The OCI image is for CI and for local development under Docker (§Docker), not a production deployment (ADR-0051).
 
@@ -91,17 +91,8 @@ Needs conda, a C compiler for PyRadiomics, and `npm` on `PATH` or a conda enviro
 
 ## HPC (SLURM)
 
-Run the app per OPS-23: as in §Native on a service node, or as a scheduler job where the site has none:
-
-```bash
-python3 scripts/rw-native.py prepare        # inside an allocation, not on a login node
-scripts/rw-app.sbatch start                 # on a login node; also stop, status, log [-f], credential
-```
-
-The job runs `rw-native.py run`. Its settings are `config/app-job.env` in the state folder: `TIME` (required), `CPUS` (4), `MEMORY` (16G), and `ACCOUNT`, `PARTITION`, `QOS` where the site needs them; optional `TAG` (release), `BIND` and `DEPLOYMENT` (the runner's operator file; `RUNNER_PYTHON` if its environment differs). The app's own settings stay in `config/runtime.env`.
-`status` prints the node, the port and how to forward it; `credential` prints the session code for the sign-in page.
-`BIND=loopback` (default) listens on the node's `127.0.0.1` only; `BIND=node` listens on the cluster network, where HTTP is not encrypted between login and compute node, so it is not a secure transport for the session code (ADR-0055 §5).
-None of this is accepted on a real cluster yet: HPC_ACCEPTANCE.md lists what is unverified, including the connection path.
+Run the app per OPS-23: as in §Native on a service node, or as a scheduler job where the site has none.
+Installation, job settings, connecting and recovery: HPC_INSTALL.md. Storage: STORAGE_SETUP.md. What is verified per site: HPC_ACCEPTANCE.md.
 
 Convert in a job (OPS-24), not through the app:
 
