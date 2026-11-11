@@ -60,3 +60,5 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0052 | Source operations: one record owner, flows in their own modules | Accepted (extends 0035) |
 | 0053 | SLURM v2: several jobs at once, job arrays and a sandbox on compute nodes | Proposed (extends 0034) |
 | 0054 | Electron: which backend the desktop app starts on each operating system | Accepted (amends 0001) |
+| 0055 | Running Radiology Workbench as a SLURM job with validated compute profiles | Proposed (amends 0004 for the app job, 0034, 0043, 0051) |
+| 0056 | Storage locations: one registry for local directories and managed HPC workspaces | Proposed (extends 0005, 0014, 0030) |

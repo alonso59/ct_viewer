@@ -35,6 +35,7 @@ frontend/*
 :maxdepth: 1
 
 ops/DEPLOYMENT
+ops/HPC_ACCEPTANCE
 ops/DEV_ENV
 ops/TESTING
 ```
