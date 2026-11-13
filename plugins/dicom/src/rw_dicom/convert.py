@@ -1,8 +1,8 @@
 """Convert stage: the only stage that reads pixels.
 
 Volumes are written by the ITK image writer from the ITK image the series reader returned, so
-direction, origin and spacing are preserved (ITK writes the LPS → RAS affine). A NIfTI is never
-built from `GetArrayFromImage` without its geometry.
+direction, origin and spacing are preserved (ITK writes the LPS → RAS affine), with the slice axis
+taken from the slice positions. A NIfTI is never built from `GetArrayFromImage` without its geometry.
 """
 
 from __future__ import annotations
@@ -49,7 +49,26 @@ def read_image(series: Series) -> Any:
         reader = sitk.ImageSeriesReader()
         reader.SetImageIO("GDCMImageIO")
         reader.SetFileNames(names)
-        return reader.Execute()
+        reader.MetaDataDictionaryArrayUpdateOn()
+        return _slice_axis_along_positions(reader, reader.Execute())
+
+
+def _slice_axis_along_positions(reader: Any, image: Any) -> Any:
+    """GDCM signs the slice axis with SpacingBetweenSlices; older Philips CT writes it negative,
+    which turns the axis against the stacking order and flips the volume head to feet. The
+    positions of the first and last slice decide the direction instead."""
+    last = image.GetSize()[2] - 1
+    key = "0020|0032"
+    if last < 1 or not (reader.HasMetaDataKey(0, key) and reader.HasMetaDataKey(last, key)):
+        return image
+    first, end = ([float(v) for v in reader.GetMetaData(i, key).split("\\")] for i in (0, last))
+    d = list(image.GetDirection())
+    along = sum((b - a) * c for a, b, c in zip(first, end, (d[2], d[5], d[8]), strict=True))
+    if along < 0:
+        d[2], d[5], d[8] = -d[2], -d[5], -d[8]
+        image.SetDirection(d)
+        image.SetOrigin(first)
+    return image
 
 
 def write_nifti(series: Series, out: Path, *, before_publish: Callable[[], None] | None = None) -> Converted:

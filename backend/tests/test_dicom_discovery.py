@@ -132,6 +132,28 @@ def test_encoded_mixed_uid_membership_and_geometry_match_independent_gdcm(
     assert before == {path: path.read_bytes() for path in before}
 
 
+@pytest.mark.parametrize("spacing_between_slices", [None, 2.5, -2.5])
+def test_signed_spacing_between_slices_never_flips_the_slice_axis(
+    tmp_path: Path, spacing_between_slices: float | None
+) -> None:
+    """DCM-02: a negative SpacingBetweenSlices (older Philips CT) keeps the slice positions."""
+    source = tmp_path / "source"
+    extra = {"SpacingBetweenSlices": spacing_between_slices} if spacing_between_slices else {}
+    facts = write_series(source / "series", shape=(12, 10, 14), marker=(2, 7, 9), extra=extra)
+    [series] = scan.discover(source, [])
+    output = tmp_path / "derived/out.nii.gz"
+    files = [str(path.relative_to(source)) for path in series.files]
+    assert dicom_stage.convert_series(str(source), files, str(output)) is None
+    image = nib.load(output)
+    [marker] = np.argwhere(np.asanyarray(image.dataobj) == MARKER)
+    x, y, z = facts["marker_lps"]
+    np.testing.assert_allclose(image.affine @ [*marker, 1], [-x, -y, z, 1], atol=1e-4)
+    for path in series.files:  # every source slice lies on the volume's slice grid
+        x, y, z = map(float, pydicom.dcmread(path, stop_before_pixels=True).ImagePositionPatient)
+        k = np.linalg.solve(image.affine, [-x, -y, z, 1])[2]
+        assert -1e-3 < k < image.shape[2] - 1 + 1e-3 and abs(k - round(k)) < 1e-3
+
+
 @pytest.mark.parametrize(
     "modality,sop", [("CT", "1.2.840.10008.5.1.4.1.1.2.1"), ("MR", "1.2.840.10008.5.1.4.1.1.4.1")]
 )
