@@ -5,4 +5,4 @@ import type { FrontendPlugin } from '../host'
 
 const pack = (id: string): FrontendPlugin => ({ id, activate: () => undefined, open: () => openEditor('settings', { tab: 'plugins' }) })
 
-export const packs: FrontendPlugin[] = [pack('ccrcc'), pack('generic-ct'), pack('pancreas')]
+export const packs: FrontendPlugin[] = [pack('ccrcc'), pack('generic-ct'), pack('ct-phases')]

@@ -61,7 +61,7 @@ Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026
 | Labeling table (`labeling`) | view, editor, columns | project | event store | shipped |
 | Radiomics (`radiomics`) | view, editor, task | project | segmentation set | shipped |
 | Dashboard & analysis (`dashboard`) | editor, panels | project | a features run | shipped |
-| Study packs `ccrcc`, `generic-ct`, `pancreas` | pack | project | — | shipped |
+| Study packs `ccrcc`, `generic-ct`, `ct-phases` | pack | project | — | shipped |
 | `segment.threshold` (`threshold`, `hidden`) | task (test only, hidden from the Library) | project | runner | done (CI) |
 | nnU-Net segmentation (`nnunet`) | task (external) | project | derived root, runner, GPU | **shipped** (P7e; ADR-0032) |
 | VOI extractor (`voi`) | task `voi.extract` with its settings form, review step and run results in the task tab (VOI.md) | project | derived root, segmentation set | shipped (v3.2.0, ADR-0050) |

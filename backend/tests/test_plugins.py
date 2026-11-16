@@ -27,7 +27,7 @@ SHIPPED = {
     "voi",
     "ccrcc",
     "generic-ct",
-    "pancreas",
+    "ct-phases",
     "labeling",
 }
 

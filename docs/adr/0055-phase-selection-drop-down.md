@@ -3,8 +3,8 @@ Status: Accepted · Date: 2026-11-16
 Supersedes: ADR-0026 §1 only for the shape of the header control (one button per `phase_vocabulary` value).
 
 **Context.** ADR-0026 put one button per phase in the case/scan header. That fits a four-phase
-vocabulary; a pack with more phases (the pancreas pack separates early arterial and pancreatic
-phases) turns the header into a row of buttons, and the owner asked for a list instead.
+vocabulary; a pack with more phases (the time-based `ct-phases` pack separates early and late
+arterial phases) turns the header into a row of buttons, and the owner asked for a list instead.
 
 **Decision.** The header shows one drop-down with the project's `phase_vocabulary`, each value as
 code and name. Choosing a value is the same single write as before: an event at once, no

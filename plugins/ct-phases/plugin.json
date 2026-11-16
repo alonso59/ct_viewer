@@ -1,0 +1,13 @@
+{
+  "plugin": 1,
+  "id": "ct-phases",
+  "version": "1.0.0",
+  "title": "Study pack CT phases by time",
+  "description": "Organ-independent CT contrast phases named by time after injection, with organ-specific names as aliases.",
+  "icon": "package",
+  "contributes": {
+    "packs": [
+      "ct-phases"
+    ]
+  }
+}
