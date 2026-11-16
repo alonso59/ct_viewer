@@ -13,8 +13,9 @@ type Scan = Pick<ItemRecord, 'case_id' | 'scan_idx' | 'phase'>
 // Keep phase controls from triggering surrounding viewer navigation or shortcuts.
 const stop = (e: SyntheticEvent) => e.stopPropagation()
 
-/** One chip per phase value: a click writes the scan's phase at once; the toast offers Undo */
-export function PhaseButtons({ pid, scan, className }: { pid: string; scan: Scan; className?: string }) {
+/** The project's phases in one drop-down: choosing one writes the scan's phase at once; the toast
+ *  offers Undo */
+export function PhaseSelect({ pid, scan, className }: { pid: string; scan: Scan; className?: string }) {
   const { t } = useTranslation()
   const project = useProject(pid).data
   const append = useAppendPhase(pid)
@@ -40,11 +41,23 @@ export function PhaseButtons({ pid, scan, className }: { pid: string; scan: Scan
   }
   const was = cur.source === 'manual' ? cur.resolved?.canonical : null
   if (registry.readOnly) return <PhaseChip phase={cur.canonical} />
-  const choose = (p: string) => (cur.canonical === p && cur.source === 'manual' ? undefined : set(p))
-  const options = phaseOptions(project?.phase_vocabulary)
+  const vocabulary = phaseOptions(project?.phase_vocabulary)
+  // a value outside the vocabulary (raw metadata) stays visible as the current choice
+  const options = vocabulary.includes(cur.canonical) ? vocabulary : [cur.canonical, ...vocabulary]
   return (
-    <span role="group" aria-label={t('phaseSel.group', { scan: name })} className={`phase-buttons ${className ?? ''}`} onClick={stop} onDoubleClick={stop} onKeyDown={stop}>
-      {options.map((p) => <PhaseChip key={p} phase={p} active={cur.canonical === p} onClick={() => choose(p)} />)}
+    <span className={`phase-select ${className ?? ''}`} onClick={stop} onDoubleClick={stop} onKeyDown={stop}>
+      <select
+        className="select input-sm"
+        aria-label={t('phaseSel.group', { scan: name })}
+        data-tone={cur.canonical === 'UNK' ? 'warn' : undefined}
+        value={cur.canonical}
+        disabled={append.isPending}
+        onChange={(e) => set(e.target.value)}
+      >
+        {options.map((p) => (
+          <option key={p} value={p}>{t('search.phaseOption', { code: p, name: t(`phase.${p}`, { defaultValue: p }) })}</option>
+        ))}
+      </select>
       {run ? (
         <button type="button" className="badge" title={t('phaseSel.acceptHelp', { phase: cur.canonical })} disabled={append.isPending} onClick={() => set(cur.canonical, { source: 'analyzer_accept', accepted_run_id: run })}>
           <Icon spec={codicon('check')} />

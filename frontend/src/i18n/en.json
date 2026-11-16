@@ -224,9 +224,15 @@
   },
   "phase": {
     "NC": "Non-contrast",
+    "EA": "Early arterial",
+    "ART": "Arterial",
+    "PAN": "Pancreatic (late arterial)",
     "CMP": "Corticomedullary",
     "NP": "Nephrographic",
+    "PV": "Portal venous",
     "EP": "Excretory",
+    "DEL": "Delayed",
+    "DELAYED": "Delayed",
     "UNK": "Unknown phase"
   },
   "phaseSel": {
@@ -1100,10 +1106,9 @@
   "reason": {
     "working": "Still working…",
     "checking": "Checking what is ready…",
-    "chooseSource": "Choose what to run on",
+    "chooseSource": "Choose a file or folder first",
     "preflightFailed": "The readiness check failed; see above",
     "chooseFolder": "Choose a folder first",
-    "chooseSource": "Choose a file or folder first",
     "fixAlias": "Fix the alias above",
     "uploadMetadata": "Upload the metadata file first",
     "chooseSourceType": "Choose how to read this folder",

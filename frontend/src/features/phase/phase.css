@@ -1,10 +1,13 @@
-.phase-buttons {
+.phase-select {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
-.phase-buttons .badge:disabled {
+.phase-select .badge:disabled {
   opacity: 0.5;
+}
+.phase-select select[data-tone='warn'] {
+  color: var(--warn);
 }
 .phase-was {
   font-size: var(--fs-badge);

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { api, ProblemError, useCase, useProject, useSegmentations, viewPath, type ItemRecord } from '../../api'
 import { CaseRollupBadge, ProblemCard } from '../../lib'
 import { bindingOf, formatChord, pinEditor, registry, runCommand, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
-import { PhaseButtons, PhaseHistoryButton } from '../phase'
+import { PhaseHistoryButton, PhaseSelect } from '../phase'
 import { navPosition, resolveSeg, useNavContext, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
@@ -148,9 +148,9 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
         <ItemSwitcher items={items.filter((i) => i.status !== 'excluded_upstream')} current={current} onPick={pick} />
         <span className="switcher">
           <span className="switcher-sep" />
-          {/* a write, not a view toggle: chips under "Set phase", apart from the segmented view controls */}
+          {/* a write, not a view toggle: a drop-down under "Set phase", apart from the segmented view controls */}
           <span className="switcher-label">{t('phaseSel.setPhase')}</span>
-          <PhaseButtons pid={pid} scan={current} />
+          <PhaseSelect pid={pid} scan={current} />
           <PhaseHistoryButton pid={pid} caseId={current.case_id} scanIdx={current.scan_idx} />
         </span>
         <span className="case-header-end" />

@@ -1,0 +1,64 @@
+{
+  "pack": 1,
+  "id": "pancreas",
+  "title": "Pancreas phases",
+  "description": "NC \u00b7 EA \u00b7 PAN \u00b7 PV \u00b7 DEL phases with their aliases; no labels, pancreas organ focus.",
+  "label_map": [],
+  "phase_vocabulary": [
+    "NC",
+    "EA",
+    "PAN",
+    "PV",
+    "DEL",
+    "UNK"
+  ],
+  "phase_aliases": {
+    "NC": [
+      "NC",
+      "NONCONTRAST",
+      "NON-CONTRAST",
+      "NATIVE"
+    ],
+    "EA": [
+      "EA",
+      "EARLY ARTERIAL",
+      "ART",
+      "ARTERIAL",
+      "CMP",
+      "CORTICOMEDULLARY"
+    ],
+    "PAN": [
+      "PAN",
+      "PANCREATIC",
+      "LATE ARTERIAL",
+      "LA"
+    ],
+    "PV": [
+      "PV",
+      "PORTAL",
+      "PORTAL VENOUS",
+      "VEN",
+      "VENOUS",
+      "NP",
+      "NEPHROGRAPHIC"
+    ],
+    "DEL": [
+      "DEL",
+      "DELAYED",
+      "DELAY",
+      "EP",
+      "EXC",
+      "EXCRETORY"
+    ]
+  },
+  "phase_priority": [
+    "PV",
+    "PAN",
+    "EA",
+    "NC",
+    "DEL",
+    "UNK"
+  ],
+  "target_profile": "pancreas",
+  "radiomics_profile": null
+}

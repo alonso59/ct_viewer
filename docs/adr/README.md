@@ -60,3 +60,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0052 | Source operations: one record owner, flows in their own modules | Accepted (extends 0035) |
 | 0053 | SLURM v2: several jobs at once, job arrays and a sandbox on compute nodes | Proposed (extends 0034) |
 | 0054 | Electron: which backend the desktop app starts on each operating system | Accepted (amends 0001) |
+| 0055 | Phase selection is one drop-down, not one button per phase | Accepted (partially supersedes 0026) |

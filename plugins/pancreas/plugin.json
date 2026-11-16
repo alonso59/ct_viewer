@@ -1,0 +1,13 @@
+{
+  "plugin": 1,
+  "id": "pancreas",
+  "version": "1.0.0",
+  "title": "Study pack Pancreas",
+  "description": "Pancreas CT phase vocabulary, with early arterial and pancreatic phases kept apart.",
+  "icon": "package",
+  "contributes": {
+    "packs": [
+      "pancreas"
+    ]
+  }
+}

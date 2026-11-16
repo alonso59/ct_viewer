@@ -7,7 +7,7 @@ import { registry, toast, useWorkbench, toastProblem } from '../../shell'
 import { useViewerSync } from '../../state'
 import { phaseOptions } from './model'
 
-export { PhaseButtons, PhaseHistoryButton } from './PhaseButtons'
+export { PhaseHistoryButton, PhaseSelect } from './PhaseSelect'
 
 /** "Updated by" toasts for other browsers' selections; mount once per project */
 export function usePhaseRuntime(pid: string) {
@@ -43,7 +43,7 @@ function activeScan() {
   return item ? { pid, item } : null
 }
 
-/** "Phase: Set NP" etc. for the active scan; the same event as the buttons */
+/** "Phase: Set NP" etc. for the active scan; the same event as the header drop-down */
 function setPhase(value: string) {
   const at = activeScan()
   if (!at) return

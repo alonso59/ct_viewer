@@ -85,7 +85,7 @@ test('the P7c journey', async ({ page, browserName }) => {
   // 7 · Every plugin is reachable from the Library
   await page.getByRole('navigation', { name: 'Activity bar' }).getByRole('button', { name: 'Plugin Library' }).click()
   const lib = page.locator('.plugin-list')
-  for (const id of ['dicom', 'analyzers', 'curation', 'labeling', 'radiomics', 'dashboard', 'ccrcc', 'generic-ct', 'nnunet', 'voi'])
+  for (const id of ['dicom', 'analyzers', 'curation', 'labeling', 'radiomics', 'dashboard', 'ccrcc', 'generic-ct', 'pancreas', 'nnunet', 'voi'])
     await expect(lib.locator(`[data-plugin="${id}"]`).getByRole('button', { name: /^Open / })).toBeEnabled()
 
   // 8 · A view-only link that cannot write
