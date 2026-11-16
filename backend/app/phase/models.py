@@ -4,7 +4,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-PhaseEventSource = Literal["manual", "analyzer_accept", "v2_import", "converter_import"]
+PhaseEventSource = Literal[
+    "manual", "analyzer_accept", "guess_accept", "v2_import", "converter_import"
+]
 
 
 class PhaseEvent(BaseModel):
@@ -29,7 +31,10 @@ class PhaseIn(BaseModel):
     case_id: str
     scan_idx: str
     value: str = Field(min_length=1, max_length=64, description="A `phase_vocabulary` value")
-    source: Literal["manual", "analyzer_accept"] = "manual"
+    source: Literal["manual", "analyzer_accept", "guess_accept"] = Field(
+        default="manual",
+        description="`guess_accept`: keep the scan's metadata `phase_guess` (its effective phase)",
+    )
     accepted_run_id: str | None = Field(
         default=None, description="Required with `analyzer_accept`: the active phase run"
     )

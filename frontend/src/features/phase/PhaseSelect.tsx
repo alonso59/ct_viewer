@@ -5,7 +5,7 @@ import { ReviewerCancelled, useAppendPhase, usePhaseEvents, useProject, type Ite
 import { Dialog, PhaseChip, ProblemCard, fmtAgo } from '../../lib'
 import { registry, toast, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
-import { guessRun, phaseOptions } from './model'
+import { guessAccept, phaseOptions } from './model'
 import './phase.css'
 
 type Scan = Pick<ItemRecord, 'case_id' | 'scan_idx' | 'phase'>
@@ -20,7 +20,7 @@ export function PhaseSelect({ pid, scan, className }: { pid: string; scan: Scan;
   const project = useProject(pid).data
   const append = useAppendPhase(pid)
   const cur = scan.phase
-  const run = guessRun(cur, project?.annotation_sources?.phase)
+  const accept = guessAccept(cur, project?.annotation_sources?.phase)
   const name = `${scan.case_id} · ${scan.scan_idx}`
   const failed = (e: unknown) => {
     if (!(e instanceof ReviewerCancelled)) toastProblem(e, t('common.saveFailed'))
@@ -58,8 +58,8 @@ export function PhaseSelect({ pid, scan, className }: { pid: string; scan: Scan;
           <option key={p} value={p}>{t('search.phaseOption', { code: p, name: t(`phase.${p}`, { defaultValue: p }) })}</option>
         ))}
       </select>
-      {run ? (
-        <button type="button" className="badge" title={t('phaseSel.acceptHelp', { phase: cur.canonical })} disabled={append.isPending} onClick={() => set(cur.canonical, { source: 'analyzer_accept', accepted_run_id: run })}>
+      {accept ? (
+        <button type="button" className="badge" title={t('phaseSel.acceptHelp', { phase: cur.canonical })} disabled={append.isPending} onClick={() => set(cur.canonical, accept)}>
           <Icon spec={codicon('check')} />
           {t('phaseSel.accept')}
         </button>

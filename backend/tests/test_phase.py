@@ -11,9 +11,10 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from app.core.ids import new_ulid
-from tests.test_api_ingest import API, ctx_of
+from tests.test_api_ingest import API, ctx_of, do_import
 from tests.test_contract import assert_problem
 from tests.test_curation_api import HDR, active_with_mask, proj  # noqa: F401
+from tests.test_projects_v3 import neutral
 
 Proj = tuple[str, list[dict[str, Any]]]
 
@@ -108,6 +109,7 @@ def test_validation(client: TestClient, proj: Proj) -> None:  # noqa: F811
         base | {"accepted_run_id": new_ulid()},  # only with analyzer_accept
         base | {"source": "analyzer_accept"},  # needs the active run
         base | {"source": "analyzer_accept", "accepted_run_id": new_ulid()},  # not active
+        base | {"source": "guess_accept"},  # the fixture scan's phase is not a phase_guess
         base | {"source": "v2_import"},  # imports only via their routes
         base | {"extra": 1},
     ):
@@ -126,6 +128,24 @@ def test_accept_analyzer_guess(client: TestClient, proj: Proj) -> None:  # noqa:
     r = select(client, pid, body | {"source": "analyzer_accept", "accepted_run_id": run_id})
     assert r.status_code == 201, r.text
     assert r.json()["source"] == "analyzer_accept" and r.json()["accepted_run_id"] == run_id
+
+
+def test_accept_metadata_guess(client: TestClient, data_root: Path) -> None:
+    """PHS-04: an effective phase from the metadata `phase_guess` is accepted the same way."""
+    meta = data_root / "metadata.jsonl"
+    rows = [json.loads(line) for line in meta.read_text().splitlines()]
+    for f in ("curated_phase", "canonical_phase", "phase"):
+        rows[0].pop(f, None)
+    rows[0]["phase_guess"] = "VEN"
+    meta.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    pid = neutral(client, packs=["ccrcc"])
+    do_import(client, pid, data_root)
+    case_id, scan_idx = rows[0]["case_id"], str(rows[0]["scan_idx"]).zfill(2)
+    body = {"case_id": case_id, "scan_idx": scan_idx, "source": "guess_accept"}
+    assert_problem(select(client, pid, body | {"value": "NC"}), "validation")  # not the guess
+    r = select(client, pid, body | {"value": "NP"})
+    assert r.status_code == 201, r.text
+    assert r.json()["source"] == "guess_accept" and r.json()["accepted_run_id"] is None
 
 
 def test_export_phase_selections(client: TestClient, proj: Proj) -> None:  # noqa: F811

@@ -238,7 +238,7 @@
   "phaseSel": {
     "group": "Phase of {{scan}}",
     "accept": "Accept guess",
-    "acceptHelp": "Keep the analyzer's guess ({{phase}}) as the selected phase",
+    "acceptHelp": "Keep the proposed phase ({{phase}}) as the selected phase",
     "was": "was {{phase}}",
     "wasHelp": "Selected by a reviewer; the value from the imported metadata or analyzer is kept underneath",
     "history": "Phase history",
@@ -248,6 +248,7 @@
     "source": {
       "manual": "Selected",
       "analyzer_accept": "Analyzer guess accepted",
+      "guess_accept": "Metadata guess accepted",
       "v2_import": "Imported from v2",
       "converter_import": "Imported from the converter"
     },

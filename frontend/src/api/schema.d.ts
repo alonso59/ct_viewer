@@ -6126,7 +6126,7 @@ export interface components {
              * @default manual
              * @enum {string}
              */
-            source: "manual" | "analyzer_accept" | "v2_import" | "converter_import";
+            source: "manual" | "analyzer_accept" | "guess_accept" | "v2_import" | "converter_import";
             /** Accepted Run Id */
             accepted_run_id?: string | null;
         };
@@ -6161,10 +6161,11 @@ export interface components {
             value: string;
             /**
              * Source
+             * @description `guess_accept`: keep the scan's metadata `phase_guess` (its effective phase)
              * @default manual
              * @enum {string}
              */
-            source: "manual" | "analyzer_accept";
+            source: "manual" | "analyzer_accept" | "guess_accept";
             /**
              * Accepted Run Id
              * @description Required with `analyzer_accept`: the active phase run
@@ -6201,7 +6202,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "manual" | "analyzer_accept" | "v2_import" | "converter_import";
+            source: "manual" | "analyzer_accept" | "guess_accept" | "v2_import" | "converter_import";
             /** Accepted Run Id */
             accepted_run_id?: string | null;
             /** Reviewer */

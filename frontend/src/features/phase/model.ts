@@ -11,3 +11,14 @@ export function guessRun(phase: Pick<ItemRecord['phase'], 'source'>, activeRun: 
   const m = /^analyzer:(.+)$/.exec(phase.source)
   return m?.[1] && m[1] === activeRun ? m[1] : null
 }
+
+/** How "Accept guess" records the scan's effective phase, when that phase is a guess: the active
+ *  `analyzer.phase` run's, or the imported metadata's `phase_guess` */
+export function guessAccept(
+  phase: Pick<ItemRecord['phase'], 'source'>,
+  activeRun: string | null | undefined,
+): { source: 'analyzer_accept'; accepted_run_id: string } | { source: 'guess_accept' } | null {
+  const run = guessRun(phase, activeRun)
+  if (run) return { source: 'analyzer_accept', accepted_run_id: run }
+  return phase.source === 'phase_guess' ? { source: 'guess_accept' } : null
+}

@@ -2,7 +2,7 @@
 
 Scope: native phase selection — one-click correction, storage, precedence, exports.
 Read when: touching phase anywhere (case/scan header, Explorer, labeling reference columns, exports).
-Depends: ANALYZERS.md (phase guesses, resolution), INPUT_METADATA.md (`phase.json`, §Phase resolution), PROJECT_FORMAT.md (`phase_vocabulary`, PRJ-16), ADR-0022 (event store), ADR-0026, ADR-0031, ADR-0055.
+Depends: ANALYZERS.md (phase guesses, resolution), INPUT_METADATA.md (`phase.json`, §Phase resolution), PROJECT_FORMAT.md (`phase_vocabulary`, PRJ-16), ADR-0022 (event store), ADR-0026, ADR-0031, ADR-0055, ADR-0056.
 
 Phase selection is a native app capability (ADR-0026) — always available, not gated by any plugin. The `analyzers` plugin still guesses (ANALYZERS.md); `curation` does not touch phase.
 
@@ -11,9 +11,9 @@ Phase selection is a native app capability (ADR-0026) — always available, not 
 | ID | Requirement | Pri |
 |---|---|---|
 | PHS-01 | One phase drop-down in the case/scan header under "Set phase", listing the `phase_vocabulary` values as code and name (styled as a write, apart from the header's segmented view toggles; ADR-0055). Choosing a value writes an event immediately and replaces the effective phase for that scan; its toast offers Undo, which writes the previous phase again as a new event; no confirmation step, no separate "unsure" flag. Explorer case and scan/item rows display the effective phase as read-only badges: blue for known phases, yellow for `UNK`; hover, focus and selection never expose phase editing controls (ADR-0031). | M |
-| PHS-02 | Storage: the `phase` namespace on the core event store (ADR-0022), `events/phase.jsonl`. Event: `{event_id, at, reviewer, session_id, case_id, scan_idx, value, source: "manual" \| "analyzer_accept" \| "v2_import" \| "converter_import", accepted_run_id}`. State = latest event per `(case_id, scan_idx)`. | M |
+| PHS-02 | Storage: the `phase` namespace on the core event store (ADR-0022), `events/phase.jsonl`. Event: `{event_id, at, reviewer, session_id, case_id, scan_idx, value, source: "manual" \| "analyzer_accept" \| "guess_accept" \| "v2_import" \| "converter_import", accepted_run_id}`. State = latest event per `(case_id, scan_idx)`. | M |
 | PHS-03 | Effective phase precedence: latest `phase` event (if any) → `Item.phase.canonical` (INPUT_METADATA §Phase resolution, unchanged). The event never touches `metadata.jsonl`, `phase.json` or the index (R1) — it is a layer joined at read time (ADR-0020 §3), same pattern curation/labeling state already use. | M |
-| PHS-04 | Accepting the active `analyzer.phase` run's guess is the same one-click action, `source: "analyzer_accept"`, `accepted_run_id` set (replaces the prior curation-event flow, ANZ-07). | M |
+| PHS-04 | Accepting the active `analyzer.phase` run's guess is the same one-click action, `source: "analyzer_accept"`, `accepted_run_id` set (replaces the prior curation-event flow, ANZ-07). When the effective phase comes from the imported `phase_guess` field, "Accept guess" writes `source: "guess_accept"` (no run id); the server accepts it only when the value is that scan's `phase_guess` (ADR-0056). | M |
 | PHS-05 | Live sync: a `phase.appended` event pushes to other open browsers via SSE (as ADR-0022); "Updated by {reviewer}". | M |
 | PHS-06 | Export: `exports/phase_selections.json`, shaped like `phase.json` (INPUT_METADATA §`phase.json`), so a correction can be fed back in as a future import override. | M |
 | PHS-07 | History panel per scan, newest first (same pattern as CUR-14). | S |

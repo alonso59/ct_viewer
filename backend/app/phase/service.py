@@ -58,8 +58,13 @@ class PhaseService:
         who = require_reviewer(reviewer)
         value = self.check_value(project_id, body.value)
         idx = self.store.load_resolved(project_id)
-        if not any(i.case_id == body.case_id and i.scan_idx == body.scan_idx for i in idx.items):
+        scan = [i for i in idx.items if i.case_id == body.case_id and i.scan_idx == body.scan_idx]
+        if not scan:
             raise _invalid("scan_idx", f"scan {body.case_id}/{body.scan_idx} not in index")
+        if body.source == "guess_accept" and not any(
+            i.phase.source == "phase_guess" and i.phase.canonical == value for i in scan
+        ):
+            raise _invalid("value", "must be the scan's phase_guess, its effective phase")
         if body.source == "analyzer_accept":
             active = self.workspace.get(project_id).annotation_sources.get(ANALYZER_FIELD)
             if not body.accepted_run_id or body.accepted_run_id != active:

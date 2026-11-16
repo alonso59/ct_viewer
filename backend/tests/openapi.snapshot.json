@@ -8362,6 +8362,7 @@
       "enum": [
        "manual",
        "analyzer_accept",
+       "guess_accept",
        "v2_import",
        "converter_import"
       ],
@@ -8449,9 +8450,11 @@
      },
      "source": {
       "default": "manual",
+      "description": "`guess_accept`: keep the scan's metadata `phase_guess` (its effective phase)",
       "enum": [
        "manual",
-       "analyzer_accept"
+       "analyzer_accept",
+       "guess_accept"
       ],
       "title": "Source",
       "type": "string"
@@ -8571,6 +8574,7 @@
       "enum": [
        "manual",
        "analyzer_accept",
+       "guess_accept",
        "v2_import",
        "converter_import"
       ],
