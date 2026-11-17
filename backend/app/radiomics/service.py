@@ -725,7 +725,7 @@ class RadiomicsService:
                 return
             raw = str(res.get("error") or "extraction failed")
             code = causes.explain(raw)
-            kind = "skipped" if code == "label_absent" else "failed"
+            kind: Literal["failed", "skipped"] = "skipped" if code == "label_absent" else "failed"
             row = _row(res["item_id"], int(res["label"]), kind, code, raw)
             async with self.locks(pid):
                 append_jsonl(run_dir / ERRORS, [row.model_dump()])

@@ -62,3 +62,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0054 | Electron: which backend the desktop app starts on each operating system | Accepted (amends 0001) |
 | 0055 | Phase selection is one drop-down, not one button per phase | Accepted (partially supersedes 0026) |
 | 0056 | "Accept guess" also accepts the imported phase_guess | Accepted (extends 0026) |
+| 0057 | Scans are grouped by DICOM exam and series, for display only | Accepted (extends 0011) |

@@ -303,6 +303,14 @@
     "name": "{{case}} · {{part}} · {{scope}}",
     "scanShort": "Scan {{scan}}"
   },
+  "scanGroup": {
+    "examDay": "Exam · day {{day}}",
+    "examDayNth": "Exam · day {{day}} ({{n}})",
+    "examNth": "Exam {{n}}",
+    "series": "Series {{number}}",
+    "seriesUnnumbered": "Series",
+    "other": "Other scans"
+  },
   "home": {
     "importBundle": "Import project bundle…",
     "importBundleHelp": "Open a .zip exported from another workspace",

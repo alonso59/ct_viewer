@@ -6,6 +6,8 @@ import type { CaseFilter } from '../../api'
 interface ProjectState {
   filter: CaseFilter
   expanded: Record<string, boolean>
+  /** Exam and series rows the user folded, by their tree path */
+  collapsed: Record<string, boolean>
 }
 
 interface ExplorerState extends ProjectState {
@@ -24,6 +26,7 @@ interface ExplorerState extends ProjectState {
   /** Only these items (and their cases); null clears */
   setItemIds: (ids: string[] | null) => void
   toggle: (cid: string, open?: boolean) => void
+  toggleGroup: (path: string, open?: boolean) => void
   setOrder: (ids: string[]) => void
 }
 
@@ -32,8 +35,9 @@ export const useExplorer = create<ExplorerState>()(persist((set) => ({
   byProject: {},
   filter: {},
   expanded: {},
+  collapsed: {},
   order: [],
-  openProject: (pid) => set((s) => ({ pid, filter: s.byProject[pid]?.filter ?? {}, expanded: s.byProject[pid]?.expanded ?? {}, order: [] })),
+  openProject: (pid) => set((s) => ({ pid, filter: s.byProject[pid]?.filter ?? {}, expanded: s.byProject[pid]?.expanded ?? {}, collapsed: s.byProject[pid]?.collapsed ?? {}, order: [] })),
   setFilter: (patch) => set((s) => ({ filter: { ...s.filter, ...patch } })),
   setVarFilter: (name, value) =>
     set((s) => {
@@ -50,13 +54,18 @@ export const useExplorer = create<ExplorerState>()(persist((set) => ({
       return { filter: ids ? { ...rest, itemIds: [...new Set(ids)] } : rest }
     }),
   toggle: (cid, open) => set((s) => ({ expanded: { ...s.expanded, [cid]: open ?? !s.expanded[cid] } })),
+  toggleGroup: (path, open) =>
+    set((s) => {
+      const { [path]: was, ...rest } = s.collapsed
+      return { collapsed: (open ?? !!was) ? rest : { ...rest, [path]: true } }
+    }),
   setOrder: (order) => set({ order }),
 }), { name: 'rw.explorer.state', partialize: ({ byProject }) => ({ byProject }) }))
 
-// Every change of the filter or the expanded cases is the open project's to keep
+// Every change of the filter, the expanded cases or the folded groups is the open project's to keep
 useExplorer.subscribe((s, prev) => {
-  if (s.pid && (s.filter !== prev.filter || s.expanded !== prev.expanded))
-    useExplorer.setState({ byProject: { ...s.byProject, [s.pid]: { filter: s.filter, expanded: s.expanded } } })
+  if (s.pid && (s.filter !== prev.filter || s.expanded !== prev.expanded || s.collapsed !== prev.collapsed))
+    useExplorer.setState({ byProject: { ...s.byProject, [s.pid]: { filter: s.filter, expanded: s.expanded, collapsed: s.collapsed } } })
 })
 
 export const activeFilterCount = (f: CaseFilter) =>

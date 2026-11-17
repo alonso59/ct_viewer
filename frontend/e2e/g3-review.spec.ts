@@ -2,7 +2,7 @@
 // A → Alt+↓ → A (both recorded, AUD-A2-02, CUR-04) → next unreviewed case (AUD-A1-04, CUR-08) →
 // open from the correction queue and follow its navigation context (AUD-A1-04, CUR-09) → browser
 // Back returns to the previous case (AUD-A1-02, FE-04) → the Explorer shows the active case
-// (AUD-A1-03, UI-08) → the queue exports as CSV with the segmentation set (CUR-09/10) → one-click
+// (AUD-A1-03, UI-08) → the queue exports as CSV with the segmentation set (CUR-09/10) → set the
 // phase in the case header (PHS-01) → a decision with a comment on the set on screen (CUR-05,
 // VW-19; AUD-A6-16). Title-bar entry points (menus, quick open, share, About) are used too,
 // because browsers may reserve Ctrl/Cmd+P and Ctrl/Cmd+W (UI-05, AUD-A1-09/11, NFR-16).
@@ -107,15 +107,17 @@ test('G3: review loop with the keyboard, review order and history', async ({ pag
   await chip.getByRole('button', { name: 'Back to Explorer order' }).click()
   await expect(chip).toHaveCount(0)
 
-  // One-click phase (PHS-01): the case header's control sets the scan's phase at once
+  // Set the scan's phase in the case header (PHS-01)
   const scan = (await api<{ scans: { scan_idx: string; items: { scope: string; phase: { canonical: string } }[] }[] }>('GET', `/projects/${pid}/cases/${firstQ}`)).scans[0]!
   const now = scan.items.find((x) => x.scope === 'complete')!.phase.canonical
   const pick = now === 'EP' ? 'NC' : 'EP'
-  const phase = page.locator('.case-header').getByRole('group', { name: `Phase of ${firstQ} · ${scan.scan_idx}` })
-  await phase.getByRole('button', { name: pick, exact: true }).click()
-  await expect(phase.getByRole('button', { name: pick, exact: true })).toHaveAttribute('aria-pressed', 'true')
-  const selections = await api<{ items: { value: string; reviewer: string }[] }>('GET', `/projects/${pid}/phase/events?case_id=${firstQ}&scan_idx=${scan.scan_idx}`)
-  expect(selections.items.map((e) => [e.value, e.reviewer])).toEqual([[pick, 'Dr. G3']])
+  const phase = page.locator('.case-header').getByRole('combobox', { name: `Phase of ${firstQ} · ${scan.scan_idx}` })
+  await phase.selectOption(pick)
+  await expect.poll(async () => {
+    const { items } = await api<{ items: { value: string; reviewer: string }[] }>('GET', `/projects/${pid}/phase/events?case_id=${firstQ}&scan_idx=${scan.scan_idx}`)
+    return items.map((e) => [e.value, e.reviewer])
+  }).toEqual([[pick, 'Dr. G3']])
+  await expect(phase).toHaveValue(pick)
 
   // A decision with a comment (CUR-05), recorded on the segmentation set on screen (VW-19)
   const bar2 = page.getByRole('navigation', { name: 'Activity bar' })

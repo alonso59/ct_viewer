@@ -1,9 +1,10 @@
 // The scan's phase is set by the Phase control next to the switcher.
 import * as Menu from '@radix-ui/react-dropdown-menu'
+import { Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { ItemRecord, Phase } from '../../api'
-import { modalityText, namedComponent, PhaseChip, toolbarKeyDown } from '../../lib'
+import { groupScans, modalityText, namedComponent, PhaseChip, scanGroupLabel, toolbarKeyDown, type ScanGroup } from '../../lib'
 import { Icon, codicon } from '../../theme'
 
 interface ScanInfo {
@@ -13,31 +14,39 @@ interface ScanInfo {
   component: string | null
   description: string
   slices: number | null
+  /** Series part (`t2`, `b800`), when the series holds several */
+  part: string | null
+  groups: ScanGroup[]
 }
 
-/** One entry per scan of the case, in scan order; its facts come from the full-volume item */
+/** One entry per scan of the case, by exam, series and part; its facts come from the full-volume item */
 export function scansOf(items: ItemRecord[]): ScanInfo[] {
-  const by = new Map<string, ItemRecord[]>()
-  for (const i of items) by.set(i.scan_idx, [...(by.get(i.scan_idx) ?? []), i])
-  return [...by.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-    .map(([idx, its]) => {
-      const full = its.find((i) => i.scope === 'complete') ?? its[0]!
-      const d = full.extra?.series_description
-      return {
-        idx,
-        phase: full.phase.canonical as Phase,
-        modality: full.modality ?? null,
-        component: namedComponent(full),
-        description: typeof d === 'string' ? d : '',
-        slices: full.geometry?.shape[2] ?? null,
-      }
-    })
+  return groupScans(items).map(({ scanIdx, part, groups, items: its }) => {
+    const full = its.find((i) => i.scope === 'complete') ?? its[0]!
+    const d = full.extra?.series_description
+    return {
+      idx: scanIdx,
+      phase: full.phase.canonical as Phase,
+      modality: full.modality ?? null,
+      component: namedComponent(full),
+      // a grouped series names its description once, on its heading
+      description: typeof d === 'string' && !groups.some((g) => g.kind === 'series') ? d : '',
+      slices: full.geometry?.shape[2] ?? null,
+      part,
+      groups,
+    }
+  })
+}
+
+/** The headings to show before a scan: those of its groups that differ from the previous scan's */
+function newHeadings(s: ScanInfo, prev: ScanInfo | undefined): ScanGroup[] {
+  const i = s.groups.findIndex((g, d) => prev?.groups[d]?.key !== g.key)
+  return i < 0 ? [] : s.groups.slice(i)
 }
 
 export function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; current: ItemRecord; onPick: (id: string) => void }) {
   const { t } = useTranslation()
-  const scanMeta = (s: ScanInfo) => [s.modality ? modalityText(t, s.modality, s.component) : null, s.slices != null ? t('viewer.scanSlices', { n: s.slices }) : null, s.description].filter(Boolean).join(' · ')
+  const scanMeta = (s: ScanInfo) => [s.part, s.modality ? modalityText(t, s.modality, s.component) : null, s.slices != null ? t('viewer.scanSlices', { n: s.slices }) : null, s.description].filter(Boolean).join(' · ')
   const scans = scansOf(items)
   const at = scans.findIndex((s) => s.idx === current.scan_idx)
   const inScan = items.filter((i) => i.scan_idx === current.scan_idx)
@@ -67,11 +76,18 @@ export function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; 
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Content className="overlay menu scan-menu" sideOffset={4} align="start">
-            {scans.map((s) => (
-              <Menu.Item key={s.idx} className="menu-item" aria-label={[t('viewer.scanIndex', { scan: s.idx }), s.phase, scanMeta(s)].filter(Boolean).join(' ')} onSelect={() => goScan(s.idx)}>
-                <Icon spec={codicon(s.idx === current.scan_idx ? 'check' : 'blank')} />
-                <span className="mono">{s.idx}</span> <PhaseChip phase={s.phase} /> <span className="scan-meta">{scanMeta(s)}</span>
-              </Menu.Item>
+            {scans.map((s, n) => (
+              <Fragment key={s.idx}>
+                {newHeadings(s, scans[n - 1]).map((g) => (
+                  <Menu.Label key={g.key} className="menu-label scan-group" data-depth={s.groups.indexOf(g)} title={g.kind === 'other' ? undefined : g.uid}>
+                    {scanGroupLabel(t, g)}
+                  </Menu.Label>
+                ))}
+                <Menu.Item className="menu-item" data-depth={s.groups.length} aria-label={[t('viewer.scanIndex', { scan: s.idx }), s.phase, scanMeta(s)].filter(Boolean).join(' ')} onSelect={() => goScan(s.idx)}>
+                  <Icon spec={codicon(s.idx === current.scan_idx ? 'check' : 'blank')} />
+                  <span className="mono">{s.idx}</span> <PhaseChip phase={s.phase} /> <span className="scan-meta">{scanMeta(s)}</span>
+                </Menu.Item>
+              </Fragment>
             ))}
           </Menu.Content>
         </Menu.Portal>
