@@ -40,7 +40,7 @@ test('every scan row shows its modality badge', async () => {
     </QueryClientProvider>,
   )
   await screen.findAllByText(/^Scan \d+ · /, {}, { timeout: 3_000 })
-  const rows = screen.getAllByRole('treeitem').filter((r) => r.getAttribute('aria-level') === '2')
+  const rows = screen.getAllByRole('treeitem').filter((r) => r.classList.contains('pv-item'))
   expect(rows).toHaveLength(items.length)
   const mr = items.find((i) => i.modality === 'MR')!
   const mrRow = rows.find((r) => r.textContent?.includes(`Scan ${mr.scan_idx} · `))!
@@ -65,7 +65,7 @@ test('scans left out upstream stay hidden until "show excluded" is on', async ()
       </RTooltip.Provider>
     </QueryClientProvider>,
   )
-  const scans = () => screen.getAllByRole('treeitem').filter((r) => r.getAttribute('aria-level') === '2')
+  const scans = () => screen.getAllByRole('treeitem').filter((r) => r.classList.contains('pv-item'))
   await screen.findAllByText(/^Scan \d+ · /, {}, { timeout: 3_000 })
   expect(scans()).toHaveLength(real.items.length)
   act(() => useExplorer.getState().setFilter({ showExcluded: true }))

@@ -95,7 +95,7 @@ test('PHS-03 / DB-04: phase hides other scan rows and intersects the dashboard s
   vi.spyOn(api, 'listCases').mockResolvedValue([detail.summary])
   act(() => useExplorer.setState({ expanded: { case_00001: true }, filter: { phase: 'CMP' } }))
   mount()
-  const itemRows = () => screen.getAllByRole('treeitem').filter((r) => r.getAttribute('aria-level') === '2')
+  const itemRows = () => screen.getAllByRole('treeitem').filter((r) => r.classList.contains('pv-item'))
   await waitFor(() => expect(itemRows()).toHaveLength(1))
   expect(itemRows()[0]).toHaveTextContent('CMP')
   expect(itemRows()[0]).toHaveTextContent('Scan 02')
@@ -137,7 +137,8 @@ test('PHS-01: case and scan phases stay read-only and colored during navigation'
   useSettings.setState({ rowDensity: 'thumbnails' })
   useViewerSync.setState({ activeCaseId: 'case_00001', activeItemId: items[0]!.item_id })
   mount()
-  await waitFor(() => expect(screen.getAllByRole('treeitem')).toHaveLength(3))
+  // the case, one exam row per scan (each scan is its own exam here) and the two scans
+  await waitFor(() => expect(screen.getAllByRole('treeitem')).toHaveLength(5))
   const rows = screen.getAllByRole('treeitem')
   for (const row of rows) {
     for (const chip of row.querySelectorAll('[data-phase]')) {
@@ -145,7 +146,7 @@ test('PHS-01: case and scan phases stay read-only and colored during navigation'
       expect(chip).toHaveAttribute('data-tone', chip.getAttribute('data-phase') === 'UNK' ? 'warn' : 'accent')
     }
   }
-  const itemRows = rows.filter((r) => r.getAttribute('aria-level') === '2')
+  const itemRows = rows.filter((r) => r.classList.contains('pv-item'))
   expect(itemRows[0]).toHaveAttribute('aria-selected', 'true')
   for (const row of itemRows) {
     fireEvent.mouseOver(row)

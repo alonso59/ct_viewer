@@ -83,6 +83,23 @@
   max-height: min(60vh, 420px);
   overflow-y: auto;
 }
+/* exam and series headings, and the scans under them, step in by depth */
+.scan-menu [data-depth='1'] {
+  padding-left: 20px;
+}
+.scan-menu [data-depth='2'] {
+  padding-left: 34px;
+  /* indent guide: the parts of the series heading above */
+  background-image: linear-gradient(var(--border), var(--border));
+  background-repeat: no-repeat;
+  background-size: 1px 100%;
+  background-position: 24px 0;
+}
+.scan-group {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .scan-meta {
   min-width: 0;
   max-width: 280px;

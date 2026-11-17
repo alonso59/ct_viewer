@@ -33,6 +33,8 @@ Depends: none (terms point to their owning docs by ID).
 | Quick fingerprint | `size` + SHA-256 of the first and last 64 KiB of a file |
 | Case | All data for one `case_id` |
 | Scan | One acquisition `(case_id, scan_idx)`, usually one contrast phase |
+| Exam | The scans of a case sharing a DICOM `study_uid`; shown as "Exam · day N" in the Explorer and scan switcher (ADR-0057) |
+| Series part | One scan of a DICOM series split by DCM-35 (`#t2`, `#b800`, `#e2`); its label is the suffix (ADR-0057) |
 | Item | Viewable unit: scan × scope × side; target of curation and radiomics |
 | Scope | `complete` (full CT + SEG) or `voi` (cropped VOI + VOI mask) |
 | Axis order | NumPy memory order: `xyz` (nibabel) or `zyx` (SimpleITK arrays); spacing is always listed x, y, z (SOURCES §NumPy) |

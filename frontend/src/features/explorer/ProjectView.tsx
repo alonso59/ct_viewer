@@ -16,7 +16,7 @@ import {
   type LabelDef,
   type Variable,
 } from '../../api'
-import { effectiveModality, ModalityTag, modalityKey, modalityText, namedComponent, PhaseChip, rollupTitle, SliceThumb, StatusIcon, ProblemCard, useAnnounce } from '../../lib'
+import { effectiveModality, groupScans, ModalityTag, modalityKey, modalityText, namedComponent, PhaseChip, rollupTitle, scanGroupLabel, SliceThumb, StatusIcon, ProblemCard, useAnnounce, type ScanGroup } from '../../lib'
 import { registry, runCommand, useWorkbench } from '../../shell'
 import { useSettings, useViewerSync } from '../../state'
 import { Icon, codicon, tokenPx } from '../../theme'
@@ -47,9 +47,17 @@ function VarColumns({ c, columns }: { c: CaseSummary; columns: Variable[] }) {
   )
 }
 
-type Row = { kind: 'case'; c: CaseSummary } | { kind: 'item'; item: ItemRecord; caseId: string } | { kind: 'loading'; caseId: string }
+type Row =
+  | { kind: 'case'; c: CaseSummary }
+  /** An exam or series row of an expanded case; `path` names it in the folded set */
+  | { kind: 'group'; group: ScanGroup; caseId: string; path: string; level: number }
+  | { kind: 'item'; item: ItemRecord; caseId: string; level: number; part: string | null; inSeries: boolean }
+  | { kind: 'loading'; caseId: string }
 /** The row's element id, for the tree's aria-activedescendant (ids stay valid IDREFs) */
-const rowDomId = (r: Row) => (r.kind === 'item' ? `pv-item-${r.item.item_id}` : `pv-case-${r.kind === 'case' ? r.c.case_id : r.caseId}`).replace(/[^\w.-]/g, '_')
+const rowDomId = (r: Row) =>
+  (r.kind === 'item' ? `pv-item-${r.item.item_id}` : r.kind === 'group' ? `pv-group-${r.path}` : `pv-case-${r.kind === 'case' ? r.c.case_id : r.caseId}`).replace(/[^\w.-]/g, '_')
+/** Indent of a row below a case, as a CSS variable */
+const depth = (level: number) => ({ '--pv-depth': level - 2 }) as CSSProperties
 
 function ExpandedItems({ caseId, onItems }: { caseId: string; onItems: (cid: string, items: ItemRecord[]) => void }) {
   const pid = useWorkbench((s) => s.pid) ?? ''
@@ -72,7 +80,7 @@ function ItemModality({ item, fallback }: { item: ItemRecord; fallback: string |
 export function ProjectView() {
   const { t } = useTranslation()
   const pid = useWorkbench((s) => s.pid) ?? ''
-  const { filter, setFilter, expanded, toggle, setOrder } = useExplorer()
+  const { filter, setFilter, expanded, collapsed, toggle, toggleGroup, setOrder } = useExplorer()
   const density = useSettings((s) => s.rowDensity)
   const activeItemId = useViewerSync((s) => s.activeItemId)
   const activeCaseId = useViewerSync((s) => s.activeCaseId)
@@ -115,15 +123,33 @@ export function ProjectView() {
       out.push({ kind: 'case', c })
       if (expanded[c.case_id]) {
         const items = itemsByCase[c.case_id]
-        if (!items) out.push({ kind: 'loading', caseId: c.case_id })
-        else for (const item of items) {
-          if (item.status === 'excluded_upstream' && !showExcluded) continue
-          if ((!only || only.has(item.item_id)) && (!phase || item.phase.canonical === phase)) out.push({ kind: 'item', item, caseId: c.case_id })
+        if (!items) {
+          out.push({ kind: 'loading', caseId: c.case_id })
+          continue
+        }
+        // Exam and series rows come only before a scan that is shown, so a filter hides empty groups
+        let shown: string[] = []
+        for (const s of groupScans(items)) {
+          const visible = s.items.filter((item) =>
+            (showExcluded || item.status !== 'excluded_upstream') && (!only || only.has(item.item_id)) && (!phase || item.phase.canonical === phase))
+          if (!visible.length) continue
+          let path = c.case_id
+          let folded = false
+          for (const [d, group] of s.groups.entries()) {
+            path = `${path}/${group.key}`
+            if (folded) break
+            if (shown[d] !== path) {
+              shown = [...shown.slice(0, d), path]
+              out.push({ kind: 'group', group, caseId: c.case_id, path, level: d + 2 })
+            }
+            folded = !!collapsed[path]
+          }
+          if (!folded) for (const item of visible) out.push({ kind: 'item', item, caseId: c.case_id, level: s.groups.length + 2, part: s.part, inSeries: s.groups.at(-1)?.kind === 'series' })
         }
       }
     }
     return out
-  }, [visibleCases, expanded, itemsByCase, itemIds, phase, showExcluded])
+  }, [visibleCases, expanded, collapsed, itemsByCase, itemIds, phase, showExcluded])
 
   // Row heights come from the interface-size tokens, read on every render; the fallback, for a
   // document without the tokens, follows the size too
@@ -175,6 +201,9 @@ export function ProjectView() {
     else if (e.key === 'ArrowUp') move(cursor - 1)
     else if (e.key === 'ArrowRight' && r?.kind === 'case') toggle(r.c.case_id, true)
     else if (e.key === 'ArrowLeft' && r?.kind === 'case') toggle(r.c.case_id, false)
+    else if (e.key === 'ArrowRight' && r?.kind === 'group') toggleGroup(r.path, true)
+    else if (e.key === 'ArrowLeft' && r?.kind === 'group') toggleGroup(r.path, false)
+    else if ((e.key === 'Enter' || e.key === ' ') && r?.kind === 'group') toggleGroup(r.path)
     else if (e.key === 'Enter') activate(r, false)
     else if (e.key === ' ') activate(r, true)
     else return
@@ -250,6 +279,27 @@ export function ProjectView() {
                   {t('common.loading')}
                 </div>
               )
+            if (r.kind === 'group') {
+              const open = !collapsed[r.path]
+              return (
+                <div
+                  key={r.path}
+                  id={rowDomId(r)}
+                  role="treeitem"
+                  aria-level={r.level}
+                  aria-expanded={open}
+                  className="list-row pv-group"
+                  data-focused={focused}
+                  style={{ ...style, ...depth(r.level) }}
+                  // the label never shows a UID; the tooltip does (copyable from there)
+                  title={r.group.kind === 'other' ? undefined : r.group.uid}
+                  onClick={() => { setCursor(v.index); toggleGroup(r.path) }}
+                >
+                  <Icon spec={codicon(open ? 'chevron-down' : 'chevron-right')} />
+                  <span className="item-label">{scanGroupLabel(t, r.group)}</span>
+                </div>
+              )
+            }
             if (r.kind === 'item') {
               const it = r.item
               const excluded = it.status === 'excluded_upstream'
@@ -259,19 +309,21 @@ export function ProjectView() {
                   key={it.item_id}
                   id={rowDomId(r)}
                   role="treeitem"
-                  aria-level={2}
+                  aria-level={r.level}
                   aria-selected={activeItemId === it.item_id}
                   aria-disabled={excluded || undefined}
                   className="list-row pv-item"
                   data-focused={focused}
                   data-density={density}
                   data-excluded={excluded || undefined}
-                  style={style}
+                  data-in-series={r.inSeries || undefined}
+                  style={{ ...style, ...depth(r.level) }}
                   onClick={() => { if (!excluded) { setCursor(v.index); activate(r) } }}
                   onDoubleClick={() => !excluded && activate(r, false)}
                 >
                   <PhaseChip phase={it.phase.canonical} active />
-                  <span className="item-label">{itemLabel(it, t)}</span>
+                  {/* the part goes right after the scan number, so a narrow pane cuts the scope first */}
+                  <span className="item-label">{itemLabel(r.part ? { ...it, scan_idx: `${it.scan_idx} ${r.part}` } : it, t)}</span>
                   <ItemModality item={it} fallback={project.data?.default_modality} />
                   {it.warning_codes.length ? (
                     <span className="pv-warn pv-end" title={it.warning_codes.join(', ')}>
