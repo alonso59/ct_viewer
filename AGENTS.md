@@ -48,6 +48,7 @@ codicons) with a 3D Slicer-style 2×2 CT viewer.
 
 ## Workflow
 
+- Use `gh` from the `rwnode` conda environment for GitHub operations. Run `conda run -n rwnode gh …` or activate the environment with `conda activate rwnode` first.
 - Current phase and exit criteria: `docs/product/ROADMAP.md`. Work one phase at a time; stop for user confirmation between phases.
 - Changing a decision in `docs/adr/` requires a new ADR that supersedes it.
 - When behavior changes, update the single doc that owns it (`docs/INDEX.md` lists owners by ID prefix).
