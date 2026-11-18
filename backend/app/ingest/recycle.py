@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import shutil
+from collections.abc import Iterable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -16,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.core.errors import JobConflict, PreconditionFailed, ValidationProblem
 from app.core.fsio import atomic_write_bytes, atomic_write_json, iter_jsonl, read_json
-from app.core.ids import new_ulid, utc_now
+from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.paths import PathResolver, is_within, parse_ref, realpath
 from app.core.reviewer import require
 from app.events.bus import EventBus
@@ -435,6 +436,15 @@ class RecycleService:
         ) and not self.workspace.derived_guard.is_allowed(path):
             self.workspace.guard.check(path)
 
+    def _busy(self, projects: Iterable[str]) -> bool:
+        """A job of a project sharing the scan may read its files; a workspace job (no
+        project) may write into the dataset folder. Jobs of other projects do not matter."""
+        shared = set(projects)
+        return any(
+            j.status not in TERMINAL and (j.project_id in shared or not is_ulid(j.project_id))
+            for j in self.jobs.list()
+        )
+
     def _index_writes(
         self, writes: dict[Path, bytes], pid: str, items: list[Item], warnings: list[QcWarning]
     ) -> None:
@@ -527,9 +537,9 @@ class RecycleService:
             for other in pids:
                 await locks.enter_async_context(self.workspace.locks(other))
             self.index.get_item(pid, iid)
-            if any(j.status not in TERMINAL for j in self.jobs.list()):
-                raise JobConflict("Wait for running jobs before recycling a CT scan")
             plan = self._plan(pid, iid)
+            if self._busy(plan.items):
+                raise JobConflict("Wait for running jobs before recycling a CT scan")
             if plan.public.token != request.token:
                 raise PreconditionFailed("The scan changed; reopen the recycle confirmation")
             rid = new_ulid()

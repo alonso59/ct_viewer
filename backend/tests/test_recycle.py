@@ -251,23 +251,34 @@ def test_CUR16_moves_across_filesystems_only_after_verified_copy(
     assert not source.exists()
 
 
-def test_API66_refuses_active_jobs(
-    client: TestClient, data_root: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("job_project", "blocks"), [("own", True), ("_workspace", True), ("other", False)]
+)
+def test_API66_refuses_jobs_of_projects_sharing_the_scan(
+    client: TestClient,
+    data_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    job_project: str,
+    blocks: bool,
 ) -> None:
     from types import SimpleNamespace
 
     pid, iid = setup_scan(client, data_root)
+    other = client.post(f"{API}/projects", json={"name": "Unrelated"}).json()["project_id"]
+    owner = {"own": pid, "other": other}.get(job_project, job_project)
     plan = preview(client, pid, iid)
     monkeypatch.setattr(
-        ctx_of(client).jobs, "list", lambda *args: [SimpleNamespace(status="running")]
+        ctx_of(client).jobs,
+        "list",
+        lambda *args: [SimpleNamespace(status="running", project_id=owner)],
     )
     response = client.post(
         f"{API}/projects/{pid}/items/{iid}/recycle",
         json={"confirmed": True, "token": plan["token"]},
         headers={"X-Reviewer": "R"},
     )
-    assert response.status_code == 409
-    assert not (data_root / "recycle_bin").exists()
+    assert response.status_code == (409 if blocks else 200), response.text
+    assert (data_root / "recycle_bin").exists() is not blocks
 
 
 def test_CUR16_workspace_derived_dataset(tmp_path: Path, data_root: Path) -> None:

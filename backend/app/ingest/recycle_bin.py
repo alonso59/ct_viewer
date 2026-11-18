@@ -27,7 +27,6 @@ from app.ingest.recycle import (
     _jsonl,
     prune_rows,
 )
-from app.jobs.types import TERMINAL
 
 INDEX_FILES = (
     "index/items.jsonl",
@@ -332,9 +331,9 @@ class RecycleBinService(RecycleService):
         async with self.workspace.locks("_recycle"), AsyncExitStack() as locks:
             for other in sorted(p.project_id for p in self.workspace.list()):
                 await locks.enter_async_context(self.workspace.locks(other))
-            if any(j.status not in TERMINAL for j in self.jobs.list()):
-                raise JobConflict("Wait for running jobs before restoring a CT scan")
             public, folder, manifest, moves, writes = self._restore_plan(pid, rid)
+            if self._busy(public.projects):
+                raise JobConflict("Wait for running jobs before restoring a CT scan")
             if public.token != request.token:
                 raise PreconditionFailed("The recycle bin changed; reopen the restore confirmation")
             transaction: dict[str, Any] = {
