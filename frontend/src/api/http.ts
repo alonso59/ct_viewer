@@ -529,6 +529,12 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     },
     previewRecycle: (pid, iid) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } } })),
     recycleScan: (pid, iid, token, reviewer) => unwrap(client.POST('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } }, body: { confirmed: true, token }, headers: reviewerHeader(reviewer) })),
+    listRecycleBin: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/recycle-bin', { params: { path: { pid } } })),
+    previewRestore: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/recycle-bin/{rid}/restore', { params: { path: { pid, rid } } })),
+    restoreScan: (pid, rid, token, reviewer) => unwrap(client.POST('/api/v1/projects/{pid}/recycle-bin/{rid}/restore', { params: { path: { pid, rid } }, body: { confirmed: true, token }, headers: reviewerHeader(reviewer) })),
+    async deleteRecycled(pid, rid) {
+      await unwrap(client.POST('/api/v1/projects/{pid}/recycle-bin/{rid}/delete', { params: { path: { pid, rid } }, body: { confirmed: true } }))
+    },
     thumbnailUrl: (pid, iid) => viewPath(`${V1}/projects/${enc(pid)}/items/${enc(iid)}/thumbnail`),
 
     async listEvents(pid, f = {}) {

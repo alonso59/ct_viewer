@@ -46,9 +46,29 @@ def main() -> None:
             rec = Recorder(client)
             url = f"{base}/items/case_00001.01.complete.-/recycle"
             plan = rec.get(url)
+            first = rec.call(
+                "POST", url, {"confirmed": True, "token": plan["token"]}, {"X-Reviewer": "Dr. AP"}
+            )["recycle_id"]
+            # A second recycled scan, so the bin lists one to restore and one to delete
+            other = next(
+                i["item_id"]
+                for i in client.get(f"{base}/items", params={"scope": "complete"}).json()["items"]
+                if i["case_id"] != "case_00001"
+            )
+            url = f"{base}/items/{other}/recycle"
+            plan = client.get(url).json()
+            second = client.post(
+                url,
+                json={"confirmed": True, "token": plan["token"]},
+                headers={"X-Reviewer": "Dr. AP"},
+            ).json()["recycle_id"]
+            rec.get(f"{base}/recycle-bin")
+            url = f"{base}/recycle-bin/{first}/restore"
+            plan = rec.get(url)
             rec.call(
                 "POST", url, {"confirmed": True, "token": plan["token"]}, {"X-Reviewer": "Dr. AP"}
             )
+            rec.call("POST", f"{base}/recycle-bin/{second}/delete", {"confirmed": True})
         recording = json.loads(OUT.read_text())
         paths = {e["path"].replace(pid, recording["project_id"]) for e in rec.log.values()}
         recording["exchanges"] = [e for e in recording["exchanges"] if e["path"] not in paths]

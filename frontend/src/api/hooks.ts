@@ -664,6 +664,7 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
   if (e.event === 'project.updated' && e.data.fields.includes('recycle')) {
     void refreshQueries(qc, keys.project(pid))
     void refreshQueries(qc, keys.projects())
+    void qc.invalidateQueries({ queryKey: keys.recycleBin(pid) })
   }
   if (e.event === 'project.updated') {
     void qc.invalidateQueries({ queryKey: keys.project(pid) })
@@ -778,6 +779,35 @@ export function useRecycleScan(pid: string, iid: string) {
     onSuccess: () => {
       void refreshQueries(qc, keys.project(pid))
       void refreshQueries(qc, keys.projects())
+      void qc.invalidateQueries({ queryKey: keys.recycleBin(pid) })
     },
+  })
+}
+
+export const useRecycleBin = (pid: string) =>
+  useQuery({ queryKey: keys.recycleBin(pid), queryFn: () => api.listRecycleBin(pid), enabled: enabled(pid) })
+
+/** Put a recycled scan back after a preview, explicit confirmation and a reviewer stamp. */
+export function useRestoreScan(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ rid, token }: { rid: string; token: string }) => {
+      const reviewer = await requireReviewer()
+      if (!reviewer) throw new ReviewerCancelled()
+      return api.restoreScan(pid, rid, token, reviewer)
+    },
+    onSuccess: () => {
+      void refreshQueries(qc, keys.project(pid))
+      void refreshQueries(qc, keys.projects())
+      void qc.invalidateQueries({ queryKey: keys.recycleBin(pid) })
+    },
+  })
+}
+
+export function useDeleteRecycled(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rid: string) => api.deleteRecycled(pid, rid),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.recycleBin(pid) }),
   })
 }

@@ -160,6 +160,7 @@ export class NiivueViewer implements ViewerHandle {
   private ready: Promise<unknown>
   readonly stats = { frames: 0, lastFrameMs: 0, sync: false }
   maskError: string | null = null
+  maskLabels: readonly number[] = []
 
   /** Each instance owns its canvas: a context lost on dispose can never be reused */
   constructor(host: HTMLElement) {
@@ -205,6 +206,7 @@ export class NiivueViewer implements ViewerHandle {
     await this.ready
     if (!ticket.check()) return
     this.maskError = null
+    this.maskLabels = []
     const maskBytes = opts.maskUrl ? fetchVolume(opts.maskUrl, undefined, opts.signal) : null
     // A failed mask must not fail the image; it is reported through `maskError`
     maskBytes?.catch(() => undefined)
@@ -256,9 +258,15 @@ export class NiivueViewer implements ViewerHandle {
     const labels = labelArray(mf.data)
     if (!labels) throw new Error('The segmentation does not contain integer labels')
     if (stale()) return
-    let max = 0
-    for (let i = 0; i < labels.length; i++) if (labels[i]! > max) max = labels[i]!
+    // Masks are long runs of one value, so the set is touched only at run boundaries
+    const present = new Set<number>()
+    let prev = -1
+    for (let i = 0; i < labels.length; i++) if (labels[i] !== prev) present.add(prev = labels[i]!)
+    present.delete(0)
+    const values = [...present].sort((a, b) => a - b)
+    const max = values.at(-1) ?? 0
     this.maskMax = max
+    this.maskLabels = values
     this.mask = { ...mf, data: labels, slope: 1, inter: 0 }
     this.slices!.setLabel(labels, mf.dims)
 

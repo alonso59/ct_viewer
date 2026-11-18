@@ -21,6 +21,7 @@ from app.api.v1 import (
     plugins,
     projects,
     radiomics,
+    recycle_bin,
     segmentations,
     source_batches,
     source_operations,
@@ -35,7 +36,7 @@ from app.api.v1 import (
 router = APIRouter()
 for _module in (
     health, projects, fs, sources, source_operations, source_batches, imports, variables, cases,
-    cohort, items, volumes, segmentations, curation, phase, annotations, exports, radiomics, tasks,
-    plugins, labeling, dashboard, jobs, logs, ctflow, events, view, mesh, voi,
+    cohort, items, recycle_bin, volumes, segmentations, curation, phase, annotations, exports,
+    radiomics, tasks, plugins, labeling, dashboard, jobs, logs, ctflow, events, view, mesh, voi,
 ):  # fmt: skip
     router.include_router(_module.router)

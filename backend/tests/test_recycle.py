@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +87,17 @@ def test_CUR16_recycles_scan_and_all_metadata(client: TestClient, data_root: Pat
         ).status_code
         == 404
     )
+
+
+def test_CUR16_ignores_archived_project_without_folder(client: TestClient, data_root: Path) -> None:
+    pid, iid = setup_scan(client, data_root)
+    gone = client.post(f"{API}/projects", json={"name": "Gone"}).json()["project_id"]
+    assert client.post(f"{API}/projects/{gone}/archive").status_code == 200
+    ctx = ctx_of(client)
+    folder = ctx.workspace.folder(gone)
+    shutil.rmtree(folder)
+    assert iid in preview(client, pid, iid)["item_ids"]
+    ctx.workspace.reserved_derived()  # raised NotFound for the missing project.json
 
 
 def test_API66_requires_confirmation_reviewer_and_current_plan(

@@ -34,7 +34,7 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0026 | Phase selection is native to the app, not a curation decision | Accepted (Explorer editing clause superseded by 0031) |
 | 0027 | Open mode: attach a segmentation from anywhere under the shared folders; it travels into the import | Accepted |
 | 0028 | One "Layout" menu in the title bar; a neutral active indicator | Accepted |
-| 0029 | Explicit scan recycling with full audit metadata | Accepted (partially supersedes 0014 and 0021 for CUR-16) |
+| 0029 | Explicit scan recycling with full audit metadata | Accepted (partially supersedes 0014 and 0021 for CUR-16; restore and permanent delete superseded by 0058) |
 | 0030 | Dataset-local projects with a lightweight global workspace | Accepted (partially supersedes 0002 and 0014) |
 | 0031 | Explorer phases are read-only indicators | Accepted (partially supersedes 0026) |
 | 0032 | nnU-Net v2 inference as a partitioned external segmentation task | Superseded by 0033 |
@@ -63,3 +63,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0055 | Phase selection is one drop-down, not one button per phase | Accepted (partially supersedes 0026) |
 | 0056 | "Accept guess" also accepts the imported phase_guess | Accepted (extends 0026) |
 | 0057 | Scans are grouped by DICOM exam and series, for display only | Accepted (extends 0011) |
+| 0058 | Recycle bin panel: restore and permanent delete | Accepted (partially supersedes 0029) |

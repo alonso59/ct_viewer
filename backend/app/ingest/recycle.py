@@ -22,7 +22,7 @@ from app.core.reviewer import require
 from app.events.bus import EventBus
 from app.ingest.cases import build_cases
 from app.ingest.counting import split_items
-from app.ingest.models import Item
+from app.ingest.models import Item, QcWarning
 from app.ingest.normalize import PhaseRules
 from app.ingest.store import IndexStore, item_rows
 from app.jobs.manager import JobManager
@@ -31,6 +31,8 @@ from app.projects.service import Workspace
 
 RECYCLE = "recycle_bin"
 JOURNAL = "logs/recycle.jsonl"
+MANIFEST = "manifest.json"
+RESTORE = "restore.json"  # the restore transaction, next to the recycle manifest
 
 
 class RecyclePlan(BaseModel):
@@ -71,6 +73,27 @@ class _Plan:
 def excluded_items(pdir: Path) -> set[str]:
     """Historical input snapshots stay intact; a rebuild must not resurrect a recycled CT."""
     return {str(iid) for row in iter_jsonl(pdir / JOURNAL) for iid in row.get("item_ids", [])}
+
+
+def prune_rows(
+    rows: list[dict[str, Any]], ids: set[str], case_id: str, scan_idx: str
+) -> list[tuple[dict[str, Any], dict[str, Any] | None]]:
+    """Each row with what the recycle keeps of it: None, the row, or the row without the
+    scan's nested `outputs` (the derived ledger)."""
+    out: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+    for row in rows:
+        if row.get("item_id") in ids or (
+            str(row.get("case_id", "")) == case_id and str(row.get("scan_idx", "")) == scan_idx
+        ):
+            out.append((row, None))
+            continue
+        outputs = row.get("outputs")
+        if isinstance(outputs, list) and any(o.get("item_id") in ids for o in outputs):
+            kept = {**row, "outputs": [o for o in outputs if o.get("item_id") not in ids]}
+            out.append((row, kept))
+            continue
+        out.append((row, row))
+    return out
 
 
 def _jsonl(rows: list[dict[str, Any]]) -> bytes:
@@ -158,6 +181,8 @@ class RecycleService:
                 affected[other] = [i for i in indexed if (i.case_id, i.scan_idx) in scans]
         for project in self.workspace.list(archived=True):
             pdir = self.workspace.folder(project.project_id)
+            if not (pdir / "project.json").is_file():
+                continue  # its folder is gone, so it cannot use this scan
             cfg = read_json(pdir / "project.json")
             archived_resolver = PathResolver(
                 {r["alias"]: r["path"] for r in cfg["path_roots"]},
@@ -344,28 +369,13 @@ class RecycleService:
             return
         if path.is_symlink():
             raise ValidationProblem("Refusing to rewrite a symlinked metadata file")
-        rows = list(iter_jsonl(path))
-
-        def matches(row: dict[str, Any]) -> bool:
-            return row.get("item_id") in ids or (
-                str(row.get("case_id", "")) == selected.case_id
-                and str(row.get("scan_idx", "")) == selected.scan_idx
-            )
-
-        removed = [r for r in rows if matches(r)]
-        # The derived ledger has per-item outputs nested inside a run row.
-        kept = []
-        for row in rows:
-            if matches(row):
-                continue
-            if isinstance(row.get("outputs"), list):
-                dropped = [o for o in row["outputs"] if o.get("item_id") in ids]
-                if dropped:
-                    removed.extend(dropped)
-                    row = {**row, "outputs": [o for o in row["outputs"] if o not in dropped]}
-            kept.append(row)
+        pairs = prune_rows(list(iter_jsonl(path)), ids, selected.case_id, selected.scan_idx)
+        removed = [row for row, kept in pairs if kept is None]
+        for row, trimmed in pairs:
+            if trimmed is not None and trimmed is not row:
+                removed.extend(o for o in row["outputs"] if o not in trimmed["outputs"])
         if removed:
-            plan.writes[path] = _jsonl(kept)
+            plan.writes[path] = _jsonl([k for _, k in pairs if k is not None])
             plan.removed[str(path)] = removed
 
     @staticmethod
@@ -393,7 +403,7 @@ class RecycleService:
             # Preserve Arrow types and complete metadata in the backup, no lossy JSON cast.
             plan.removed[str(path)] = [{"rows": removed.num_rows, "backup": "original parquet"}]
 
-    def _rollback(self, destination: Path, manifest: dict[str, Any]) -> None:
+    def _rollback(self, destination: Path, manifest: dict[str, Any], name: str = MANIFEST) -> None:
         for record in reversed(manifest["backups"]):
             path = Path(record["original"])
             self._guard_write(path)
@@ -410,10 +420,12 @@ class RecycleService:
             recycled = realpath(destination / record["recycled"])
             if not is_within(recycled, destination):
                 raise ValidationProblem("Invalid recycled file path")
-            if recycled.exists() and not path.exists():
-                _move_file(recycled, path)
+            # A restore moved the files the other way
+            here, back = (path, recycled) if manifest.get("kind") == "restore" else (recycled, path)
+            if here.exists() and not back.exists():
+                _move_file(here, back)
         manifest["status"] = "rolled_back"
-        atomic_write_json(destination / "manifest.json", manifest)
+        atomic_write_json(destination / name, manifest)
         for pid in manifest["items"]:
             self.index.invalidate(pid)
 
@@ -423,17 +435,81 @@ class RecycleService:
         ) and not self.workspace.derived_guard.is_allowed(path):
             self.workspace.guard.check(path)
 
+    def _index_writes(
+        self, writes: dict[Path, bytes], pid: str, items: list[Item], warnings: list[QcWarning]
+    ) -> None:
+        pdir = self.workspace.project_dir(pid)
+        cfg = self.workspace.get(pid)
+        cases = build_cases(
+            items,
+            warnings,
+            PhaseRules(tuple(cfg.phase_vocabulary), cfg.phase_mapping),
+            cfg.phase_priority,
+        )
+        writes[pdir / "index/items.jsonl"] = _jsonl(item_rows(items))
+        writes[pdir / "index/cases.jsonl"] = _jsonl([c.model_dump(mode="json") for c in cases])
+        writes[pdir / "index/qc_warnings.jsonl"] = _jsonl(
+            [w.model_dump(mode="json") for w in warnings]
+        )
+        status = self.index.status(pid).model_dump(mode="json")
+        n_items, n_excluded = split_items(i.status for i in items)
+        status.update(n_items=n_items, n_excluded_upstream=n_excluded, n_warnings=len(warnings))
+        writes[pdir / "index/status.json"] = json.dumps(status).encode()
+
+    def _commit(
+        self,
+        destination: Path,
+        manifest: dict[str, Any],
+        name: str,
+        moves: dict[Path, Path],
+        writes: dict[Path, bytes],
+        backups: str,
+    ) -> None:
+        """Back up, record as pending, then move and write; roll back on any failure."""
+        for n, path in enumerate(writes):
+            if path.exists():
+                backup = f"{backups}/{n}/{path.name}"
+                atomic_write_bytes(destination / backup, path.read_bytes())
+            else:
+                backup = None
+            manifest["backups"].append({"original": str(path), "backup": backup})
+        atomic_write_json(destination / name, manifest)
+        rid = manifest["recycle_id"]
+        pending = (
+            self.workspace.settings.workspace_root
+            / "recycle_pending"
+            / (f"{rid}.json" if name == MANIFEST else f"{rid}.{name}")
+        )
+        atomic_write_json(pending, {"manifest": str(destination / name)})
+        try:
+            for source, target in moves.items():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                _move_file(source, target)
+            for path, content in writes.items():
+                atomic_write_bytes(path, content)
+            manifest["status"] = "completed"
+            atomic_write_json(destination / name, manifest)
+        except BaseException:
+            self._rollback(destination, manifest, name)
+            pending.unlink(missing_ok=True)
+            raise
+        finally:
+            for pid in manifest["items"]:
+                self.index.invalidate(pid)
+        pending.unlink(missing_ok=True)
+
     def recover(self) -> None:
         """At startup, finish rolling back any interrupted, previously confirmed transaction."""
         pending_dir = self.workspace.settings.workspace_root / "recycle_pending"
         for pending in sorted(pending_dir.glob("*.json")):
-            destination = realpath(Path(read_json(pending)["manifest"]).parent)
+            record = Path(read_json(pending)["manifest"])
+            destination = realpath(record.parent)
             self._guard_write(destination)
-            if destination.parent.name != RECYCLE:
+            if destination.parent.name != RECYCLE or record.name not in (MANIFEST, RESTORE):
                 raise ValidationProblem("Invalid pending recycle destination")
-            manifest = read_json(destination / "manifest.json")
+            manifest = read_json(destination / record.name)
             if manifest["status"] == "prepared":
-                self._rollback(destination, manifest)
+                self._rollback(destination, manifest, record.name)
             pending.unlink()
 
     def preview(self, pid: str, iid: str) -> RecyclePlan:
@@ -487,26 +563,7 @@ class RecycleService:
                         and not any(i.case_id == w.case_id for i in remaining)
                     )
                 ]
-                cfg = self.workspace.get(other)
-                cases = build_cases(
-                    remaining,
-                    warnings,
-                    PhaseRules(tuple(cfg.phase_vocabulary), cfg.phase_mapping),
-                    cfg.phase_priority,
-                )
-                plan.writes[pdir / "index/items.jsonl"] = _jsonl(item_rows(remaining))
-                plan.writes[pdir / "index/cases.jsonl"] = _jsonl(
-                    [c.model_dump(mode="json") for c in cases]
-                )
-                plan.writes[pdir / "index/qc_warnings.jsonl"] = _jsonl(
-                    [w.model_dump(mode="json") for w in warnings]
-                )
-                status = self.index.status(other).model_dump(mode="json")
-                n_items, n_excluded = split_items(i.status for i in remaining)
-                status.update(
-                    n_items=n_items, n_excluded_upstream=n_excluded, n_warnings=len(warnings)
-                )
-                plan.writes[pdir / "index/status.json"] = json.dumps(status).encode()
+                self._index_writes(plan.writes, other, remaining, warnings)
                 journal = pdir / JOURNAL
                 entry = {
                     "recycle_id": rid,
@@ -517,33 +574,8 @@ class RecycleService:
                 plan.writes[journal] = (journal.read_bytes() if journal.exists() else b"") + _jsonl(
                     [entry]
                 )
-            for n, path in enumerate(plan.writes):
-                if path.exists():
-                    backup = f"metadata/{n}/{path.name}"
-                    atomic_write_bytes(destination / backup, path.read_bytes())
-                else:
-                    backup = None
-                manifest["backups"].append({"original": str(path), "backup": backup})
-            atomic_write_json(destination / "manifest.json", manifest)
-            pending = self.workspace.settings.workspace_root / "recycle_pending" / f"{rid}.json"
-            atomic_write_json(pending, {"manifest": str(destination / "manifest.json")})
-            try:
-                for path, rel in plan.moves.items():
-                    to = destination / rel
-                    to.parent.mkdir(parents=True, exist_ok=True)
-                    _move_file(path, to)
-                for path, content in plan.writes.items():
-                    atomic_write_bytes(path, content)
-                manifest["status"] = "completed"
-                atomic_write_json(destination / "manifest.json", manifest)
-            except BaseException:
-                self._rollback(destination, manifest)
-                pending.unlink(missing_ok=True)
-                raise
-            finally:
-                for other in plan.items:
-                    self.index.invalidate(other)
-            pending.unlink(missing_ok=True)
+            moves = {path: destination / rel for path, rel in plan.moves.items()}
+            self._commit(destination, manifest, MANIFEST, moves, plan.writes, "metadata")
             for other in plan.items:
                 self.bus.publish(other, "project.updated", {"fields": ["recycle"]})
             return RecycleResult(

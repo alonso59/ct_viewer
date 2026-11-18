@@ -48,8 +48,8 @@ export const viewerFocusProps: HTMLAttributes<HTMLDivElement> = {
 }
 
 /** Keyed by the load it belongs to, so a new load starts as "loading" without a reset render */
-type LoadState = { key: string; phase: 'loading' | 'ready' | 'error'; progress: LoadProgress | null; error: { status: number; code: string | null; message: string } | null; maskError: boolean }
-const LOADING = (key: string): LoadState => ({ key, phase: 'loading', progress: null, error: null, maskError: false })
+type LoadState = { key: string; phase: 'loading' | 'ready' | 'error'; progress: LoadProgress | null; error: { status: number; code: string | null; message: string } | null; maskError: boolean; maskLabels: readonly number[] | null }
+const LOADING = (key: string): LoadState => ({ key, phase: 'loading', progress: null, error: null, maskError: false, maskLabels: null })
 
 interface Drag {
   mode: 'pick' | 'window' | 'pan' | 'zoom' | 'orbit'
@@ -151,7 +151,7 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
         },
       })
       .then(() => {
-        if (!ac.signal.aborted) update({ maskError: handle.maskError !== null })
+        if (!ac.signal.aborted) update({ maskError: handle.maskError !== null, maskLabels: handle.maskLabels })
       })
       .catch((e: unknown) => {
         if (ac.signal.aborted) return
@@ -277,21 +277,22 @@ export function ViewerSurface({ item, imageUrl, maskUrl, labels, meshUrl, active
     })
   })
 
-  // Surface meshes are fetched only once requested
-  const wantMeshes = !!handle && local.surfaces && !!meshUrl && hasMask && load.phase === 'ready'
+  // Surface meshes are fetched only once requested, for the labels the decoded mask holds
+  const maskLabels = load.maskLabels
+  const wantMeshes = !!handle && local.surfaces && !!meshUrl && hasMask && load.phase === 'ready' && maskLabels !== null
   const [meshDone, setMeshDone] = useState<{ key: string; ok: boolean } | null>(null)
   const meshState: MeshState = !wantMeshes || meshDone?.key === loadKey ? (meshDone?.ok === false ? 'error' : 'idle') : 'building'
   useEffect(() => {
-    if (!wantMeshes || !handle || !meshUrl) return
+    if (!wantMeshes || !handle || !meshUrl || !maskLabels) return
     const ac = new AbortController()
     const key = loadKey
-    const present = labels.filter((l) => item.labels_present.includes(l.value))
+    const present = labels.filter((l) => maskLabels.includes(l.value))
     Promise.all(present.map(async (l) => ({ label: l.value, color: l.color, data: await fetchMesh(meshUrl(l.value), ac.signal) })))
       .then((specs) => handle.setMeshes(specs))
       .then(() => !ac.signal.aborted && setMeshDone({ key, ok: true }))
       .catch(() => !ac.signal.aborted && setMeshDone({ key, ok: false }))
     return () => ac.abort()
-  }, [wantMeshes, handle, meshUrl, loadKey, labels, item.labels_present])
+  }, [wantMeshes, handle, meshUrl, loadKey, labels, maskLabels])
 
   // Tiles: the DOM frames are the layout; the engine draws into their bodies
   const measure = useCallback(() => {

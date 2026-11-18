@@ -1190,6 +1190,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/recycle-bin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recycle Bin
+         * @description The project's recycled scans, newest first.
+         */
+        get: operations["list_recycle_bin_api_v1_projects__pid__recycle_bin_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/recycle-bin/{rid}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Restore
+         * @description Check that the scan can go back and count what moves; writes nothing.
+         */
+        get: operations["preview_restore_api_v1_projects__pid__recycle_bin__rid__restore_get"];
+        put?: never;
+        /** Restore Scan */
+        post: operations["restore_scan_api_v1_projects__pid__recycle_bin__rid__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/recycle-bin/{rid}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Recycled Scan
+         * @description Remove the recycled files, manifest and metadata backups for good.
+         */
+        post: operations["delete_recycled_scan_api_v1_projects__pid__recycle_bin__rid__delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{pid}/items/{iid}/image": {
         parameters: {
             query?: never;
@@ -4195,6 +4256,11 @@ export interface components {
             /** Dataset Root */
             dataset_root: string;
         };
+        /** DeleteRequest */
+        DeleteRequest: {
+            /** Confirmed */
+            confirmed: boolean;
+        };
         /**
          * DescriptiveRow
          * @description One feature x group.
@@ -6666,6 +6732,27 @@ export interface components {
                 [key: string]: string | number | boolean | string[] | null;
             };
         };
+        /** RecycleBinEntry */
+        RecycleBinEntry: {
+            /** Recycle Id */
+            recycle_id: string;
+            /** At */
+            at: string;
+            /** Reviewer */
+            reviewer: string;
+            /** Case Id */
+            case_id: string | null;
+            /** Scan Idx */
+            scan_idx: string | null;
+            /** Item Ids */
+            item_ids: string[];
+            /** N Files */
+            n_files: number;
+            /** Projects */
+            projects: string[];
+            /** Available */
+            available: boolean;
+        };
         /** RecyclePlan */
         RecyclePlan: {
             /** Case Id */
@@ -6761,6 +6848,41 @@ export interface components {
              * @default false
              */
             model_catalog: boolean;
+        };
+        /** RestorePlan */
+        RestorePlan: {
+            /** Recycle Id */
+            recycle_id: string;
+            /** Case Id */
+            case_id: string;
+            /** Scan Idx */
+            scan_idx: string;
+            /** Item Ids */
+            item_ids: string[];
+            /** N Files */
+            n_files: number;
+            /** N Metadata Files */
+            n_metadata_files: number;
+            /** Projects */
+            projects: string[];
+            /** Token */
+            token: string;
+        };
+        /** RestoreRequest */
+        RestoreRequest: {
+            /** Confirmed */
+            confirmed: boolean;
+            /** Token */
+            token: string;
+        };
+        /** RestoreResult */
+        RestoreResult: {
+            /** Recycle Id */
+            recycle_id: string;
+            /** Item Ids */
+            item_ids: string[];
+            /** Project Ids */
+            project_ids: string[];
         };
         /**
          * ResultRow
@@ -11880,6 +12002,141 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RecycleResult"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recycle_bin_api_v1_projects__pid__recycle_bin_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecycleBinEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_restore_api_v1_projects__pid__recycle_bin__rid__restore_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestorePlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_scan_api_v1_projects__pid__recycle_bin__rid__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_recycled_scan_api_v1_projects__pid__recycle_bin__rid__delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -50,6 +50,7 @@ function layerLabels(pid: string) {
 }
 
 const SegmentationPanel = lazy(() => import('./SegmentationPanel'))
+const RecycleBinPanel = lazy(() => import('./RecycleBinPanel'))
 
 export function registerViewer() {
   registry.editor({
@@ -60,6 +61,14 @@ export function registerViewer() {
     match: (path) => path === '/segmentations' ? {} : null,
   })
   registry.command({ id: 'viewer.segmentations', writes: true, title: 'segmentation.manage', category: 'cat.project', menuGroup: 3, run: () => openEditor('segmentations', {}) })
+  registry.editor({
+    type: 'recycle-bin', writes: true,
+    component: () => createElement(Suspense, { fallback: null }, createElement(RecycleBinPanel)),
+    id: () => 'recycle-bin', title: () => i18n.t('recycleBin.title'), icon: () => codicon('trash'),
+    path: (pid) => `/p/${pid}/recycle-bin`,
+    match: (path) => path === '/recycle-bin' ? {} : null,
+  })
+  registry.command({ id: 'viewer.recycleBin', writes: true, title: 'recycleBin.open', category: 'cat.project', menuGroup: 3, run: () => openEditor('recycle-bin', {}) })
   registry.editor<CaseParams>({
     type: 'case',
     component: CaseEditor,

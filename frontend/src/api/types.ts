@@ -8,6 +8,7 @@ export type Phase = S['PhaseInfo']['canonical']
 export const PHASES: Phase[] = ['NC', 'CMP', 'NP', 'EP', 'UNK']
 export type Scope = S['Item']['scope']
 export type Side = S['Item']['side']
+export type RecycleBinEntry = S['RecycleBinEntry']
 
 /** Default modality of a neutral project */
 export const MODALITIES = ['CT', 'MR', 'mixed'] as const

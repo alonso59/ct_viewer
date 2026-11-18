@@ -113,6 +113,8 @@ export interface ViewerHandle {
   load(item: ItemRecord, opts: LoadOptions): Promise<void>
   /** Set when the mask failed to load; the image stays usable */
   readonly maskError: string | null
+  /** Nonzero values of the loaded mask, ascending; empty until it is in */
+  readonly maskLabels: readonly number[]
   setLayout(id: LayoutId): void
   setWindow(ww: number, wl: number): void
   setLabel(value: number, p: { visible?: boolean; opacity?: number; outline?: boolean; color?: string }): void

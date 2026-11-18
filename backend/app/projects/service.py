@@ -239,7 +239,12 @@ class Workspace:
         roots = [realpath(d) for d in self.settings.dataset_roots]
         for pid, entry in tuple(self._entries().items()):
             # an archived project is not `get`-able, but its task tree stays reserved
-            cfg = self.get(pid) if not entry.archived else self._load(self._folder(entry))
+            if not entry.archived:
+                cfg = self.get(pid)
+            elif (self._folder(entry) / PROJECT_FILE).is_file():
+                cfg = self._load(self._folder(entry))
+            else:
+                continue  # its folder is gone; nothing records its derived root
             root = cfg.derived_root()
             if root is not None:
                 roots.append(realpath(Path(root.path) / pid))

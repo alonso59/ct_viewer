@@ -242,6 +242,10 @@ export interface Api {
   getItem(pid: string, iid: string): Promise<ItemDetail>
   previewRecycle(pid: string, iid: string): Promise<import('./schema').components['schemas']['RecyclePlan']>
   recycleScan(pid: string, iid: string, token: string, reviewer: string): Promise<import('./schema').components['schemas']['RecycleResult']>
+  listRecycleBin(pid: string): Promise<import('./schema').components['schemas']['RecycleBinEntry'][]>
+  previewRestore(pid: string, rid: string): Promise<import('./schema').components['schemas']['RestorePlan']>
+  restoreScan(pid: string, rid: string, token: string, reviewer: string): Promise<import('./schema').components['schemas']['RestoreResult']>
+  deleteRecycled(pid: string, rid: string): Promise<void>
   /** Thumbnail URL, or null when the binding renders thumbnails itself (mock) */
   thumbnailUrl(pid: string, iid: string): string | null
 
