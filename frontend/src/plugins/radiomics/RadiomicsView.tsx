@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
-import { ConfirmInline, Dialog, IconButton, ItemName, Progress, RunStatusBadge, fmtAgo, fmtDuration, problemMessage, useRowKeys } from '../../lib'
-import { openEditor, useWorkbench, toastProblem } from '../../shell'
+import { api, ReviewerCancelled, useCombineRuns, useJobs, useProfiles, useRadiomicsSchema, useRunControl, useRunErrors, useRuns, type Job } from '../../api'
+import { ConfirmInline, Dialog, IconButton, ItemName, ProblemCard, Progress, RunStatusBadge, fmtAgo, fmtDuration, problemMessage, useRowKeys } from '../../lib'
+import { openEditor, toast, useWorkbench, toastProblem } from '../../shell'
 import { Icon, codicon } from '../../theme'
 import { openInContext } from '../../features/explorer'
 import { ACTIVE, DONE, RESUMABLE, runProgress } from './runs'
@@ -57,6 +57,49 @@ function ErrorsDialog({ pid, run, onClose }: { pid: string; run: RunSummary; onC
   )
 }
 
+/** Join finished runs with the same settings (e.g. the whole tumor and its derived regions) */
+function CombineDialog({ pid, runs, onClose }: { pid: string; runs: RunSummary[]; onClose: () => void }) {
+  const { t } = useTranslation()
+  const combine = useCombineRuns(pid)
+  const [picked, setPicked] = useState<string[]>([])
+  const [name, setName] = useState('')
+  const profile = runs.find((r) => r.run_id === picked[0])?.profile_hash
+  const toggle = (rid: string, on: boolean) => setPicked((p) => (on ? [...p, rid] : p.filter((x) => x !== rid)))
+  const close = () => { if (!combine.isPending) onClose() }
+  const confirm = () => combine.mutate({ runIds: picked, name }, {
+    onSuccess: (run) => {
+      toast({ message: t('rad.combined', { name: run.name }), tone: 'ok' })
+      onClose()
+      openEditor('run', { runId: run.run_id })
+    },
+  })
+  return <Dialog open onOpenChange={(o) => { if (!o) close() }} title={t('rad.combineTitle')} icon={codicon('merge')} footer={<>
+    <button type="button" className="btn" disabled={combine.isPending} onClick={close}>{t('common.cancel')}</button>
+    <button type="button" className="btn btn-primary" disabled={picked.length < 2 || combine.isPending} onClick={confirm}>{t(combine.isPending ? 'rad.combining' : 'rad.combine')}</button>
+  </>}>
+    <p>{t('rad.combineHelp')}</p>
+    <ul className="rad-combine-list" aria-label={t('rad.runs')}>
+      {runs.map((r) => {
+        const other = profile !== undefined && r.profile_hash !== profile
+        return (
+          <li key={r.run_id}>
+            <label className="check" title={other ? t('rad.combineOtherSettings') : undefined}>
+              <input type="checkbox" checked={picked.includes(r.run_id)} disabled={other} onChange={(e) => toggle(r.run_id, e.target.checked)} />
+              <span className="truncate">{r.name}</span>
+              <span className="muted">{t('rad.combineLabels', { count: r.selection.labels.length, set: r.selection.seg_id })}</span>
+            </label>
+          </li>
+        )
+      })}
+    </ul>
+    <label className="field">
+      <span className="field-label">{t('rad.combineName')}</span>
+      <input className="input" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
+    </label>
+    {combine.error && !(combine.error instanceof ReviewerCancelled) ? <ProblemCard error={combine.error} /> : null}
+  </Dialog>
+}
+
 function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jobs: Job[]; onErrors: () => void }) {
   const { t } = useTranslation()
   const control = useRunControl(pid)
@@ -75,6 +118,7 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
           <span className="rad-run-name" title={run.name}>{run.name}</span>
         )}
         <RunStatusBadge status={run.status} />
+        {run.sources?.length ? <span className="badge" title={t('rad.combinedHelp', { count: run.sources.length })}>{t('rad.combinedBadge')}</span> : null}
       </div>
       <div className="list-row-meta" title={t('rad.runCountsHelp', { items: c.items, ok: c.ok, failed: c.failed, skipped: c.skipped })}>
         <span>{t('rad.runCounts', { ok: c.ok, items: c.items, features: c.features })}</span>
@@ -130,13 +174,19 @@ export function RadiomicsView() {
   const schema = useRadiomicsSchema()
   const jobs = useJobs(pid).data ?? []
   const [errorsOf, setErrorsOf] = useState<RunSummary | null>(null)
+  const [combining, setCombining] = useState(false)
   const list = [...(runs.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const finished = list.filter((r) => DONE.includes(r.status))
   return (
     <div className="rad-view">
       <div className="rad-view-pad">
         <button type="button" className="btn btn-primary rad-view-new" onClick={() => openEditor('radiomics', {})}>
           <Icon spec={codicon('add')} />
           {t('rad.newRun')}
+        </button>
+        <button type="button" className="btn rad-view-new" disabled={finished.length < 2} title={t('rad.combineHelp')} onClick={() => setCombining(true)}>
+          <Icon spec={codicon('merge')} />
+          {t('rad.combineOpen')}
         </button>
       </div>
       <div>
@@ -173,6 +223,7 @@ export function RadiomicsView() {
         ))}
       </div>
       {errorsOf ? <ErrorsDialog pid={pid} run={errorsOf} onClose={() => setErrorsOf(null)} /> : null}
+      {combining ? <CombineDialog pid={pid} runs={finished} onClose={() => setCombining(false)} /> : null}
     </div>
   )
 }

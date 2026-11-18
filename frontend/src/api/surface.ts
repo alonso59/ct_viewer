@@ -390,6 +390,8 @@ export interface Api {
   startRun(pid: string, body: StartRunBody, reviewer: string): Promise<RunDetail>
   cancelRun(pid: string, rid: string): Promise<RunDetail>
   resumeRun(pid: string, rid: string): Promise<RunDetail>
+  /** A new finished run joining finished runs with the same settings */
+  combineRuns(pid: string, runIds: string[], name: string, reviewer: string): Promise<RunDetail>
   /** JSON long rows (Measurements panel) */
   runFeatures(pid: string, rid: string, itemId?: string): Promise<FeatureRow[]>
   runExportUrl(pid: string, rid: string, format: RunExportFormat, shape: RunExportShape): string

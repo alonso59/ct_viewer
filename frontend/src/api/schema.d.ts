@@ -1798,6 +1798,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{pid}/radiomics/runs/combine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Combine Runs
+         * @description A new finished run with the features of finished runs that share their settings.
+         */
+        post: operations["combine_runs_api_v1_projects__pid__radiomics_runs_combine_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks": {
         parameters: {
             query?: never;
@@ -3931,6 +3951,19 @@ export interface components {
             /** Filled */
             filled: number;
         };
+        /**
+         * CombineRequest
+         * @description Join finished runs with the same settings into one new run.
+         */
+        CombineRequest: {
+            /** Run Ids */
+            run_ids: string[];
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
         /** CommandInfo */
         CommandInfo: {
             /** Name */
@@ -3994,6 +4027,12 @@ export interface components {
             /** Feature */
             feature: string;
             pair?: components["schemas"]["PairSpec"];
+            /**
+             * Test
+             * @default auto
+             * @enum {string}
+             */
+            test: "auto" | "default" | "alternative";
         };
         /** ConsistencyResponse */
         ConsistencyResponse: {
@@ -4003,7 +4042,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "phase" | "side";
+            kind: "phase" | "side" | "label";
             /** A */
             a: string;
             /** B */
@@ -4022,6 +4061,9 @@ export interface components {
             rho: number | null;
             /** Points */
             points: components["schemas"]["PairPoint"][];
+            selected: components["schemas"]["ResultRow"];
+            /** Results */
+            results: components["schemas"]["ResultRow"][];
         };
         /**
          * Constraints
@@ -6088,6 +6130,7 @@ export interface components {
          * PairSpec
          * @description `phase`: same case/scope/side/label across phases a vs b (default: first two phases
          *     by priority present). `side`: same scan/label, VOI sides a vs b (default L vs R).
+         *     `label`: same item, labels a vs b given as values (default: the two lowest present).
          */
         PairSpec: {
             /**
@@ -6095,7 +6138,7 @@ export interface components {
              * @default phase
              * @enum {string}
              */
-            kind: "phase" | "side";
+            kind: "phase" | "side" | "label";
             /** A */
             a?: string | null;
             /** B */
@@ -6892,7 +6935,7 @@ export interface components {
             /** Feature */
             feature: string | null;
             /** Test */
-            test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher") | null;
+            test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher" | "paired_t" | "wilcoxon") | null;
             /** Reason */
             reason: string;
             /** Statistic */
@@ -6904,7 +6947,7 @@ export interface components {
             /** Effect */
             effect?: number | null;
             /** Effect Name */
-            effect_name?: ("cohens_d" | "rank_biserial_r" | "eta_squared" | "epsilon_squared" | "spearman_rho" | "pearson_r" | "cramers_v") | null;
+            effect_name?: ("cohens_d" | "rank_biserial_r" | "eta_squared" | "epsilon_squared" | "spearman_rho" | "pearson_r" | "cramers_v" | "cohens_dz") | null;
             /** N */
             n: number;
             /** Groups */
@@ -7073,6 +7116,8 @@ export interface components {
             job_id?: string | null;
             /** Error */
             error?: string | null;
+            /** Sources */
+            sources?: string[];
             progress?: components["schemas"]["RunProgress"] | null;
         };
         /** RunEngine */
@@ -7198,6 +7243,8 @@ export interface components {
             counts: components["schemas"]["RunCounts"];
             /** Job Id */
             job_id?: string | null;
+            /** Sources */
+            sources?: string[];
         };
         /** RunnerInfo */
         RunnerInfo: {
@@ -8771,9 +8818,9 @@ export interface components {
          */
         TestChoice: {
             /** Default Test */
-            default_test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher") | null;
+            default_test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher" | "paired_t" | "wilcoxon") | null;
             /** Alternative Test */
-            alternative_test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher") | null;
+            alternative_test: ("welch_t" | "mann_whitney" | "welch_anova" | "kruskal_wallis" | "spearman" | "pearson" | "chi2" | "fisher" | "paired_t" | "wilcoxon") | null;
             /**
              * Override
              * @enum {string}
@@ -13302,6 +13349,43 @@ export interface operations {
                     "application/json": components["schemas"]["FeaturesTable"];
                     "text/csv": unknown;
                     "application/vnd.apache.parquet": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    combine_runs_api_v1_projects__pid__radiomics_runs_combine_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CombineRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetail"];
                 };
             };
             /** @description Validation Error */

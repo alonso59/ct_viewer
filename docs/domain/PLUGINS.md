@@ -64,4 +64,5 @@ Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026
 | Study packs `ccrcc`, `generic-ct`, `ct-phases` | pack | project | — | shipped |
 | `segment.threshold` (`threshold`, `hidden`) | task (test only, hidden from the Library) | project | runner | done (CI) |
 | nnU-Net segmentation (`nnunet`) | task (external) | project | derived root, runner, GPU | **shipped** (P7e; ADR-0032) |
+| Tumor regions (`regions`) | task `regions.derive` in the generic task tab (RAD-15) | project | derived root, segmentation set | shipped (ADR-0059) |
 | VOI extractor (`voi`) | task `voi.extract` with its settings form, review step and run results in the task tab (VOI.md) | project | derived root, segmentation set | shipped (v3.2.0, ADR-0050) |

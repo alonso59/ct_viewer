@@ -37,6 +37,8 @@ TestName = Literal[
     "pearson",
     "chi2",
     "fisher",
+    "paired_t",
+    "wilcoxon",
 ]
 EffectName = Literal[
     "cohens_d",
@@ -46,6 +48,7 @@ EffectName = Literal[
     "spearman_rho",
     "pearson_r",
     "cramers_v",
+    "cohens_dz",
 ]
 # `default` / `alternative` force that test for every feature; `auto` applies the rule.
 TestOverride = Literal["auto", "default", "alternative"]
@@ -207,9 +210,10 @@ class BalanceRequest(ViewRequest):
 
 class PairSpec(BaseModel):
     """`phase`: same case/scope/side/label across phases a vs b (default: first two phases
-    by priority present). `side`: same scan/label, VOI sides a vs b (default L vs R)."""
+    by priority present). `side`: same scan/label, VOI sides a vs b (default L vs R).
+    `label`: same item, labels a vs b given as values (default: the two lowest present)."""
 
-    kind: Literal["phase", "side"] = "phase"
+    kind: Literal["phase", "side", "label"] = "phase"
     a: str | None = None
     b: str | None = None
 
@@ -217,6 +221,7 @@ class PairSpec(BaseModel):
 class ConsistencyRequest(ViewRequest):
     feature: str
     pair: PairSpec = Field(default_factory=PairSpec)
+    test: TestOverride = "auto"
 
 
 class LabelCount(BaseModel):
@@ -537,7 +542,7 @@ class PairPoint(BaseModel):
 
 class ConsistencyResponse(BaseModel):
     feature: str
-    kind: Literal["phase", "side"]
+    kind: Literal["phase", "side", "label"]
     a: str
     b: str
     n_pairs: int
@@ -547,6 +552,8 @@ class ConsistencyResponse(BaseModel):
     loa_high: Num
     rho: Num
     points: list[PairPoint]
+    selected: ResultRow  # the paired test of `feature`
+    results: list[ResultRow]  # every feature, with q over all of them
 
 
 class AnalysisSpec(BaseModel):

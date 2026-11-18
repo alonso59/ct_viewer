@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.tasks.models import TaskManifest
+from app.tasks.models import Requires, TaskManifest
 from app.tasks.registry import manifest_hash, parse_manifest
 from app.tasks.schema import normalize
 from tests.test_api_ingest import ctx_of, do_import, wait
@@ -175,7 +175,9 @@ def test_preflight_and_suggestions(env: TestClient, proj: str) -> None:
             "runtime": {"type": "builtin", "entry": "plugins.threshold.run:run"},
         }
     )  # fmt: skip
-    seg = reads.model_copy(update={"id": "test.segmenter", "outputs": ["masks"], "requires": {}})
+    seg = reads.model_copy(
+        update={"id": "test.segmenter", "outputs": ["masks"], "requires": Requires()}
+    )
     reg.add(reads, "sha256:x", "builtin")
     reg.add(seg, "sha256:y", "builtin")
     r = env.post(f"{API}/projects/{proj}/tasks/test.reads-tumor/preflight", json={})

@@ -59,6 +59,7 @@ from app.analytics.models import (
     OutliersRequest,
     OutliersResponse,
     PairPoint,
+    PairSpec,
     PhaseChange,
     RankedFeature,
     RunError,
@@ -584,49 +585,70 @@ def _pair_key(frame: Frame, i: int, kind: str) -> tuple[Any, ...]:
     rd = frame.rd
     if kind == "phase":
         return (rd.case_id[i], rd.scope[i], rd.side[i], int(rd.label[i]))
+    if kind == "label":
+        return (rd.item_id[i],)
     return (rd.case_id[i], rd.scan_idx[i], int(rd.label[i]))
 
 
-def consistency(frame: Frame, req: ConsistencyRequest) -> ConsistencyResponse:
-    """Paired values of the same case across two phases or sides (Bland-Altman)."""
+def _pair_ends(frame: Frame, pair: PairSpec) -> tuple[Obj, str, str]:
+    """The paired attribute per row and the two values compared (defaults per kind)."""
     rd = frame.rd
-    y = rd.col(req.feature)
-    kind = req.pair.kind
-    attr: Obj = rd.phase if kind == "phase" else rd.side
-    if kind == "phase":
+    if pair.kind == "phase":
         present = {str(p) for p in rd.phase}
         ranked = [p for p in frame.priority if p in present] + sorted(present - set(frame.priority))
-        a = req.pair.a or (ranked[0] if ranked else "")
-        b = req.pair.b or next((p for p in ranked if p != a), "")
-    else:
-        a, b = req.pair.a or "L", req.pair.b or "R"
-    if not a or not b or a == b:
-        raise bad(("body", "pair"), "Pair needs two different phases/sides present in the run")
+        a = pair.a or (ranked[0] if ranked else "")
+        b = pair.b or next((p for p in ranked if p != a), "")
+        return rd.phase, a, b
+    if pair.kind == "label":
+        labels = sorted({int(v) for v in rd.label})
+        a = pair.a or (str(labels[0]) if labels else "")
+        b = pair.b or next((str(v) for v in labels if str(v) != a), "")
+        return rd.label.astype(str).astype(object), a, b
+    return rd.side, pair.a or "L", pair.b or "R"
+
+
+def _pairs(
+    frame: Frame, order: list[int], kind: str, attr: Obj, ends: tuple[str, str], y: F64
+) -> list[tuple[int, int]]:
+    """Row indices (a, b) of each pair with finite values; the first in `order` wins per key."""
+    a, b = ends
     first: dict[tuple[Any, ...], dict[str, int]] = {}
-    order = sorted(range(rd.n), key=lambda i: (str(rd.scan_idx[i]), str(rd.item_id[i])))
     for i in order:
         s = str(attr[i])
         if s in (a, b) and math.isfinite(y[i]):
             first.setdefault(_pair_key(frame, i, kind), {}).setdefault(s, i)
+    return [(d[a], d[b]) for d in first.values() if a in d and b in d]
+
+
+def consistency(frame: Frame, req: ConsistencyRequest) -> ConsistencyResponse:
+    """Paired values of the same case across two phases or sides, or of the same item across
+    two labels (Bland-Altman), and a paired test of every feature."""
+    rd = frame.rd
+    y = rd.col(req.feature)
+    kind = req.pair.kind
+    attr, a, b = _pair_ends(frame, req.pair)
+    if not a or not b or a == b:
+        raise bad(
+            ("body", "pair"), "Pair needs two different phases, sides or labels present in the run"
+        )
+    order = sorted(range(rd.n), key=lambda i: (str(rd.scan_idx[i]), str(rd.item_id[i])))
     points: list[PairPoint] = []
-    for d in first.values():
-        if a in d and b in d:
-            ia, ib = d[a], d[b]
-            va, vb = float(y[ia]), float(y[ib])
-            points.append(
-                PairPoint(
-                    case_id=str(rd.case_id[ia]),
-                    item_id_a=str(rd.item_id[ia]),
-                    item_id_b=str(rd.item_id[ib]),
-                    label=int(rd.label[ia]),
-                    status_a=str(frame.status[ia]),
-                    status_b=str(frame.status[ib]),
-                    a=va,
-                    b=vb,
-                    mean=(va + vb) / 2,
-                    diff=vb - va,
-                )
+    for ia, ib in _pairs(frame, order, kind, attr, (a, b), y):
+        va, vb = float(y[ia]), float(y[ib])
+        points.append(
+            PairPoint(
+                case_id=str(rd.case_id[ia]),
+                item_id_a=str(rd.item_id[ia]),
+                item_id_b=str(rd.item_id[ib]),
+                label=int(rd.label[ia]),
+                status_a=str(frame.status[ia]),
+                status_b=str(frame.status[ib]),
+                a=va,
+                b=vb,
+                mean=(va + vb) / 2,
+                diff=vb - va,
             )
+        )
     points.sort(key=lambda p: (p.case_id, p.label))
     diffs = np.asarray([p.diff for p in points], dtype=np.float64)
     bias = float(diffs.mean()) if diffs.size else math.nan
@@ -637,6 +659,15 @@ def consistency(frame: Frame, req: ConsistencyRequest) -> ConsistencyResponse:
             np.asarray([p.a for p in points]), np.asarray([p.b for p in points]), "auto"
         )
         rho = o.effect
+    outcomes = {}
+    for f in rd.features:
+        col = rd.col(f)
+        pairs = _pairs(frame, order, kind, attr, (a, b), col)
+        idx = np.asarray(pairs, dtype=np.intp).reshape(-1, 2)
+        outcomes[f] = st.paired(col[idx[:, 0]], col[idx[:, 1]], req.test)
+    tested = [f for f, o in outcomes.items() if o.test is not None]
+    q = dict(zip(tested, st.bh([outcomes[f].p for f in tested]), strict=True))
+    results = an.sort_rows([an.result_row(f, o, q.get(f, math.nan)) for f, o in outcomes.items()])
     return ConsistencyResponse(
         feature=req.feature,
         kind=kind,
@@ -649,4 +680,6 @@ def consistency(frame: Frame, req: ConsistencyRequest) -> ConsistencyResponse:
         loa_high=num(bias + 1.96 * sd),
         rho=num(rho),
         points=points[:MAX_POINTS],
+        selected=next(r for r in results if r.feature == req.feature),
+        results=results,
     )

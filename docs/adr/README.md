@@ -64,3 +64,4 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0056 | "Accept guess" also accepts the imported phase_guess | Accepted (extends 0026) |
 | 0057 | Scans are grouped by DICOM exam and series, for display only | Accepted (extends 0011) |
 | 0058 | Recycle bin panel: restore and permanent delete | Accepted (partially supersedes 0029) |
+| 0059 | Derived tumor regions as a task plugin; combined runs and label pairs for analysis | Accepted (extends 0006, 0015, 0016) |

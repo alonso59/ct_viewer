@@ -1,0 +1,20 @@
+{
+  "plugin": 1,
+  "id": "regions",
+  "version": "1.0.0",
+  "title": "Tumor regions",
+  "icon": "target",
+  "scope": "project",
+  "description": "Derives the tumor core, rim and a peritumoral band in millimetres from a segmentation set, as a new set for radiomics.",
+  "contributes": {
+    "tasks": [
+      "regions.derive"
+    ]
+  },
+  "requires": {
+    "capabilities": [
+      "derived_root",
+      "segmentation"
+    ]
+  }
+}

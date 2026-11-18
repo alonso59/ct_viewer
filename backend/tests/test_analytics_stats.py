@@ -62,3 +62,20 @@ def test_spearman_matrix_and_robust_z() -> None:
     assert st.threshold_clusters(rho, 0.9) == [[0, 1]]
     z = st.robust_z(np.asarray([[1.0], [2.0], [3.0], [100.0]]))
     assert z[3, 0] == pytest.approx((100 - 2.5) / (1.4826 * 1.0))
+
+
+def test_ANA10_paired_test_choice_and_effects() -> None:
+    rng = np.random.default_rng(3)
+    a = rng.normal(10, 2, 40)
+    b = a + 1 + rng.normal(0, 0.5, 40)
+    o = st.paired(a, b, "auto")
+    assert o.test == "paired_t" and o.effect_name == "cohens_dz" and o.n == 40
+    assert o.p == pytest.approx(float(stats.ttest_rel(b, a).pvalue))
+    assert o.effect == pytest.approx(float(np.mean(b - a) / np.std(b - a, ddof=1)))
+    small = st.paired(a[:10], b[:10], "auto")
+    assert small.test == "wilcoxon" and small.alternative and "10 pairs" in small.reason
+    assert small.effect == 1.0  # every difference is positive
+    assert st.paired(a[:4], b[:4], "auto").test is None
+    assert st.paired(np.arange(40.0), np.arange(40.0) + 1, "auto").reason == "constant difference"
+    assert st.paired(a, b, "alternative").test == "wilcoxon"
+    assert st.matched_rank_biserial(np.array([1.0, -2.0, 0.0])) == pytest.approx(-1 / 3)

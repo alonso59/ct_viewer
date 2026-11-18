@@ -137,7 +137,7 @@ def test_schema_and_validate_endpoints(client: TestClient) -> None:
 
 def test_retired_aliases_are_gone(client: TestClient, proj: str) -> None:
     """AUD-A4-09: API-31/33/34/35/37 (aliases of API-43..47, RAD-13) are removed; API-30/32/36
-    stay the radiomics routes."""
+    and API-83 are the radiomics routes."""
     rid = new_ulid()
     base = f"{API}/projects/{proj}/radiomics"
     for method, url in (
@@ -157,6 +157,7 @@ def test_retired_aliases_are_gone(client: TestClient, proj: str) -> None:
         "/api/v1/projects/{pid}/radiomics/profiles",
         "/api/v1/projects/{pid}/radiomics/profiles/{phash}",
         "/api/v1/projects/{pid}/radiomics/runs/{rid}/features",
+        "/api/v1/projects/{pid}/radiomics/runs/combine",
     }
 
 

@@ -616,6 +616,13 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       return radiomicsRun(pid, r.run_id)
     },
     cancelRun: async (pid, rid) => rad(await unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/cancel', { params: { path: { pid, rid } } }))),
+    combineRuns: async (pid, runIds, name, reviewer) =>
+      unwrap(
+        client.POST('/api/v1/projects/{pid}/radiomics/runs/combine', {
+          params: { path: { pid }, header: { 'X-Reviewer': reviewer } },
+          body: { run_ids: runIds, name },
+        }),
+      ),
     async resumeRun(pid, rid) {
       await unwrap(client.POST('/api/v1/projects/{pid}/task-runs/{rid}/resume', { params: { path: { pid, rid } } }))
       return radiomicsRun(pid, rid)

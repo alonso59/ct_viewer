@@ -28,8 +28,24 @@ Depends: DATA_MODEL.md, ADR-0006. Dashboard: frontend/DASHBOARD.md.
 | RAD-12 | Engine adapter interface allows replacing the engine without UI changes (ADR-0006). | S |
 | RAD-13 | Radiomics runs as the builtin task `radiomics.pyradiomics` (TSK-*, ADR-0016): validate, estimate, runs, control and errors go through the task endpoints API-43..47, which carry the radiomics records (API.md); run records stay in `radiomics/runs/`. | M |
 | RAD-14 | Voxel-based feature maps. | C |
+| RAD-15 | Derived tumor regions (§Derived regions; ADR-0059): the task `regions.derive` writes a new segmentation set with the tumor core, rim and a peritumoral band, measured in millimetres on each item's own grid, for any radiomics run. | S |
+| RAD-16 | Combined runs (ADR-0059, API-83): finished runs with the same `profile_hash`, engine and IBSI map version join into a new finished run whose `sources` name them, so the dashboard and the analysis read them as one run. An (item, label) may come from one source only; a source's failures for units another source extracted are dropped. A combined run cannot be resumed. | S |
 
-## Engine adapter
+## Derived regions
+
+`regions.derive` (plugin `regions`, builtin) reads the selected set of each item and writes `{output_dir}/{case}/{item}_regions.nii.gz` on the mask's grid, with the mask's affine and header, uint8, gzip without a timestamp (the same inputs give the same bytes).
+
+| Region | Value · label | Definition (distances in mm between voxel centres, from the affine's voxel sizes) |
+|---|---|---|
+| core | 1 · `tumor_core` | tumor voxels farther than `core_mm` (default 3) from the nearest non-tumor voxel |
+| rim | 2 · `tumor_rim` | tumor minus core |
+| peri | 3 · `peritumoral` | voxels outside the tumor at a distance in (`peri_inner_mm`, `peri_outer_mm`] (default 2–5), kept to `organ_label` (default `kidney`; empty keeps every voxel) |
+
+- All lesions of `tumor_label` in an item form one tumor (owner, 2026-11-18). Nothing is resampled: complete items use their native grid, VOI items their 1 mm crop.
+- Skipped with a reason: no mask in the set, a mask that is not one NIfTI file (`nifti_dir` sets without removed labels, npy), a tumor label the project lacks, no tumor voxels. Failed: a mask that is not 3D, a sheared or degenerate affine, or a shape or affine (atol 1e-3 mm) different from the image's.
+- `{output_dir}/qc.jsonl`, one row per item: `spacing`, `voxels` and `volume_ml` of the tumor and each region, and `flags`: `empty_{region}`, `too_small_{region}` (fewer than `min_voxels`, still written), `coarse_spacing` (a voxel larger than `core_mm` or the band width), `no_organ`. Flags also go to the run log.
+- `result.json` versions name `region_definition`; a change of a definition bumps it. A band that ends before it starts fails the run.
+
 
 ```python
 class RadiomicsEngine(Protocol):
@@ -96,7 +112,8 @@ Worker output: `parts/{item_id}__{label}.parquet`, compacted into `features.parq
   "profile_hash": "sha256:…", "settings": { /* full normalized snapshot */ },
   "selection": { "scope": "complete", "seg_id": "imported", "labels": [2], "filter": "phase=NP", "item_ids": ["…"] },
   "inputs": [ { "item_id": "…", "image_fp": "…", "seg_id": "imported", "mask_fp": "…" } ],
-  "counts": { "items": 320, "ok": 318, "failed": 2, "features": 107 } }
+  "counts": { "items": 320, "ok": 318, "failed": 2, "features": 107 },
+  "sources": [] }   // a combined run (RAD-16): the runs it joins; selection.seg_id joins their sets with "+"
 ```
 
 ## Output schema

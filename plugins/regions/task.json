@@ -1,0 +1,41 @@
+{
+  "manifest": 1,
+  "id": "regions.derive",
+  "version": "1.0.0",
+  "title": "Derive tumor regions",
+  "description": "Writes a new segmentation set with the tumor core, the rim (tumor minus core) and a peritumoral band, measured in millimetres on each scan's own voxel grid. The whole tumor stays in the source set.",
+  "kind": "segmentation",
+  "input": "items",
+  "outputs": ["masks"],
+  "requires": { "modality": ["CT"], "seg": { "labels": ["tumor"] } },
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "regions": {
+        "title": "Regions",
+        "type": "array",
+        "items": { "type": "string", "enum": ["core", "rim", "peri"] },
+        "minItems": 1,
+        "uniqueItems": true,
+        "default": ["core", "rim", "peri"],
+        "x-help": "core, rim (tumor minus core) and peri (the peritumoral band)"
+      },
+      "tumor_label": { "title": "Tumor label", "type": "string", "minLength": 1, "default": "tumor", "x-help": "Label name in the project label map; all its lesions in a scan form one tumor" },
+      "organ_label": { "title": "Organ label", "type": "string", "default": "kidney", "x-help": "The peritumoral band keeps only this label's voxels; empty keeps every voxel" },
+      "core_mm": { "title": "Core erosion", "type": "number", "minimum": 0, "maximum": 50, "default": 3.0, "x-help": "Core = tumor voxels farther than this from the tumor boundary" },
+      "peri_inner_mm": { "title": "Peritumoral band start", "type": "number", "minimum": 0, "maximum": 50, "default": 2.0, "x-help": "The band starts beyond this distance from the tumor" },
+      "peri_outer_mm": { "title": "Peritumoral band end", "type": "number", "minimum": 0, "maximum": 50, "default": 5.0, "x-help": "The band ends at this distance from the tumor (included); must be larger than the start" },
+      "min_voxels": { "title": "Minimum voxels", "type": "integer", "minimum": 0, "maximum": 100000, "default": 64, "x-help": "A region with fewer voxels is flagged too small in the QC; it is still written" },
+      "seg_id": {
+        "title": "Segmentation set name",
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+        "x-help": "Optional: lower-case letters, digits, - or _. Empty uses regions-<run>."
+      }
+    }
+  },
+  "runtime": { "type": "builtin", "entry": "plugins.regions.task:run" },
+  "resources": { "gpu": "none", "seconds_per_item": 2 },
+  "labels": { "names": { "1": "tumor_core", "2": "tumor_rim", "3": "peritumoral" } },
+  "command": { "name": "regions" }
+}

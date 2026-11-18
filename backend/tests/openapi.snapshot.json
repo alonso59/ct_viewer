@@ -2115,6 +2115,31 @@
     "title": "ColumnProgress",
     "type": "object"
    },
+   "CombineRequest": {
+    "description": "Join finished runs with the same settings into one new run.",
+    "properties": {
+     "name": {
+      "default": "",
+      "maxLength": 200,
+      "title": "Name",
+      "type": "string"
+     },
+     "run_ids": {
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 20,
+      "minItems": 2,
+      "title": "Run Ids",
+      "type": "array"
+     }
+    },
+    "required": [
+     "run_ids"
+    ],
+    "title": "CombineRequest",
+    "type": "object"
+   },
    "CommandInfo": {
     "properties": {
      "available": {
@@ -2305,6 +2330,16 @@
      },
      "pair": {
       "$ref": "#/components/schemas/PairSpec"
+     },
+     "test": {
+      "default": "auto",
+      "enum": [
+       "auto",
+       "default",
+       "alternative"
+      ],
+      "title": "Test",
+      "type": "string"
      }
     },
     "required": [
@@ -2341,7 +2376,8 @@
      "kind": {
       "enum": [
        "phase",
-       "side"
+       "side",
+       "label"
       ],
       "title": "Kind",
       "type": "string"
@@ -2379,6 +2415,13 @@
       "title": "Points",
       "type": "array"
      },
+     "results": {
+      "items": {
+       "$ref": "#/components/schemas/ResultRow"
+      },
+      "title": "Results",
+      "type": "array"
+     },
      "rho": {
       "anyOf": [
        {
@@ -2400,6 +2443,9 @@
        }
       ],
       "title": "Sd Diff"
+     },
+     "selected": {
+      "$ref": "#/components/schemas/ResultRow"
      }
     },
     "required": [
@@ -2413,7 +2459,9 @@
      "loa_low",
      "loa_high",
      "rho",
-     "points"
+     "points",
+     "selected",
+     "results"
     ],
     "title": "ConsistencyResponse",
     "type": "object"
@@ -8113,7 +8161,7 @@
     "type": "object"
    },
    "PairSpec": {
-    "description": "`phase`: same case/scope/side/label across phases a vs b (default: first two phases\nby priority present). `side`: same scan/label, VOI sides a vs b (default L vs R).",
+    "description": "`phase`: same case/scope/side/label across phases a vs b (default: first two phases\nby priority present). `side`: same scan/label, VOI sides a vs b (default L vs R).\n`label`: same item, labels a vs b given as values (default: the two lowest present).",
     "properties": {
      "a": {
       "anyOf": [
@@ -8141,7 +8189,8 @@
       "default": "phase",
       "enum": [
        "phase",
-       "side"
+       "side",
+       "label"
       ],
       "title": "Kind",
       "type": "string"
@@ -10303,7 +10352,8 @@
          "epsilon_squared",
          "spearman_rho",
          "pearson_r",
-         "cramers_v"
+         "cramers_v",
+         "cohens_dz"
         ],
         "type": "string"
        },
@@ -10383,7 +10433,9 @@
          "spearman",
          "pearson",
          "chi2",
-         "fisher"
+         "fisher",
+         "paired_t",
+         "wilcoxon"
         ],
         "type": "string"
        },
@@ -10769,6 +10821,13 @@
      "settings": {
       "$ref": "#/components/schemas/RadiomicsSettings"
      },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+     },
      "started_at": {
       "anyOf": [
        {
@@ -11150,6 +11209,13 @@
      },
      "selection": {
       "$ref": "#/components/schemas/RunSelection"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
      },
      "started_at": {
       "anyOf": [
@@ -15692,7 +15758,9 @@
          "spearman",
          "pearson",
          "chi2",
-         "fisher"
+         "fisher",
+         "paired_t",
+         "wilcoxon"
         ],
         "type": "string"
        },
@@ -15713,7 +15781,9 @@
          "spearman",
          "pearson",
          "chi2",
-         "fisher"
+         "fisher",
+         "paired_t",
+         "wilcoxon"
         ],
         "type": "string"
        },
@@ -17951,7 +18021,7 @@
  },
  "info": {
   "title": "Radiology Workbench",
-  "version": "3.5.2"
+  "version": "3.6.0"
  },
  "openapi": "3.1.0",
  "paths": {
@@ -24263,6 +24333,75 @@
      }
     },
     "summary": "Rename Profile",
+    "tags": [
+     "radiomics"
+    ]
+   }
+  },
+  "/api/v1/projects/{pid}/radiomics/runs/combine": {
+   "post": {
+    "description": "A new finished run with the features of finished runs that share their settings.",
+    "operationId": "combine_runs_api_v1_projects__pid__radiomics_runs_combine_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "X-Reviewer",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Reviewer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CombineRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RunDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Combine Runs",
     "tags": [
      "radiomics"
     ]

@@ -29,6 +29,7 @@ SHIPPED = {
     "generic-ct",
     "ct-phases",
     "labeling",
+    "regions",
 }
 
 

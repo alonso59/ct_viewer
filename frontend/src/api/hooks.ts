@@ -536,6 +536,18 @@ export function useRunControl(pid: string) {
   })
 }
 
+export function useCombineRuns(pid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ runIds, name }: { runIds: string[]; name: string }) => {
+      const reviewer = await requireReviewer()
+      if (!reviewer) throw new ReviewerCancelled()
+      return api.combineRuns(pid, runIds, name, reviewer)
+    },
+    onSuccess: () => invalidateRuns(qc, pid),
+  })
+}
+
 export function useCancelJob(pid: string) {
   const qc = useQueryClient()
   return useMutation({

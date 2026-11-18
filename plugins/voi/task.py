@@ -12,7 +12,7 @@ import traceback
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from typing import Any
 
-from plugins.protocol import Job, Outputs, SkipItem
+from plugins.protocol import Job, Outputs, SkipItem, file_values
 from plugins.voi import engine
 
 VERSION = "1.0.0"
@@ -51,15 +51,13 @@ def _extract(
     project_labels = {str(k): int(v) for k, v in (job.context.get("labels") or {}).items()}
     mapping = mask.get("label_mapping") or None
     organ = [] if job.settings.get("labels") else engine.REGIONS[region]["organ"]
-    values, _ = engine.file_values(labels, project_labels, mapping, organ)
-    protect_values, _ = engine.file_values(protect, project_labels, mapping)
+    values, _ = file_values(labels, project_labels, mapping, organ)
+    protect_values, _ = file_values(protect, project_labels, mapping)
     if not values:
         raise SkipItem(f"none of the labels {labels} is in the project label map")
-    hints = engine.side_hints(labels, lambda n: engine.file_values(n, project_labels, mapping)[0])
+    hints = engine.side_hints(labels, lambda n: file_values(n, project_labels, mapping)[0])
     anatomy = {
-        v: side
-        for organ, side in engine.ANATOMY.items()
-        for v in engine.file_values([organ], project_labels, mapping)[0]
+        v: side for organ, side in engine.ANATOMY.items() for v in file_values([organ], project_labels, mapping)[0]
     }
     analysis = engine.analyze(image["path"], mask["path"], values, protect_values, region, hints, anatomy)
     cands = engine.reframe(analysis, margin, min_size)

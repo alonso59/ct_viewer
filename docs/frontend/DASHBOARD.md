@@ -38,7 +38,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 | Group comparison | Box/violin per group for the selected feature + test result; results table for all features | variable, test override |
 | Association | Scatter feature × continuous variable with ρ; ranked table | variable |
 | Balance check | Contingency heat map (grouping × confounder) with χ²/Fisher | two categorical variables |
-| Phase / side consistency | Paired comparison of the same case across phases or sides (Bland–Altman style) | feature, pair |
+| Paired comparison | The same case across two phases or sides, or the same item across two labels (Bland–Altman style), with the paired test of the feature and a results table for all features (ANA-10) | feature, pair (phase, side, label + the two labels), test override |
 
 ## Interaction with curation
 

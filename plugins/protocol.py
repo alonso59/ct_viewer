@@ -15,7 +15,7 @@ import os
 import tempfile
 import time
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,36 @@ def write_json_atomic(path: Path, obj: Any) -> None:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
+
+
+def file_values(
+    names: Sequence[str],
+    project_labels: dict[str, int],
+    mapping: dict[str, int] | None,
+    organ: Sequence[str] = (),
+) -> tuple[list[int], list[str]]:
+    """Label names → values as stored in the mask file, plus the names the project lacks.
+
+    `mapping` is the set's file value → project value (identity when empty). With `organ`,
+    no values unless one of those names is in the project.
+    """
+    by_name = {k.lower(): v for k, v in project_labels.items()}
+    if organ and not any(o.lower() in by_name for o in organ):
+        return [], [n for n in names if n.lower() not in by_name]
+    values: list[int] = []
+    missing: list[str] = []
+    for name in names:
+        pv = by_name.get(name.lower())
+        if pv is None:
+            missing.append(name)
+            continue
+        if mapping:
+            values += [int(k) for k, v in mapping.items() if int(v) == pv]
+        else:
+            values.append(pv)
+    if organ:  # other spellings of a present organ are not missing
+        missing = [n for n in missing if n.lower() not in {o.lower() for o in organ}]
+    return sorted(set(values)), missing
 
 
 class SkipItem(Exception):

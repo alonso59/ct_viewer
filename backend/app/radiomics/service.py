@@ -55,6 +55,7 @@ from app.radiomics.models import (
     RESUMABLE_RUN,
     TERMINAL_RUN,
     Cell,
+    CombineRequest,
     EstimateRequest,
     EstimateResult,
     FeaturesTable,
@@ -89,6 +90,7 @@ UNITS = "units.jsonl"
 ERRORS = "errors.jsonl"
 FEATURES = "features.parquet"
 DIAGNOSTICS = "diagnostics.parquet"
+FINISHED: Final = frozenset({"completed", "completed_with_errors"})
 SAMPLE_ITEMS: Final = 3
 CANCEL_WAIT_S: Final = 30.0
 MSG_NOTHING: Final = "Nothing to extract"
@@ -160,6 +162,11 @@ def _load_features(run_dir: Path) -> pa.Table:
         return worker.FEATURE_SCHEMA.empty_table()
     tables = [pq.read_table(p).replace_schema_metadata(None) for p in parts]
     return pa.concat_tables(tables)
+
+
+def _with_run_id(t: pa.Table, run_id: str) -> pa.Table:
+    i = t.schema.get_field_index("run_id")
+    return t.set_column(i, "run_id", pa.array([run_id] * t.num_rows, pa.string()))
 
 
 def _diag_str(v: Any) -> str | None:
@@ -715,6 +722,103 @@ class RadiomicsService:
             write_jsonl_atomic(run_dir / ERRORS, [e.model_dump() for e in [*skips, *pre]])
             self.runs.write(run_dir, rec)
         await self._submit(pid, run_dir, tasks)
+        return await self.get(pid, run_id)
+
+    async def combine(self, pid: str, req: CombineRequest, reviewer: str | None) -> RunDetail:
+        """A new finished run joining the features of finished runs with the same settings.
+
+        Each (item, label) may come from one source only; failures of a unit another source
+        extracted are dropped. Sources are left as they are.
+        """
+        who = reviewer_stamp.require(reviewer)
+        rids = list(dict.fromkeys(req.run_ids))
+        loc = ["body", "run_ids"]
+        if len(rids) < 2:
+            raise ValidationProblem("Choose at least two runs", errors=[{"loc": loc, "msg": "2+"}])
+        dirs = [self.runs.run_dir(pid, rid) for rid in rids]
+        recs = [await self.runs.reconcile(pid, d) for d in dirs]
+        unfinished = [r.run_id for r in recs if r.status not in FINISHED]
+        if unfinished:
+            raise JobConflict(f"Only finished runs can be combined: {', '.join(unfinished)}")
+        first = recs[0]
+        for r in recs[1:]:
+            if (r.engine.name, r.engine.version, r.ibsi_map_version, r.profile_hash) != (
+                first.engine.name,
+                first.engine.version,
+                first.ibsi_map_version,
+                first.profile_hash,
+            ):
+                raise ValidationProblem(
+                    "Runs with different settings or engine versions cannot be combined",
+                    errors=[{"loc": loc, "msg": f"{r.run_id} differs from {first.run_id}"}],
+                )
+        run_id = new_ulid()
+        tables: list[pa.Table] = []
+        diags: list[pa.Table] = []
+        errors: list[dict[str, Any]] = []
+        seen: set[tuple[str, int]] = set()
+        for d in dirs:
+            t = pq.read_table(d / FEATURES)
+            units = set(zip(t["item_id"].to_pylist(), t["label"].to_pylist(), strict=True))
+            if units & seen:
+                raise ValidationProblem(
+                    "Runs share extracted (item, label) pairs; combine runs of different "
+                    "labels or items",
+                    errors=[{"loc": loc, "msg": f"{len(units & seen)} shared pairs"}],
+                )
+            seen |= units
+            tables.append(_with_run_id(t, run_id))
+            if (d / DIAGNOSTICS).is_file():
+                diags.append(_with_run_id(pq.read_table(d / DIAGNOSTICS), run_id))
+            errors += read_jsonl(d / ERRORS)
+        errors = [e for e in errors if (e.get("item_id"), e.get("label")) not in seen]
+        features = pa.concat_tables(tables)
+        now = utc_now()
+        rec = RunRecord(
+            run_id=run_id,
+            name=req.name.strip() or " + ".join(r.name for r in recs),
+            status=(
+                "completed_with_errors"
+                if any(e.get("kind") == "failed" for e in errors)
+                else "completed"
+            ),
+            created_at=now,
+            started_at=now,
+            finished_at=now,
+            reviewer=who,
+            origin=Origin(),
+            engine=first.engine,
+            ibsi_map_version=first.ibsi_map_version,
+            profile_hash=first.profile_hash,
+            settings=first.settings,
+            selection=RunSelection(
+                scope=first.selection.scope
+                if all(r.selection.scope == first.selection.scope for r in recs)
+                else None,
+                labels=sorted({lab for r in recs for lab in r.selection.labels}),
+                item_ids=list(dict.fromkeys(i for r in recs for i in r.selection.item_ids)),
+                seg_id="+".join(dict.fromkeys(r.selection.seg_id for r in recs)),
+            ),
+            inputs=[i for r in recs for i in r.inputs],
+            counts=RunCounts(
+                items=len({i for r in recs for i in r.selection.item_ids}),
+                ok=sum(r.counts.ok for r in recs),
+                failed=sum(1 for e in errors if e.get("kind") == "failed"),
+                features=max(r.counts.features for r in recs),
+                skipped=sum(1 for e in errors if e.get("kind") == "skipped"),
+            ),
+            sources=rids,
+        )
+        run_dir = self._runs_dir(pid) / run_id
+        async with self.locks(pid):
+            run_dir.mkdir(parents=True)
+            _write_parquet_atomic(run_dir / FEATURES, features)
+            if diags:
+                _write_parquet_atomic(
+                    run_dir / DIAGNOSTICS, pa.concat_tables(diags, promote_options="default")
+                )
+            write_jsonl_atomic(run_dir / ERRORS, errors)
+            self.runs.write(run_dir, rec)  # last: the folder is a run once its record exists
         return await self.get(pid, run_id)
 
     async def _submit(self, pid: str, run_dir: Path, tasks: list[dict[str, Any]]) -> None:

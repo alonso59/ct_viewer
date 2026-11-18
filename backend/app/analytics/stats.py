@@ -167,6 +167,47 @@ def compare(levels: Sequence[str], groups: Sequence[F64], override: TestOverride
     return out
 
 
+def matched_rank_biserial(d: F64) -> float:
+    """Signed-rank effect: (sum of positive ranks - negative ranks) / all ranks of |d| > 0."""
+    d = d[d != 0]
+    if d.size == 0:
+        return math.nan
+    ranks = stats.rankdata(np.abs(d))
+    return float((ranks[d > 0].sum() - ranks[d < 0].sum()) / ranks.sum())
+
+
+def paired(a: F64, b: F64, override: TestOverride) -> Outcome:
+    """Paired t-test on b - a, or Wilcoxon signed-rank when n < 15 or the differences are
+    not normal (Shapiro-Wilk p < 0.05). `a` and `b` are finite and aligned."""
+    d = b - a
+    n = int(d.size)
+    if n < MIN_N:
+        return Outcome(None, f"{n} pairs < {MIN_N}", n=n)
+    if np.ptp(d) == 0:
+        return Outcome(None, "constant difference", n=n)
+    if override in ("default", "alternative"):
+        alt, reason = override == "alternative", f"{override} test forced by the user"
+    elif n < ALT_N:
+        alt, reason = True, f"{n} pairs < {ALT_N}"
+    elif (p := shapiro_p(d)) < ALPHA:
+        alt, reason = True, f"Shapiro-Wilk p = {p:.3g} < {ALPHA} on the differences"
+    else:
+        alt, reason = False, f"{n} pairs ≥ {ALT_N} and normal differences"
+    with quiet():
+        if alt:
+            w = stats.wilcoxon(b, a)
+            return Outcome(
+                "wilcoxon", reason, statistic=float(w.statistic), p=float(w.pvalue),
+                effect=matched_rank_biserial(d), effect_name="rank_biserial_r", n=n,
+                alternative=True,
+            )  # fmt: skip
+        t = stats.ttest_rel(b, a)
+        return Outcome(
+            "paired_t", reason, statistic=float(t.statistic), p=float(t.pvalue),
+            effect=float(d.mean() / d.std(ddof=1)), effect_name="cohens_dz", n=n,
+        )  # fmt: skip
+
+
 def associate(x: F64, y: F64, override: TestOverride) -> Outcome:
     """Association: Spearman rho (default) or Pearson r (user choice), pairwise complete."""
     m = np.isfinite(x) & np.isfinite(y)

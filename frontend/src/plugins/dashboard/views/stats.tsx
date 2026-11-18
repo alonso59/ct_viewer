@@ -21,13 +21,13 @@ export function TestSwitch({ value, onChange }: { value: TestMode; onChange: (m:
 }
 
 /** Chosen test + reason and the selected feature's statistics */
-export function TestResult({ choice, row }: { choice: TestChoice; row: ResultRow | null }) {
+export function TestResult({ choice, row }: { choice?: TestChoice; row: ResultRow | null }) {
   const { t } = useTranslation()
-  const test = row?.test ?? choice.default_test
+  const test = row?.test ?? choice?.default_test
   return (
     <div className="db-test">
       <strong>{test ? t(`dashboard.testName.${test}`) : t('dashboard.test.none')}</strong>
-      <span className="muted">{row?.reason ?? choice.reason}</span>
+      <span className="muted">{row?.reason ?? choice?.reason}</span>
       {row ? (
         <span className="num">
           {t('dashboard.test.stats', {

@@ -223,6 +223,35 @@ def test_phase_consistency(mod_client: TestClient, syn: Synthetic) -> None:
     assert math.isfinite(body["rho"])
 
 
+def test_ANA10_label_pairs_compare_regions_of_the_same_item(
+    mod_client: TestClient, syn: Synthetic
+) -> None:
+    body = ok(view(mod_client, syn, "phase-side-consistency",
+                   {"feature": MEAN, "pair": {"kind": "label"}}))  # fmt: skip
+    both = sorted(i for i in syn.items if (i, 1) in syn.values)
+    assert (body["kind"], body["a"], body["b"]) == ("label", "1", "2")
+    assert body["n_pairs"] == len(both)
+    assert all(p["item_id_a"] == p["item_id_b"] for p in body["points"])
+    a = np.array([syn.values[(i, 1)][MEAN] for i in both])
+    b = np.array([syn.values[(i, 2)][MEAN] for i in both])
+    sel = body["selected"]
+    assert sel["feature"] == MEAN and sel["n"] == len(both)
+    expected = stats.wilcoxon(b, a) if sel["test"] == "wilcoxon" else stats.ttest_rel(b, a)
+    assert sel["test"] in ("paired_t", "wilcoxon")
+    assert sel["p"] == pytest.approx(float(expected.pvalue))
+    assert {r["feature"] for r in body["results"]} >= {MEAN}
+    assert all(r["q"] is None or r["q"] >= r["p"] for r in body["results"])
+    forced = ok(view(mod_client, syn, "phase-side-consistency",
+                     {"feature": MEAN, "pair": {"kind": "label"}, "test": "default"}))  # fmt: skip
+    assert forced["selected"]["test"] == "paired_t"
+    assert forced["selected"]["effect_name"] == "cohens_dz"
+    assert_problem(
+        view(mod_client, syn, "phase-side-consistency",
+             {"feature": MEAN, "pair": {"kind": "label", "a": "2", "b": "2"}}),
+        "validation",
+    )  # fmt: skip
+
+
 def test_view_problems(mod_client: TestClient, syn: Synthetic) -> None:
     c = mod_client
     assert_problem(view(c, syn, "nope", {}), "not-found")

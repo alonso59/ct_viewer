@@ -59,5 +59,6 @@ The user states **what question** they ask; the app picks a sensible test, expla
 - Export: `GET …/analyses/{aid}/export?file=tidy|results|descriptives|spec`; the tidy export omits `sensitive` variables.
 - Phase (ANA-03, PHS-03; AUD-A5-04): the unit's phase and phase priority use the effective phase, joined at read time; the tidy export adds `phase_at_run` (the run's value).
 - Unit: `{label, scope, phase, aggregate: first|mean|none}`. Colour/split: `{kind: variable|phase|scope|side|label|curation_status, name}`. Filters body: `{var, phase, scope, side, label, status, item_ids}`.
+- Paired (ANA-10; ADR-0059): the Paired comparison view pairs the same case across two phases or sides, or the same item across two labels (`pair.kind = label`, e.g. tumor core vs rim, read from a combined run, RAD-16), and tests every feature: paired t-test, or Wilcoxon signed-rank when there are fewer than 15 pairs or Shapiro–Wilk on the differences gives p < 0.05; effect Cohen's dz or the matched rank-biserial r; q over all features. The saved analysis still refuses the `paired` question.
 - R×C Fisher is a seeded permutation test. Everything uses SciPy (no statsmodels).
 - Views and analyses currently compute in a thread in the API process, not a job worker; fine at fixture scale, revisit near 3,000 cases (BE-12).

@@ -168,7 +168,7 @@ def compute_analysis(
     if spec.question == "paired":
         raise dt.bad(
             ("body", "question"),
-            "Paired comparison is planned for v3.1; use the phase-side-consistency view",
+            "A saved paired analysis is not offered; use the Paired comparison view",
         )
     loc_v = ("body", "variable")
     if spec.question == "explore":

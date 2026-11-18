@@ -245,6 +245,14 @@ class RunRecord(BaseModel):
     counts: RunCounts
     job_id: str | None = None
     error: str | None = None
+    sources: list[str] = Field(default_factory=list)  # a combined run: the runs it joins
+
+
+class CombineRequest(BaseModel):
+    """Join finished runs with the same settings into one new run."""
+
+    run_ids: list[str] = Field(min_length=2, max_length=20)
+    name: str = Field(default="", max_length=200)
 
 
 class RunProgress(BaseModel):
@@ -270,6 +278,7 @@ class RunSummary(BaseModel):
     selection: RunSelection
     counts: RunCounts
     job_id: str | None = None
+    sources: list[str] = Field(default_factory=list)
 
 
 class RunError(BaseModel):

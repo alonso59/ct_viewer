@@ -109,7 +109,8 @@ class SelectionBase(TaskBase):
             return out
         for info in self.registry.tasks.values():
             t = info.manifest
-            if t.id == m.id or "masks" not in t.outputs or t.test_only:
+            # a task that reads masks cannot fill a mask gap
+            if t.id == m.id or "masks" not in t.outputs or t.test_only or t.requires.seg:
                 continue
             for reason, n in mask_gaps.items():
                 out.append(Suggestion(task_id=t.id, reason=f"{n} items: {reason}"))

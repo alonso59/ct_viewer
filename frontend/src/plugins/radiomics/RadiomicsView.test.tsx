@@ -9,6 +9,7 @@ import type { ComponentType } from 'react'
 import '../../i18n'
 import { keys, type Job } from '../../api'
 import { useWorkbench } from '../../shell'
+import { useReviewer } from '../../state'
 import type { RunSummary } from './model/types'
 
 // Bind the HTTP client (unit tests default to the mock) against the fake fetch below
@@ -37,7 +38,11 @@ const runs = [
   run({ run_id: 'r1', name: 'Running one', status: 'running', job_id: 'j1', created_at: '2026-09-24T12:00:00Z', counts: { items: 40, ok: 0, failed: 0, features: 0, skipped: 0 } }),
   run({ run_id: 'r2', name: 'Interrupted one', status: 'interrupted', created_at: '2026-09-24T11:00:00Z' }),
   run({ run_id: 'r3', name: 'Done with errors', status: 'completed_with_errors', counts: { items: 10, ok: 8, failed: 1, features: 107, skipped: 1 } }),
+  run({ run_id: 'r4', name: 'Regions', created_at: '2026-09-24T09:00:00Z', selection: { scope: 'complete', labels: [4, 5], item_ids: [], seg_id: 'regions-a' } }),
+  run({ run_id: 'r5', name: 'Other settings', created_at: '2026-09-24T08:00:00Z', profile_hash: 'sha256:bb' }),
+  run({ run_id: 'r6', name: 'Joined', created_at: '2026-09-24T07:00:00Z', sources: ['r3', 'r4'] }),
 ]
+let combineBody: unknown = null
 const jobs = [{ job_id: 'j1', kind: 'radiomics', project_id: PID, status: 'running', done: 10, total: 40, eta_s: 90, ref: 'r1' }] as unknown as Job[]
 
 async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -56,6 +61,10 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
         { item_id: 'case_1.01.complete.-', label: 2, kind: 'failed', code: 'affine_mismatch', error: 'The mask does not line up with the image.', detail: 'ValueError: geometry mismatch', at: '2026-09-24T10:00:01Z' },
       ].map((e) => ({ item_id: e.item_id, status: e.kind, radiomics: e })),
     )
+  if (p === `/projects/${PID}/radiomics/runs/combine`) {
+    combineBody = await req.json()
+    return reply(201, { ...run({ run_id: 'r7', name: 'Combined' }), settings: {}, inputs: [], engine: { name: 'pyradiomics', version: '3', deps: {} }, ibsi_map_version: '1', sources: ['r3', 'r4'] })
+  }
   if (p.endsWith('/cancel')) return reply(200, { run_id: 'r1', radiomics: runs[0] })
   if (p.endsWith('/resume')) return reply(202, { run_id: 'r2', job_id: 'j2', status: 'queued' })
   const one = runs.find((r) => p === `/projects/${PID}/task-runs/${r.run_id}`)
@@ -96,7 +105,7 @@ test('runs show status, live job progress with ETA, and the matching controls', 
   setup()
   await screen.findByText('Running one')
   const names = within(screen.getByRole('list', { name: 'Runs' })).getAllByRole('listitem').map((li) => li.querySelector('.rad-run-name')?.textContent)
-  expect(names).toEqual(['Running one', 'Interrupted one', 'Done with errors'])
+  expect(names).toEqual(['Running one', 'Interrupted one', 'Done with errors', 'Regions', 'Other settings', 'Joined'])
 
   const r1 = row('Running one')
   expect(within(r1).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25')
@@ -127,6 +136,26 @@ test('runs show status, live job progress with ETA, and the matching controls', 
   expect(rows[1]).toHaveTextContent('Skipped')
   expect(rows[1]).toHaveTextContent('missing_seg')
   expect(dialog).not.toHaveTextContent('geometryTolerance')
+})
+
+test('RAD-16 combining joins finished runs with the same settings, stamped by the reviewer', async () => {
+  useReviewer.setState({ name: 'AP' })
+  setup()
+  await screen.findByText('Joined')
+  expect(row('Joined')).toHaveTextContent('combined')
+  fireEvent.click(screen.getByRole('button', { name: 'Combine runs…' }))
+  const dialog = await screen.findByRole('dialog')
+  const box = (name: string) => within(dialog).getByRole('checkbox', { name: new RegExp(name) })
+  const confirm = within(dialog).getByRole('button', { name: 'Combine' })
+  expect(within(dialog).queryByRole('checkbox', { name: /Running one/ })).toBeNull()  // finished runs only
+  expect(confirm).toBeDisabled()
+  fireEvent.click(box('Done with errors'))
+  expect(box('Other settings')).toBeDisabled()  // another profile than the first picked
+  fireEvent.click(box('Regions'))
+  fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Tumor + regions' } })
+  fireEvent.click(confirm)
+  await waitFor(() => expect(combineBody).toEqual({ run_ids: ['r3', 'r4'], name: 'Tumor + regions' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 })
 
 // FE-11: every `rad.*` key used by the feature exists in the bundle (the shared key test only

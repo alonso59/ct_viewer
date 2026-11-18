@@ -103,7 +103,9 @@
       "spearman": "Spearman ρ",
       "pearson": "Pearson r",
       "chi2": "χ² test",
-      "fisher": "Fisher exact"
+      "fisher": "Fisher exact",
+      "paired_t": "Paired t-test",
+      "wilcoxon": "Wilcoxon signed-rank"
     },
     "effect": {
       "cohens_d": "Cohen's d",
@@ -112,7 +114,8 @@
       "epsilon_squared": "ε²",
       "spearman_rho": "ρ",
       "pearson_r": "r",
-      "cramers_v": "Cramér's V"
+      "cramers_v": "Cramér's V",
+      "cohens_dz": "Cohen's dz"
     }
   },
   "dashboard": {
@@ -151,7 +154,8 @@
       "epsilon_squared": "ε²",
       "spearman_rho": "ρ",
       "pearson_r": "r",
-      "cramers_v": "Cramér's V"
+      "cramers_v": "Cramér's V",
+      "cohens_dz": "Cohen's dz"
     },
     "errors_one": "{{count}} failure or skip",
     "errors_other": "{{count}} failures and skips",
@@ -214,9 +218,12 @@
     "noPoints": "Nothing to plot for these filters",
     "openInViewer": "Open in viewer",
     "pair": "Pair by",
+    "pairA": "First label",
+    "pairB": "Second label",
     "pairKind": {
       "phase": "Phase",
-      "side": "Side"
+      "side": "Side",
+      "label": "Label"
     },
     "pairSummary": "{{a}} vs {{b}} · {{n}} pairs · ρ {{rho}}",
     "pc": "PC{{n}} ({{pct}} %)",
@@ -261,7 +268,9 @@
       "spearman": "Spearman ρ",
       "pearson": "Pearson r",
       "chi2": "χ² test",
-      "fisher": "Fisher exact"
+      "fisher": "Fisher exact",
+      "paired_t": "Paired t-test",
+      "wilcoxon": "Wilcoxon signed-rank"
     },
     "threshold": "|z| ≥",
     "truncated": "Truncated",
@@ -278,7 +287,7 @@
       "group-comparison": "Group comparison",
       "association": "Association",
       "balance": "Balance check",
-      "phase-side-consistency": "Phase / side consistency",
+      "phase-side-consistency": "Paired comparison",
       "analysis": "Analysis"
     },
     "views": "Views",

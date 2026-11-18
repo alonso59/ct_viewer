@@ -13,13 +13,15 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response
 
-from app.api.v1.deps import Ctx
+from app.api.v1.deps import Ctx, Reviewer
 from app.api.v1.paging import Page, Paging, paginate
 from app.radiomics.models import (
+    CombineRequest,
     FeaturesTable,
     Profile,
     ProfileCreate,
     ProfilePatch,
+    RunDetail,
     SettingsSchema,
 )
 from app.radiomics.service import RadiomicsService, to_csv, to_parquet
@@ -108,3 +110,11 @@ def get_features(
         media_type="application/vnd.apache.parquet",
         headers={"Content-Disposition": f'attachment; filename="{name}.parquet"'},
     )
+
+
+@router.post("/projects/{pid}/radiomics/runs/combine", response_model=RunDetail, status_code=201)
+async def combine_runs(
+    pid: str, body: CombineRequest, ctx: Ctx, x_reviewer: Reviewer = None
+) -> RunDetail:
+    """A new finished run with the features of finished runs that share their settings."""
+    return await radiomics_service(ctx).combine(pid, body, x_reviewer)
