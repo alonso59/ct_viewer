@@ -16,7 +16,10 @@ afterEach(() => {
 })
 
 async function setup() {
-  const [restorable, deletable] = await api.listRecycleBin(DEMO_PID)
+  // The list is newest first, and the recorder's two recycles may share a second: creation order
+  // (the recycle id) says which one the recording restores and which it deletes
+  const entries = await api.listRecycleBin(DEMO_PID)
+  const [restorable, deletable] = [...entries].sort((a, b) => a.recycle_id.localeCompare(b.recycle_id))
   useWorkbench.setState({ pid: DEMO_PID })
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={qc}><RecycleBinPanel /></QueryClientProvider>)

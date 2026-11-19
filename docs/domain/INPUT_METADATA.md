@@ -85,6 +85,7 @@ New catalogs use `image_path` and `mask_path`, with POSIX paths relative to **Da
 ```
 
 - Accept old `voi_image_path` / `voi_mask_path` when the corresponding canonical field is empty. Canonical fields take precedence and always resolve from DatasetID.
+- A row without canonical paths that lists both `voi_image_nii_path` and `voi_mask_nii_path` (NIfTI copies of `.npy` crops) uses that pair instead of the `.npy` fields: NIfTI carries its own geometry, and tasks that read masks need NIfTI. Half a pair falls back to the `.npy` fields.
 - For each legacy field, check exactly two locations: DatasetID + path, and DatasetID/voi + path. One existing file selects that location; two different existing files reject the row with an explicit-path action. No recursive filename search, parent-directory search, or pairing based on filenames. An absolute legacy path must already belong to DatasetID; a path already prefixed `voi/` is resolved once.
 - Both candidates pass the same alias-root, allowed-root and symlink guards as all source reads. Missing files keep their reference for indexing QC; paths that escape the root are rejected. Backslashes in legacy paths are accepted as separators.
 - Preview counts accepted rows; rows with parse errors or missing required fields are omitted, not indexed. Reindex repeats the normalization on the original snapshot. No source metadata or image bytes are rewritten.

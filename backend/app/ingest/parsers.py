@@ -44,6 +44,8 @@ CATALOG_FIELDS = frozenset(
         "modality",
         "voi_image_path",
         "voi_mask_path",
+        "voi_image_nii_path",
+        "voi_mask_nii_path",
     }
 )
 IMAGE_FIELDS = ("relative_path", "nifti_file", "filename")
@@ -211,6 +213,16 @@ def _legacy_voi_path(raw: str, resolver: PathResolver, alias: str) -> str:
     return (local_ref if local_path.is_file() else ref).split(":", 1)[1]
 
 
+def _legacy_fields(row: Row) -> tuple[str, str]:
+    """Old catalogs that list NIfTI copies next to their `.npy` crops: the NIfTI pair carries
+    its own geometry, so it wins unless the row already gives canonical paths."""
+    nii = ("voi_image_nii_path", "voi_mask_nii_path")
+    canonical = row.text("image_path") or row.text("mask_path")
+    if not canonical and all(row.text(f) for f in nii):
+        return nii
+    return ("voi_image_path", "voi_mask_path")
+
+
 def parse_voi_catalog(
     data: bytes,
     file: str = "voi_catalog.jsonl",
@@ -225,7 +237,7 @@ def parse_voi_catalog(
         if not _check_ids(row, file, errors):
             continue
         invalid = False
-        for target, legacy in (("image_path", "voi_image_path"), ("mask_path", "voi_mask_path")):
+        for target, legacy in zip(("image_path", "mask_path"), _legacy_fields(row), strict=True):
             if row.text(target) is not None or (raw := row.text(legacy)) is None:
                 continue
             try:

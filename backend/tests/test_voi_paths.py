@@ -87,3 +87,27 @@ def test_symlink_escape_is_rejected(tmp_path: Path) -> None:
 def test_no_match_keeps_reference_for_missing_path_qc(tmp_path: Path) -> None:
     rows, errors = parse(tmp_path, voi_image_path="missing.npy")
     assert not errors and rows[0].text("image_path") == "missing.npy"
+
+
+def test_nifti_copies_win_over_npy_crops(tmp_path: Path) -> None:
+    for part in ("images", "mask", "images_nii", "masks_nii"):
+        (tmp_path / "voi" / part).mkdir(parents=True)
+    for rel in ("images/c.npy", "mask/c.npy", "images_nii/c.nii.gz", "masks_nii/c.nii.gz"):
+        (tmp_path / "voi" / rel).touch()
+    both = {
+        "voi_image_path": "images/c.npy",
+        "voi_mask_path": "mask/c.npy",
+        "voi_image_nii_path": "images_nii/c.nii.gz",
+        "voi_mask_nii_path": "masks_nii/c.nii.gz",
+    }
+    rows, errors = parse(tmp_path, **both)
+    assert not errors
+    assert rows[0].text("image_path") == "voi/images_nii/c.nii.gz"
+    assert rows[0].text("mask_path") == "voi/masks_nii/c.nii.gz"
+    assert "voi_image_nii_path" not in rows[0].extra
+    # Only half of the pair, or canonical paths, keep the npy fields and the canonical ones
+    rows, _ = parse(tmp_path, **{**both, "voi_mask_nii_path": ""})
+    assert rows[0].text("image_path") == "voi/images/c.npy"
+    rows, _ = parse(tmp_path, **{**both, "image_path": "voi/images/c.npy"})
+    assert rows[0].text("image_path") == "voi/images/c.npy"
+    assert rows[0].text("mask_path") == "voi/mask/c.npy"

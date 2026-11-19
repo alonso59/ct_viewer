@@ -76,6 +76,8 @@ CATALOG_CONSUMED = frozenset(
         "mask_path",
         "voi_image_path",
         "voi_mask_path",
+        "voi_image_nii_path",
+        "voi_mask_nii_path",
     }
 )
 
