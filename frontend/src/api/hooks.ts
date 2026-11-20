@@ -596,7 +596,7 @@ function invalidateViews(qc: QueryClient, pid: string) {
 /** The effective phase shows in cases, items, filters, variables and dashboard views */
 function invalidatePhase(qc: QueryClient, pid: string) {
   invalidateViews(qc, pid)
-  for (const k of ['cases', 'case', 'item', 'phase', 'variables'] as const) void refreshQueries(qc, ['project', pid, k])
+  for (const k of ['cases', 'case', 'item', 'phase', 'variables', 'warnings'] as const) void refreshQueries(qc, ['project', pid, k])
 }
 
 /** Invalidate like `invalidateQueries`, but also restart a *first* fetch that is still running:

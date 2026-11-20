@@ -173,8 +173,7 @@ function OutputLink({ pid, run, o }: { pid: string; run: TaskRunSummary; o: Task
     const segId = o.seg_id
     const name = sets.find((x) => x.seg_id === segId)?.name || segId
     const show = () => {
-      const v = useViewerSync.getState()
-      v.set({ segChoice: { ...v.segChoice, [pid]: segId } })
+      useViewerSync.getState().chooseSeg(pid, segId, 'complete')
       toast({ message: t('viewer.segShown', { set: name }) })
     }
     return <button type="button" className="link truncate" title={raw} onClick={show}>{name}</button>

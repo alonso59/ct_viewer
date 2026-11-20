@@ -110,6 +110,10 @@ Mapping ART→CMP and VEN→NP was clinically confirmed by the project owner (20
 
 ## QC warning codes
 
+The live warning list and badges follow the effective item state. A known phase selected in the
+project resolves the import's phase ambiguity. An indexed mask resolves the missing imported
+segmentation warning. The underlying import warnings stay in the index snapshot.
+
 | Code | Severity | Meaning |
 |---|---|---|
 | `missing_path` | error | Referenced file does not exist |

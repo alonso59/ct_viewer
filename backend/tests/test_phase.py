@@ -11,6 +11,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from app.core.ids import new_ulid
+from app.ingest.codes import QcCode, Severity
+from app.ingest.models import QcWarning
 from tests.test_api_ingest import API, ctx_of, do_import
 from tests.test_contract import assert_problem
 from tests.test_curation_api import HDR, active_with_mask, proj  # noqa: F401
@@ -94,6 +96,50 @@ def test_latest_event_wins_with_history_and_state(client: TestClient, proj: Proj
     assert sel["resolved"] == before and sel["resolved_source"] not in (None, "manual")
     item = f"{case_id}.{scan_idx}.complete.-"
     assert client.get(f"{API}/projects/{pid}/items/{item}").json()["phase"]["canonical"] == "NC"
+
+
+def test_live_warnings_follow_selected_phase_and_available_mask(
+    client: TestClient,
+    proj: Proj,  # noqa: F811
+) -> None:
+    pid, items = proj
+    case_id, scan_idx, _ = scan_of(items)
+    iid = f"{case_id}.{scan_idx}.complete.-"
+    ctx = ctx_of(client)
+    idx = ctx.index.load_resolved(pid)
+    mask = idx.by_id[iid].masks["imported"]
+    codes = [QcCode.AMBIGUOUS_PHASE, QcCode.MISSING_SEG, QcCode.SHAPE_MISMATCH]
+    idx_items = [
+        it.model_copy(update={"warning_codes": codes, "masks": {"ensemble": mask}})
+        if it.item_id == iid
+        else it
+        for it in idx.items
+    ]
+    warnings = [
+        QcWarning(
+            code=code,
+            severity=Severity.WARNING,
+            case_id=case_id,
+            item_id=iid,
+            seg_id="imported" if code == QcCode.MISSING_SEG else None,
+            message=code,
+            detected_at="2026-01-01T00:00:00Z",
+        )
+        for code in codes
+    ]
+    ctx.index.replace(pid, idx_items, idx.cases, warnings)
+    base = f"{API}/projects/{pid}"
+    before = client.get(f"{base}/items/{iid}").json()
+    assert set(before["warning_codes"]) == {"ambiguous_phase", "shape_mismatch"}
+
+    response = select(client, pid, {"case_id": case_id, "scan_idx": scan_idx, "value": "NC"})
+    assert response.status_code == 201
+    detail = client.get(f"{base}/items/{iid}").json()
+    assert detail["warning_codes"] == ["shape_mismatch"]
+    assert [w["code"] for w in client.get(base + "/warnings").json()["items"]] == ["shape_mismatch"]
+    case = client.get(f"{base}/cases/{case_id}").json()
+    assert case["case"]["n_warnings"] == 1
+    assert [w.code for w in ctx.index.load_resolved(pid).warnings] == codes
 
 
 def test_validation(client: TestClient, proj: Proj) -> None:  # noqa: F811

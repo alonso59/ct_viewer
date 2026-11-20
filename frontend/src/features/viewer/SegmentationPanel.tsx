@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useProject, useSegmentations, useSetSegmentationLabelActive, type LabelDef } from '../../api'
 import { Dialog, ProblemCard, problemMessage } from '../../lib'
 import { openEditor, toast, useWorkbench } from '../../shell'
-import { useViewerSync } from '../../state'
+import { segChoiceFor, useViewerSync } from '../../state'
 import { autoLabelColor, codicon } from '../../theme'
 import { setLabels, shownSet } from './model/labels'
 import { SegmentationControls } from './SegmentationControls'
@@ -16,7 +16,7 @@ export default function SegmentationPanel() {
   const query = useSegmentations(pid)
   const sets = query.data ?? []
   const viewer = useViewerSync()
-  const selected = shownSet(sets, viewer.segChoice[pid] ?? project.data?.default_seg)
+  const selected = shownSet(sets, segChoiceFor(viewer.segChoice, pid, viewer.activeItemScope) ?? viewer.shownSeg ?? project.data?.default_seg)
   const change = useSetSegmentationLabelActive(pid)
   const [search, setSearch] = useState('')
   const [confirm, setConfirm] = useState<{ segId: string; setName: string; label: LabelDef } | null>(null)
@@ -34,7 +34,7 @@ export default function SegmentationPanel() {
       <p className="muted">{t('segmentation.help')}</p>
       <label className="field">
         <span className="field-label">{t('layers.segSet')}</span>
-        <select className="select" value={selected?.seg_id ?? ''} disabled={!sets.length} onChange={(event) => viewer.set({ segChoice: { ...viewer.segChoice, [pid]: event.target.value } })}>
+        <select className="select" value={selected?.seg_id ?? ''} disabled={!sets.length} onChange={(event) => viewer.chooseSeg(pid, event.target.value)}>
           {sets.map((set) => <option key={set.seg_id} value={set.seg_id}>{t('layers.segOption', { name: set.name || set.seg_id, n: set.n_items })}</option>)}
         </select>
       </label>

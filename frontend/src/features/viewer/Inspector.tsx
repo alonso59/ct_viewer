@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useProject, useSegmentations } from '../../api'
 import { NumberInput } from '../../lib'
 import { openEditor, useWorkbench } from '../../shell'
-import { useViewerSync, WL_PRESETS } from '../../state'
+import { segChoiceFor, useViewerSync, WL_PRESETS } from '../../state'
 import { shownLabels, shownSet } from './model/labels'
 import { autoWindow, useCtWindowing, useShown } from './Tools'
 
@@ -32,7 +32,7 @@ function Layers() {
   const project = useProject(pid).data
   const sets = useSegmentations(pid).data ?? []
   const v = useViewerSync()
-  const segmentation = shownSet(sets, v.segChoice[pid] ?? project?.default_seg)
+  const segmentation = shownSet(sets, v.shownSeg ?? segChoiceFor(v.segChoice, pid, v.activeItemScope) ?? project?.default_seg)
   const active = segmentation?.seg_id ?? ''
   const labels = shownLabels(project?.label_map ?? [], segmentation)
   const visible = labels.filter((label) => v.labelVisibility[label.value] ?? label.visible).length
@@ -47,7 +47,7 @@ function Layers() {
       {sets.length ? (
         <label className="field">
           <span className="field-label">{t('layers.segSet')}</span>
-          <select className="select input-sm" value={active} onChange={(e) => v.set({ segChoice: { ...v.segChoice, [pid]: e.target.value } })}>
+          <select className="select input-sm" value={active} onChange={(e) => v.chooseSeg(pid, e.target.value)}>
             {sets.map((s) => (
               <option key={s.seg_id} value={s.seg_id}>
                 {t('layers.segOption', { name: s.name || s.seg_id, n: s.n_items })}

@@ -10,7 +10,7 @@ the join.
 from __future__ import annotations
 
 import zlib
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,9 +18,11 @@ from typing import Any, overload
 
 from app.core.errors import NotFound
 from app.core.fsio import atomic_write_json, iter_jsonl_lines, read_json, write_jsonl_atomic
+from app.ingest.codes import QcCode
 from app.ingest.hashing import load_hashes
 from app.ingest.models import CaseSummary, IndexStatus, Item, QcWarning
 from app.phase import state as phase_state
+from app.projects.presets import UNKNOWN_PHASE
 
 ITEMS, CASES, WARNINGS, STATUS = "items.jsonl", "cases.jsonl", "qc_warnings.jsonl", "status.json"
 
@@ -100,14 +102,56 @@ class IndexStore:
 
     def _join(self, project_id: str, idx: ProjectIndex) -> ProjectIndex:
         selected = phase_state.selections(self._project_dir(project_id))
-        if not selected:
-            return idx
         items, cases = phase_state.apply(
             idx.items, idx.cases, selected, self._phase_vocabulary(project_id)
         )
+        by_id = {item.item_id: item for item in items}
+        visible: list[QcWarning] = []
+        resolved: set[tuple[str | None, QcCode]] = set()
+        for warning in idx.warnings:
+            item = by_id.get(warning.item_id or "")
+            if (
+                item is not None
+                and item.status == "active"
+                and (
+                    (
+                        warning.code == QcCode.AMBIGUOUS_PHASE
+                        and item.phase.resolved is not None
+                        and item.phase.canonical != UNKNOWN_PHASE
+                    )
+                    or (
+                        warning.code == QcCode.MISSING_SEG
+                        and warning.seg_id == "imported"
+                        and bool(item.masks)
+                    )
+                )
+            ):
+                resolved.add((warning.item_id, warning.code))
+            else:
+                visible.append(warning)
+        warnings = idx.warnings_zlib
+        if resolved:
+            resolved.difference_update((warning.item_id, warning.code) for warning in visible)
+            items = [
+                item.model_copy(update={"warning_codes": codes})
+                if (codes := [c for c in item.warning_codes if (item.item_id, c) not in resolved])
+                != item.warning_codes
+                else item
+                for item in items
+            ]
+            counts = Counter(warning.case_id for warning in visible)
+            cases = [
+                case.model_copy(update={"n_warnings": counts[case.case_id]})
+                if case.n_warnings != counts[case.case_id]
+                else case
+                for case in cases
+            ]
+            warnings = zlib.compress(
+                b"\n".join(warning.model_dump_json().encode() for warning in visible), level=1
+            )
         return ProjectIndex(
             items, {i.item_id: i for i in items}, cases, {c.case_id: c for c in cases},
-            idx.warnings_zlib,
+            warnings,
         )  # fmt: skip
 
     def _entry(self, project_id: str) -> _Entry:

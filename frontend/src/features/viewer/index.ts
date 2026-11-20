@@ -3,7 +3,7 @@ import i18n from '../../i18n'
 import { keys, queryClient, type Project, type SegmentationSet } from '../../api'
 import { announce } from '../../lib'
 import { openEditor, refreshUrl, registry, toast, useWorkbench } from '../../shell'
-import { useViewerSync, type ViewerTool, type ViewportId } from '../../state'
+import { segChoiceFor, useViewerSync, type ViewerTool, type ViewportId } from '../../state'
 import { codicon, ct } from '../../theme'
 import { CaseEditor, type CaseParams } from './CaseEditor'
 import { ImageSection } from './ImageSection'
@@ -46,7 +46,8 @@ const segSets = (): SegmentationSet[] => {
 /** The Layers section's labels for the 1–9 keys, from the cached project queries */
 function layerLabels(pid: string) {
   const project = queryClient.getQueryData<Project>(keys.project(pid))
-  return shownLabels(project?.label_map ?? [], shownSet(segSets(), useViewerSync.getState().segChoice[pid] ?? project?.default_seg))
+  const v = useViewerSync.getState()
+  return shownLabels(project?.label_map ?? [], shownSet(segSets(), v.shownSeg ?? segChoiceFor(v.segChoice, pid, v.activeItemScope) ?? project?.default_seg))
 }
 
 const SegmentationPanel = lazy(() => import('./SegmentationPanel'))
@@ -231,10 +232,10 @@ export function registerViewer() {
       const sets = segSets()
       if (!pid || sets.length < 2) return
       const v = useViewerSync.getState()
-      const cur = v.segChoice[pid] ?? queryClient.getQueryData<Project>(keys.project(pid))?.default_seg ?? 'imported'
+      const cur = segChoiceFor(v.segChoice, pid, v.activeItemScope) ?? v.shownSeg ?? queryClient.getQueryData<Project>(keys.project(pid))?.default_seg ?? 'imported'
       const next = sets[(sets.findIndex((x) => x.seg_id === cur) + 1) % sets.length]
       if (!next) return
-      v.set({ segChoice: { ...v.segChoice, [pid]: next.seg_id } })
+      v.chooseSeg(pid, next.seg_id)
       toast({ message: i18n.t('viewer.segShown', { set: next.name || next.seg_id }) })
     },
   })

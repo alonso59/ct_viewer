@@ -13,6 +13,7 @@ export type LayoutId =
 const LAYOUT_CYCLE: LayoutId[] = ['four-up', 'conventional', 'three-mpr', 'one-up-axial']
 export type ViewerTool = 'pan' | 'window' | 'crosshair' | 'zoom' | 'distance' | 'angle' | 'roi'
 export type ViewportId = 'axial' | 'sagittal' | 'coronal' | '3d'
+type ItemScope = 'complete' | 'voi'
 
 // [ww, wl]
 export const WL_PRESETS = {
@@ -32,13 +33,18 @@ export interface ViewerDisplay {
   convention: 'radiological' | 'neurological'
 }
 
-/** The set to show for an item: the chosen one (else `default_seg`); an item without a
- *  mask in the chosen set falls back to `default_seg` and reports the set it is `missing` from. */
-export function resolveSeg(masks: Record<string, unknown>, chosen: string | undefined, defaultSeg: string): { seg: string | null; missing: string | null } {
-  const want = chosen ?? defaultSeg
+/** Use the chosen set, falling back to the scope's default when necessary. */
+export function resolveSeg(masks: Record<string, unknown>, chosen: string | undefined, defaultSeg: string, scope: ItemScope = 'complete'): { seg: string | null; missing: string | null } {
+  const fallback = scope === 'voi' && masks.imported ? 'imported' : defaultSeg
+  const want = chosen ?? fallback
   if (masks[want]) return { seg: want, missing: null }
-  if (masks[defaultSeg]) return { seg: defaultSeg, missing: want }
+  if (masks[fallback]) return { seg: fallback, missing: want }
   return { seg: null, missing: Object.keys(masks).length > 0 ? want : null }
+}
+
+export function segChoiceFor(choices: Record<string, string>, pid: string, scope: ItemScope, hasImported = false): string | undefined {
+  const legacy = choices[pid]
+  return choices[`${pid}:${scope}`] ?? (scope === 'complete' && (legacy !== 'imported' || hasImported) ? legacy : undefined)
 }
 
 interface WindowPreset {
@@ -59,9 +65,10 @@ export interface CursorReadout {
 interface ViewerSyncState {
   activeCaseId: string | null
   activeItemId: string | null
-  /** The segmentation set chosen per project (pid → seg_id), kept across reloads; absent = its `default_seg`.
-   *  Keyed by project so a choice never leaks into another project. */
+  activeItemScope: ItemScope
+  /** Explicit set choices per project and item scope, kept across reloads. */
   segChoice: Record<string, string>
+  chooseSeg: (pid: string, segId: string, scope?: ItemScope) => void
   /** The set whose mask is on screen for the active item, i.e. the `seg_id` of mask
    *  decisions; null = no mask shown (set by the case editor) */
   shownSeg: string | null
@@ -108,7 +115,11 @@ interface ViewerSyncState {
 export const useViewerSync = create<ViewerSyncState>()(persist((set, get) => ({
   activeCaseId: null,
   activeItemId: null,
+  activeItemScope: 'complete',
   segChoice: {},
+  chooseSeg: (pid, segId, scope) => set((s) => ({
+    segChoice: { ...s.segChoice, [`${pid}:${scope ?? s.activeItemScope}`]: segId },
+  })),
   shownSeg: null,
   viewerFocused: false,
   tool: 'crosshair',

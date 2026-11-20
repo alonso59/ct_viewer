@@ -6,7 +6,7 @@ import { api, ProblemError, useCase, useProject, useSegmentations, viewPath, typ
 import { CaseRollupBadge, ProblemCard } from '../../lib'
 import { bindingOf, formatChord, pinEditor, registry, runCommand, updateActiveParams, useWorkbench, type EditorProps } from '../../shell'
 import { PhaseHistoryButton, PhaseSelect } from '../phase'
-import { navPosition, resolveSeg, useNavContext, useViewerSync } from '../../state'
+import { navPosition, resolveSeg, segChoiceFor, useNavContext, useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { useLoadBudget } from './budget'
 import { ItemSwitcher } from './ItemSwitcher'
@@ -66,9 +66,8 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const items = useMemo(() => data?.items ?? [], [data])
   const current = items.find((i) => i.item_id === params.itemId) ?? defaultItem(items)
   const iid = current?.item_id ?? ''
-  // The set chosen for this project (Layers section), else its default; an item without
-  // a mask in that set shows the default set's mask with a notice
-  const storedChoice = useViewerSync((s) => s.segChoice[pid])
+  const scope = current?.scope ?? 'complete'
+  const storedChoice = useViewerSync((s) => segChoiceFor(s.segChoice, pid, scope, !!current?.masks.imported))
   const sets = useSegmentations(pid).data
   const defaultSeg = sets === undefined
     ? (project.data?.default_seg ?? 'imported')
@@ -76,8 +75,8 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const chosen = sets?.some((set) => set.seg_id === storedChoice) ? storedChoice : undefined
   const masks = current?.masks
   const { seg: shownSeg, missing } = useMemo(
-    () => defaultSeg ? resolveSeg(masks ?? {}, chosen, defaultSeg) : { seg: null, missing: null },
-    [masks, chosen, defaultSeg],
+    () => defaultSeg ? resolveSeg(masks ?? {}, chosen, defaultSeg, scope) : { seg: null, missing: null },
+    [masks, chosen, defaultSeg, scope],
   )
   const segId = shownSeg ?? chosen ?? defaultSeg
   const segmentation = sets?.find((s) => s.seg_id === segId)
@@ -88,7 +87,7 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
   const shown = useMemo(() => (current ? { ...current, mask: current.masks[segId] ?? null } : null), [current, segId])
 
   useEffect(() => {
-    if (active && current) set({ activeCaseId: params.caseId, activeItemId: current.item_id, shownSeg })
+    if (active && current) set({ activeCaseId: params.caseId, activeItemId: current.item_id, activeItemScope: current.scope, shownSeg })
     // While the new case loads, no item is active, so a curation key cannot land on the previous case
     else if (active && useViewerSync.getState().activeCaseId !== params.caseId) set({ activeCaseId: params.caseId, activeItemId: null, shownSeg: null })
   }, [active, current, params.caseId, set, shownSeg])

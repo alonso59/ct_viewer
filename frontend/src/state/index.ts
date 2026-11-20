@@ -4,6 +4,7 @@ export { panelAutoHeight, useLayout } from './layout'
 export {
   useViewerSync,
   resolveSeg,
+  segChoiceFor,
   WL_PRESETS,
   type LayoutId,
   type ViewerTool,
