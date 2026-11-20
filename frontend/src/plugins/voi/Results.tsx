@@ -1,6 +1,7 @@
 // What a `voi.extract` run wrote, as a read-only snapshot that stays usable at any size: the run's
 // settings and folder, a summary whose counts are also the filters, and pages of 50 scans or
-// cases. A row opens to its crops' previews, so a page never loads fifty images at once.
+// cases. A row opens to its crops' previews, so a page never loads fifty images at once. A run
+// with lesions also shows them with its training profile.
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +10,7 @@ import { api, isTaskRunPending, keys, useVoiRunResults, type TaskRunStatus, type
 import { Button, ItemName, ProblemCard, RadioSeg, fmt1, parseItemId } from '../../lib'
 import { toast } from '../../shell'
 import { boxMode, effectiveBox, fmtSize, regionOf, resampleOf, WARNING_CODES, type Values } from './model'
+import ProfilePanel from './Profile'
 import { SideConfidence } from './ScanCard'
 import './voi.css'
 
@@ -64,6 +66,12 @@ function Crop({ pid, runId, r }: { pid: string; runId: string; r: VoiResult }) {
           <dd>{t('voi.voxelLine', { shape: r.shape.join(' × '), mm: r.spacing.map((s) => fmt1(s)).join(' × ') })}</dd>
           <dt>{t('voi.metric.volume')}</dt>
           <dd>{t('voi.ml', { v: fmt1(r.volume_ml) })}</dd>
+          {r.n_lesions ? (
+            <>
+              <dt>{t('voi.lesions.title')}</dt>
+              <dd>{[t('voi.lesions.count', { count: r.n_lesions }), t('voi.lesions.largest', { ml: fmt1(r.largest_lesion_ml ?? 0) })].join(' · ')}</dd>
+            </>
+          ) : null}
           <dt>{t('voi.metric.files')}</dt>
           <dd className="voi-files mono">
             <span title={r.image}>{r.image.split('/').pop()}</span>
@@ -89,6 +97,7 @@ function ScanRow({ pid, runId, scan, numbered }: { pid: string; runId: string; s
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const warned = scan.vois.reduce((n, v) => n + v.warnings.length, 0)
+  const lesions = scan.vois.reduce((n, v) => n + (v.n_lesions ?? 0), 0)
   return (
     <li className="voi-row">
       <button type="button" className="voi-row-head" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
@@ -103,6 +112,7 @@ function ScanRow({ pid, runId, scan, numbered }: { pid: string; runId: string; s
             </span>
           ))}
         </span>
+        {lesions ? <span className="muted">{t('voi.lesions.count', { count: lesions })}</span> : null}
         {warned ? (
           <span className="voi-warn">
             <span className="codicon codicon-warning" aria-hidden />
@@ -124,6 +134,7 @@ function ScanRow({ pid, runId, scan, numbered }: { pid: string; runId: string; s
 function Inner({ pid, runId }: { pid: string; runId: string }) {
   const { t } = useTranslation()
   const [nav, setNav] = useState<Nav>(START)
+  const [tab, setTab] = useState<'vois' | 'lesions'>('vois')
   const q = useDebounced(nav.q)
   // the whole run's summary, unfiltered; also decides how the run is browsed first
   const head = useVoiRunResults(pid, runId, { view: 'cases', offset: 0, limit: 1 })
@@ -215,9 +226,26 @@ function Inner({ pid, runId }: { pid: string; runId: string }) {
                 t('voi.res.nCases', { count: summary.n_cases, num: n0(summary.n_cases) }),
                 t('voi.res.nScans', { count: summary.n_scans, num: n0(summary.n_scans) }),
                 t('voi.res.nVois', { count: summary.n_vois, num: n0(summary.n_vois) }),
+                ...(summary.n_lesions ? [t('voi.lesions.count', { count: summary.n_lesions })] : []),
               ].join(' · ')}
             </span>
           </p>
+          {summary.n_lesions && !pending ? (
+            <RadioSeg
+              label={t('voi.res.show')}
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: 'vois', label: t('voi.res.tabVois') },
+                { value: 'lesions', label: t('voi.res.tabLesions') },
+              ]}
+            />
+          ) : null}
+        </>
+      ) : null}
+      {summary && summary.n_vois > 0 && tab === 'lesions' && summary.n_lesions && !pending ? <ProfilePanel pid={pid} runId={runId} settings={settings} /> : null}
+      {summary && summary.n_vois > 0 && (tab === 'vois' || !summary.n_lesions || pending) ? (
+        <>
           <div className="voi-chips" role="group" aria-label={t('voi.res.filter')}>
             {chip('all', t('voi.res.all'), summary.n_vois, !nav.confidence && !nav.review, { confidence: null, review: false })}
             {CONFIDENCES.map((c) => (summary.by_confidence[c] ? chip(c, t(`voi.conf.${c}`), summary.by_confidence[c], nav.confidence === c, { confidence: c, review: false }) : null))}

@@ -5,24 +5,24 @@ import { useTranslation } from 'react-i18next'
 import { useDashboardView } from '../../../api'
 import { fmtInt } from '../../../lib'
 import type { ChartInstance } from '../Chart'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import { asStatus, FeatureSelect, str, unitFor, useFocusParams, usePid, VariableSelect, ViewFrame, type ViewProps } from './common'
 import { Scatter, type ScatterPoint } from './Scatter'
 import { ResultsTable, TestResult, TestSwitch, type TestMode } from './stats'
 
-export function AssociationView({ runId }: ViewProps) {
+export function AssociationView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters } = useRunDashboard(runId)
+  const { filters } = useTableDashboard(tableId)
   const [variable, setVariable] = useState<string | null>(null)
   const [feature, setFeature] = useState<string | null>(null)
   const [test, setTest] = useState<TestMode>('auto')
   const [chart, setChart] = useState<ChartInstance | null>(null)
-  useFocusParams(runId, 'association', (p) => {
+  useFocusParams(tableId, 'association', (p) => {
     setVariable(str(p.variable) ?? variable)
     setFeature(str(p.feature) ?? feature)
   })
-  const q = useDashboardView(pid, runId, 'association', variable ? { filters, variable, feature, test, unit: unitFor(filters.label) } : null)
+  const q = useDashboardView(pid, tableId, 'association', variable ? { filters, variable, feature, test, unit: unitFor(filters.label) } : null)
   const d = q.data
   const points = useMemo<ScatterPoint[]>(
     () =>
@@ -42,7 +42,7 @@ export function AssociationView({ runId }: ViewProps) {
       controls={
         <>
           <VariableSelect kind="continuous" value={variable} onChange={setVariable} label={t('dashboard.variable')} />
-          <FeatureSelect runId={runId} value={d?.feature ?? feature} onChange={setFeature} />
+          <FeatureSelect tableId={tableId} value={d?.feature ?? feature} onChange={setFeature} />
           <TestSwitch value={test} onChange={setTest} />
           {d ? <span className="muted">{t('dashboard.unitSummary', { rows: fmtInt(d.unit.n_rows), cases: fmtInt(d.unit.n_cases) })}</span> : null}
         </>
@@ -53,7 +53,7 @@ export function AssociationView({ runId }: ViewProps) {
           <div className="db-split-main db-stack">
             <TestResult choice={d.choice} row={d.selected} />
             <div className="db-chart-fill">
-              <Scatter runId={runId} points={points} xName={d.variable} yName={d.feature ?? ''} levelName={levelName} onReady={setChart} />
+              <Scatter tableId={tableId} points={points} xName={d.variable} yName={d.feature ?? ''} levelName={levelName} onReady={setChart} />
             </div>
           </div>
           <div className="db-split-side">

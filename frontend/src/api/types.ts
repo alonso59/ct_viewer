@@ -431,6 +431,12 @@ export type VoiRunResults = S['VoiRunResults']
 export type VoiResult = S['VoiResult']
 export type VoiScanRow = S['VoiScanRow']
 export type VoiSummary = S['VoiSummary']
+export type VoiProfile = S['VoiProfile']
+export type VoiProfileSettings = S['VoiProfileSettings']
+export type VoiProfileSummary = S['VoiProfileSummary']
+/** An analysis table the dashboard reads: a radiomics run or a task's table (VOI lesions) */
+export type TableSummary = S['TableSummary']
+export type TableManifest = S['TableManifest']
 /** A page of a run's VOIs, by scan or by case; the filters cut it on the server */
 export interface VoiResultsQuery {
   view: 'scans' | 'cases'

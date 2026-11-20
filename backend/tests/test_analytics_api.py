@@ -352,9 +352,12 @@ def test_storage_list_get_and_exports(mod_client: TestClient, syn: Synthetic) ->
     got = ok(c.get(f"{API}/projects/{syn.pid}/analyses/{aid}"))
     assert got["results"] == a["results"] and got["recommendations"] == a["recommendations"]
     assert got["descriptives"] == a["descriptives"] and got["spec"]["name"] == "stored"
-    lst = ok(c.get(f"{API}/projects/{syn.pid}/analyses", params={"run_id": syn.run_id}))
+    lst = ok(c.get(f"{API}/projects/{syn.pid}/analyses", params={"table_id": syn.run_id}))
     row = next(x for x in lst["items"] if x["analysis_id"] == aid)
     assert row["n_tested"] == len(a["results"]) and lst["total"] == len(lst["items"])
+    assert row["table_id"] == syn.run_id and a["spec"]["table_id"] == syn.run_id
+    old = ok(c.get(f"{API}/projects/{syn.pid}/analyses", params={"run_id": syn.run_id}))
+    assert old == lst
     res = c.get(f"{API}/projects/{syn.pid}/analyses/{aid}/export", params={"file": "results"})
     table = list(csv.DictReader(io.StringIO(res.text)))
     assert [r["feature"] for r in table] == [r["feature"] for r in a["results"]]
@@ -366,6 +369,20 @@ def test_storage_list_get_and_exports(mod_client: TestClient, syn: Synthetic) ->
     rows = tidy(c, syn, aid)
     assert {r["site"] for r in rows} == {"S2"} and "patient_id" not in rows[0]  # VAR-09
     assert MEAN in rows[0] and "arm" in rows[0]
+
+
+def test_spec_saved_with_run_id_still_loads(mod_client: TestClient, syn: Synthetic) -> None:
+    c = mod_client
+    a = ok(analyze(c, syn, question="explore", name="before tables"), 201)
+    path = syn.pdir / "analyses" / a["analysis_id"] / "spec.json"
+    head = json.loads(path.read_text())
+    head["spec"]["run_id"] = head["spec"].pop("table_id")
+    head["spec"]["feature_class"] = head["spec"].pop("groups")
+    path.write_text(json.dumps(head))
+    got = ok(c.get(f"{API}/projects/{syn.pid}/analyses/{a['analysis_id']}"))
+    assert got["spec"]["table_id"] == syn.run_id and got["results"] == a["results"]
+    lst = ok(c.get(f"{API}/projects/{syn.pid}/analyses", params={"table_id": syn.run_id}))
+    assert a["analysis_id"] in {x["analysis_id"] for x in lst["items"]}
 
 
 def test_analysis_problems(mod_client: TestClient, syn: Synthetic) -> None:

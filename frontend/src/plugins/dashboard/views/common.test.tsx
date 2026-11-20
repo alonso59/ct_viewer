@@ -13,7 +13,7 @@ const ITEM = 'case_00001.01.complete.-'
 test('Show as table swaps the chart for its rows; an item row selects like a brush', () => {
   render(
     <ViewFrame name="view" chart={null} csv={() => [['item_id', 'case_id', 'volume'], [ITEM, 'case_00001', 1.5]]}>
-      <ChartOrTable runId="run-1">
+      <ChartOrTable tableId="run-1">
         <div data-testid="chart" />
       </ChartOrTable>
     </ViewFrame>,

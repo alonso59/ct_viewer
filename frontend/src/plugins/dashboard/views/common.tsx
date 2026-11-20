@@ -24,10 +24,10 @@ import { toast, useWorkbench } from '../../../shell'
 import { Icon, codicon, token } from '../../../theme'
 import { openInContext, openItem } from '../../../features/explorer'
 import { chartImage, palette, type ChartImageKind, type ChartInstance } from '../Chart'
-import { useDashboardStore, useRunDashboard } from '../store'
+import { useDashboardStore, useTableDashboard } from '../store'
 
 export interface ViewProps {
-  runId: string
+  tableId: string
 }
 
 export const usePid = () => useWorkbench((s) => s.pid) ?? ''
@@ -71,12 +71,12 @@ function ProblemState({ error }: { error: unknown }) {
 /** While on, a view's charts show their rows as tables (default rows: the view's CSV) */
 const TableMode = createContext<{ on: boolean; rows?: () => CsvRows }>({ on: false })
 
-/** A chart, or its rows while the view shows tables. With `runId`, rows of items get a checkbox
+/** A chart, or its rows while the view shows tables. With `tableId`, rows of items get a checkbox
  *  for the linked selection: the keyboard way to do what a brush does. */
-export function ChartOrTable({ rows, runId, children }: { rows?: () => CsvRows; runId?: string; children: ReactNode }) {
+export function ChartOrTable({ rows, tableId, children }: { rows?: () => CsvRows; tableId?: string; children: ReactNode }) {
   const mode = useContext(TableMode)
   const data = rows ?? mode.rows
-  return mode.on && data ? <DataTable rows={data()} runId={runId} /> : children
+  return mode.on && data ? <DataTable rows={data()} tableId={tableId} /> : children
 }
 
 /** Rows a table shows; the CSV keeps every row */
@@ -84,7 +84,7 @@ const TABLE_MAX = 1000
 
 /** Rows (header first) as a table. Rows with an `item_id` and a `case_id` open their item (click,
  *  Enter) and have the item menu (right click, Shift+F10). */
-function DataTable({ rows, runId }: { rows: CsvRows; runId?: string }) {
+function DataTable({ rows, tableId }: { rows: CsvRows; tableId?: string }) {
   const { t } = useTranslation()
   const [head = [], ...body] = rows
   const itemCol = head.indexOf('item_id')
@@ -92,8 +92,8 @@ function DataTable({ rows, runId }: { rows: CsvRows; runId?: string }) {
   const items = itemCol >= 0 && caseCol >= 0
   const shown = body.slice(0, TABLE_MAX)
   const rowKeys = useRowKeys(items ? shown.map((_, i) => String(i)) : [])
-  const sel = useSelection(runId ?? '')
-  const pick = items && runId !== undefined
+  const sel = useSelection(tableId ?? '')
+  const pick = items && tableId !== undefined
   const toggle = (id: string, on: boolean) => sel.select(on ? [...sel.selected, id] : [...sel.selected].filter((x) => x !== id))
   return (
     <div className="db-table" tabIndex={0} role="region" aria-label={t('dashboard.table.label')}>
@@ -190,9 +190,9 @@ export function ViewFrame({ name, controls, chart, csv, query, empty, children }
   )
 }
 
-/** Apply params from `focusView(runId, view, params)` once per request */
-export function useFocusParams(runId: string, view: DashboardView, apply: (params: Record<string, unknown>) => void) {
-  const focus = useRunDashboard(runId).focus
+/** Apply params from `focusView(tableId, view, params)` once per request */
+export function useFocusParams(tableId: string, view: DashboardView, apply: (params: Record<string, unknown>) => void) {
+  const focus = useTableDashboard(tableId).focus
   const seen = useRef(0)
   const fn = useRef(apply)
   useEffect(() => {
@@ -211,10 +211,10 @@ export const numParam = (v: unknown): number | null => (typeof v === 'number' &&
 const FEATURE_LIST_BODY = { max_cells: 1 }
 
 /** Full feature names of the run with their class */
-export function useFeatureNames(runId: string): { name: string; cls: string }[] {
+export function useFeatureNames(tableId: string): { name: string; cls: string }[] {
   const pid = usePid()
-  const q = useDashboardView(pid, runId, 'missing-matrix', FEATURE_LIST_BODY)
-  return useMemo(() => (q.data?.features ?? []).map((f) => ({ name: f.feature, cls: f.feature_class })), [q.data])
+  const q = useDashboardView(pid, tableId, 'missing-matrix', FEATURE_LIST_BODY)
+  return useMemo(() => (q.data?.features ?? []).map((f) => ({ name: f.feature, cls: f.group })), [q.data])
 }
 
 const DEFAULT_FEATURE = 'original_firstorder_Mean'
@@ -224,9 +224,9 @@ export function pickFeature(names: { name: string }[], wanted: string | null): s
   return names.find((n) => n.name === DEFAULT_FEATURE)?.name ?? names[0]?.name ?? wanted
 }
 
-export function FeatureSelect({ runId, value, onChange, exclude }: { runId: string; value: string | null; onChange: (f: string) => void; exclude?: string }) {
+export function FeatureSelect({ tableId, value, onChange, exclude }: { tableId: string; value: string | null; onChange: (f: string) => void; exclude?: string }) {
   const { t } = useTranslation()
-  const names = useFeatureNames(runId)
+  const names = useFeatureNames(tableId)
   const classes = [...new Set(names.map((n) => n.cls))]
   return (
     <select className="select input-sm db-feature" value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-label={t('dashboard.feature')}>
@@ -301,8 +301,8 @@ export function useLabelName(): (label: number) => string {
 }
 
 /** Point style for the linked selection: selected points stand out, others dim */
-export function useSelection(runId: string) {
-  const selection = useRunDashboard(runId).selection
+export function useSelection(tableId: string) {
+  const selection = useTableDashboard(tableId).selection
   const select = useDashboardStore((s) => s.select)
   return useMemo(() => {
     const set = new Set(selection)
@@ -310,11 +310,11 @@ export function useSelection(runId: string) {
     return {
       selected: set,
       any: set.size > 0,
-      select: (ids: string[]) => select(runId, ids),
+      select: (ids: string[]) => select(tableId, ids),
       style: (id: string, color: string) =>
         set.size === 0 ? { color, opacity: 0.85 } : set.has(id) ? { color, opacity: 1, borderColor: fg, borderWidth: 1.5 } : { color, opacity: 0.2 },
     }
-  }, [selection, select, runId])
+  }, [selection, select, tableId])
 }
 
 export interface ItemRef {

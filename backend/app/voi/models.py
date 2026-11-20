@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 Region = Literal["kidney", "lung", "liver", "pancreas", "stomach", "heart", "custom"]
 Size3 = list[float]
@@ -77,6 +77,8 @@ class VoiResult(BaseModel):
     volume_ml: float
     warnings: list[str]
     side_confidence: str = ""  # as for a candidate, or `reviewer` when the reviewer swapped it
+    n_lesions: int = 0
+    largest_lesion_ml: float | None = None
 
 
 class VoiScanRow(BaseModel):
@@ -106,6 +108,8 @@ class VoiSummary(BaseModel):
     by_confidence: dict[str, int]  # lateral VOIs: verified, probable, uncertain, reviewer
     n_warnings: int
     n_review: int
+    n_lesions: int = 0
+    n_vois_with_lesions: int = 0
 
 
 class VoiRunResults(BaseModel):
@@ -122,3 +126,34 @@ class VoiRunResults(BaseModel):
     limit: int
     scans: list[VoiScanRow]  # a page, when view is `scans`
     cases: list[VoiCaseRow]  # a page, when view is `cases`
+
+
+class VoiProfileSettings(BaseModel):
+    """Profile settings to change; the run's own settings fill the rest."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bin_percentiles: list[float] | None = Field(default=None, min_length=1, max_length=9)
+    balancing_alpha: float | None = Field(default=None, ge=0, le=1)
+    budget_by_bin: list[int] | None = None
+    role_priors_by_bin: list[dict[Literal["center", "border", "context"], float]] | None = None
+    hu_window: list[float] | None = Field(default=None, min_length=2, max_length=2)
+    patch_size_candidates: list[list[int]] | None = None
+
+
+class VoiProfile(BaseModel):
+    """A sampling profile of a run (schema 2, as `sampling_profile.json`); `name` when saved."""
+
+    name: str | None = None
+    saved_at: str | None = None
+    saved_by: str | None = None
+    profile: dict[str, Any]
+    lesion_volumes_mm3: list[float] = Field(default_factory=list)  # for the distribution view
+
+
+class VoiProfileSummary(BaseModel):
+    name: str
+    saved_at: str
+    saved_by: str | None = None
+    settings_hash: str
+    num_lesions: int

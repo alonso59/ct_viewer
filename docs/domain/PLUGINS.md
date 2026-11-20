@@ -47,7 +47,7 @@ Not every core-adjacent feature is a plugin: phase selection (PHASE.md, ADR-0026
 ```
 
 - Loading: `app/plugins/registry.py` reads `{BUILTIN_PLUGINS_ROOT}/*/plugin.json`; unknown keys, an id that differs from its folder, an unknown capability or a missing required plugin make it invalid (listed in API-49 `invalid`). Backend-less plugins (curation, radiomics, dashboard) keep their code in `app/` and only declare themselves here.
-- Capabilities → status (first unmet wins, PLG-06): `derived_root` → `needs_derived_root` (no `ALLOWED_DERIVED_ROOTS`); `runner` → `needs_runner` (an external task with no fresh runner); `segmentation` → `needs_segmentation` (API-49 `?project=` given and no item has a mask); `event_store`, `features_run` are informative. API status values are snake_case (`needs_runner`, …).
+- Capabilities → status (first unmet wins, PLG-06): `derived_root` → `needs_derived_root` (no `ALLOWED_DERIVED_ROOTS`); `runner` → `needs_runner` (an external task with no fresh runner); `segmentation` → `needs_segmentation` (API-49 `?project=` given and no item has a mask); `event_store`, `analysis_table` are informative. API status values are snake_case (`needs_runner`, …).
 - Task ownership (TSK-01): every task id is contributed by one plugin (`TaskInfo.plugin`); a `PLUGINS_ROOT` manifest whose id no `plugin.json` contributes is invalid.
 - Frontend: `frontend/src/plugins/host.ts` (`FrontendPlugin {id, activate(ctx), open?}`); `plugins/index.ts` lists the shipped ones and bootstrap activates them all (PLG-04). `open` is the Library's Open; a plugin without one (pending) cannot be opened.
 

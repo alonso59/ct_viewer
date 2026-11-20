@@ -6,24 +6,24 @@ import { useDashboardView } from '../../../api'
 import { fmtInt, fmtNum } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, type ChartInstance, type ChartOption } from '../Chart'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import { ChartOrTable, openRef, str, unitFor, useFocusParams, usePid, useSelection, VariableSelect, ViewFrame, type ViewProps } from './common'
 import { TestResult, TestSwitch, type TestMode } from './stats'
 
-export function BalanceView({ runId }: ViewProps) {
+export function BalanceView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters } = useRunDashboard(runId)
+  const { filters } = useTableDashboard(tableId)
   const [variable, setVariable] = useState<string | null>(null)
   const [other, setOther] = useState<string | null>(null)
   const [test, setTest] = useState<TestMode>('auto')
   const [chart, setChart] = useState<ChartInstance | null>(null)
-  useFocusParams(runId, 'balance', (p) => {
+  useFocusParams(tableId, 'balance', (p) => {
     setVariable(str(p.variable) ?? variable)
     setOther(str(p.other) ?? str(p.confounder) ?? other)
   })
-  const q = useDashboardView(pid, runId, 'balance', variable && other ? { filters, variable, other, test, unit: unitFor(filters.label) } : null)
-  const sel = useSelection(runId)
+  const q = useDashboardView(pid, tableId, 'balance', variable && other ? { filters, variable, other, test, unit: unitFor(filters.label) } : null)
+  const sel = useSelection(tableId)
   const d = q.data
   const option = useMemo<ChartOption>(() => {
     if (!d) return {}

@@ -182,7 +182,11 @@ function OutputLink({ pid, run, o }: { pid: string; run: TaskRunSummary; o: Task
   if (o.kind === 'features') {
     // the features run of a radiomics task run (its dashboard); the id is in the output's API path
     const rid = /\/runs\/([^/]+)\/features/.exec(o.detail ?? '')?.[1] ?? run.run_id
-    return <button type="button" className="link truncate" title={raw} onClick={() => openEditor('run', { runId: rid })}>{run.name}</button>
+    return <button type="button" className="link truncate" title={raw} onClick={() => openEditor('table', { tableId: rid })}>{run.name}</button>
+  }
+  if (o.kind === 'table' && o.detail) {
+    const tableId = o.detail // an analysis table: its dashboard
+    return <button type="button" className="link truncate" title={raw} onClick={() => openEditor('table', { tableId })}>{o.ref?.split('/').pop() ?? tableId}</button>
   }
   if (o.kind === 'import')
     return <button type="button" className="link truncate" title={raw} onClick={() => useLayout.getState().showView('project')}>{run.name}</button>

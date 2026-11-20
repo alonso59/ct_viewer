@@ -6,17 +6,17 @@ import { useDashboardView } from '../../../api'
 import { fmtInt, itemName } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, fontSize, type ChartInstance, type ChartOption } from '../Chart'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import { ChartOrTable, openRef, useItemMenu, usePid, ViewFrame, type ViewProps } from './common'
 
 const KINDS = ['nan', 'inf', 'absent'] as const
 
-export function MissingMatrixView({ runId }: ViewProps) {
+export function MissingMatrixView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters } = useRunDashboard(runId)
+  const { filters } = useTableDashboard(tableId)
   const [chart, setChart] = useState<ChartInstance | null>(null)
-  const q = useDashboardView(pid, runId, 'missing-matrix', { filters })
+  const q = useDashboardView(pid, tableId, 'missing-matrix', { filters })
   const d = q.data
   // Only rows/columns with at least one invalid value are drawn
   const view = useMemo(() => {
@@ -57,7 +57,7 @@ export function MissingMatrixView({ runId }: ViewProps) {
       name={t('dashboard.view.missing-matrix')}
       query={q}
       chart={nInvalid ? chart : null}
-      csv={() => [['feature', 'feature_class', 'n_nan', 'n_inf', 'n_absent'], ...(d?.features ?? []).map((f) => [f.feature, f.feature_class, f.n_nan, f.n_inf, f.n_absent])]}
+      csv={() => [['feature', 'group', 'n_nan', 'n_inf', 'n_absent'], ...(d?.features ?? []).map((f) => [f.feature, f.group, f.n_nan, f.n_inf, f.n_absent])]}
       controls={d ? <span className="muted">{t('dashboard.missing.summary', { values: fmtInt(nInvalid), items: fmtInt(d.n_items_total) })}</span> : null}
     >
       {d && nInvalid === 0 ? <div className="empty">{t('dashboard.missing.none')}</div> : null}

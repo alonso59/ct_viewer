@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
+import nibabel as nib
+import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.test_contract import assert_problem
@@ -81,7 +85,172 @@ def test_extract_task_writes_vois_and_catalog(env: TestClient, proj: str, tmp_pa
     assert (out / rows[0]["mask"]).is_file()
     outputs = env.get(f"{API}/projects/{proj}/task-runs/{run['run_id']}/outputs").json()
     kinds = sorted(o["kind"] for o in outputs)
-    assert kinds.count("image") == 1 and kinds.count("sidecar") == 1
+    assert kinds.count("image") == 1 and kinds.count("sidecar") == 2  # the mask, the histogram
+
+
+def test_extract_measures_the_lesions_of_each_crop(
+    env: TestClient, proj: str, tmp_path: Path
+) -> None:
+    with_derived(env, proj, tmp_path)
+    labels = {e["name"]: e["value"] for e in env.get(f"{API}/projects/{proj}").json()["label_map"]}
+
+    def extract(**settings: object) -> tuple[Path, list[dict[str, Any]]]:
+        r = env.post(
+            f"{API}/projects/{proj}/task-runs",
+            json={
+                "task_id": "voi.extract",
+                "settings": {"region": "kidney", "resample_mm": 1.0, **settings},
+                "selection": {"item_ids": ITEMS[:1], "seg_id": "imported"},
+            },
+            headers={"X-Reviewer": "T"},
+        )
+        assert r.status_code == 202, r.text
+        run = finish(env, proj, r.json())
+        assert run["status"] == "completed", run
+        runs.append(run)
+        out = Path(run["output_dir"])
+        return out, [json.loads(x) for x in (out / "voi_catalog.jsonl").read_text().splitlines()]
+
+    runs: list[dict[str, Any]] = []
+    out, rows = extract()
+    [row] = [r for r in rows if r["lesions"]]  # the fixture's tumor is in one kidney
+    assert row["lesion_labels"] == ["tumor"] and row["spacing"] == [1.0, 1.0, 1.0]
+    [lesion] = row["lesions"]
+    assert lesion["lesion"] == 1 and lesion["label"] == labels["tumor"]
+    mask = np.asarray(nib.load(out / row["mask"]).dataobj)
+    assert lesion["volume_vox"] == int((mask == lesion["label_value"]).sum())
+    lo, hi = lesion["bbox_min_vox"], lesion["bbox_max_vox"]
+    assert (mask[lo[0] : hi[0], lo[1] : hi[1], lo[2] : hi[2]] == lesion["label_value"]).sum() == (
+        lesion["volume_vox"]
+    )
+    assert lesion["organ_contact_ratio"] > 0.5 and set(lesion["hu"]) == {
+        "mean",
+        "std",
+        "p5",
+        "p50",
+        "p95",
+    }
+    hist = json.loads((out / row["hu_histogram"]).read_text())
+    assert hist["n"] == int(
+        np.isin(mask, [labels["kidney"], labels["tumor"], labels["cyst"]]).sum()
+    )
+    # The same input gives the same measures and histogram bytes; measuring can be turned off.
+    again, rows2 = extract()
+    assert [r["lesions"] for r in rows2] == [r["lesions"] for r in rows]
+    assert (again / row["hu_histogram"]).read_bytes() == (out / row["hu_histogram"]).read_bytes()
+    _, off = extract(measure_lesions=False)
+    assert all(r["lesions"] == [] and r["lesion_labels"] == [] for r in off)
+    _, small = extract(min_lesion_voxels=10**5)
+    assert [r["lesions_below_min"] for r in small if r["side"] == row["side"]] == [1]
+
+
+def test_extract_writes_the_training_files_and_the_lesions_table(
+    env: TestClient, proj: str, tmp_path: Path
+) -> None:
+    with_derived(env, proj, tmp_path)
+    r = env.post(
+        f"{API}/projects/{proj}/task-runs",
+        json={
+            "task_id": "voi.extract",
+            "settings": {"region": "kidney", "resample_mm": 1.0, "bin_percentiles": [50]},
+            "selection": {"item_ids": ITEMS, "seg_id": "imported"},
+        },
+        headers={"X-Reviewer": "T"},
+    )
+    assert r.status_code == 202, r.text
+    run = finish(env, proj, r.json())
+    assert run["status"] == "completed", run
+    out = Path(run["output_dir"])
+    catalog = [json.loads(x) for x in (out / "lesion_catalog.jsonl").read_text().splitlines()]
+    assert len(catalog) == len(ITEMS)  # one tumor per fixture scan
+    assert all((out / c["mask_path"]).is_file() and c["size_bin"] in ("b0", "b1") for c in catalog)
+    prof = json.loads((out / "sampling_profile.json").read_text())
+    assert prof["num_lesions"] == len(ITEMS) and prof["target_spacing"] == [1.0, 1.0, 1.0]
+    assert prof["settings"]["bin_percentiles"] == [50] and len(prof["size_bins"]) == 2
+    fp = json.loads((out / "dataset_fingerprint.json").read_text())
+    assert fp["num_lesions"] == len(ITEMS) and fp["foreground_intensity"]["channel_0"]["mean"]
+    tid = f"{run['run_id']}-lesions"
+    assert {"kind": "table", "detail": tid} in [
+        {"kind": o["kind"], "detail": o["detail"]} for o in run["outputs"]
+    ]
+    [table] = [t for t in env.get(f"{API}/projects/{proj}/tables").json() if t["table_id"] == tid]
+    assert table["kind"] == "voi_lesions" and table["roles"] == {"volume": "volume_ml"}
+    views = f"{API}/projects/{proj}/tables/{tid}/views"
+    dist = env.post(f"{views}/feature-distribution", json={"feature": "volume_ml"})
+    assert dist.status_code == 200, dist.text
+    vol = {c["volume_mm3"] / 1000 for c in catalog}
+    points = {round(p["value"], 6) for p in dist.json()["points"]}
+    assert points == {round(v, 6) for v in vol}
+
+
+def test_profiles_are_recomputed_saved_and_exported(
+    env: TestClient, proj: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with_derived(env, proj, tmp_path)
+    r = env.post(
+        f"{API}/projects/{proj}/task-runs",
+        json={
+            "task_id": "voi.extract",
+            "settings": {"region": "kidney", "resample_mm": 1.0},
+            "selection": {"item_ids": ITEMS, "seg_id": "imported"},
+        },
+        headers={"X-Reviewer": "T"},
+    )
+    run = finish(env, proj, r.json())
+    base = f"{VOI}/projects/{proj}/runs/{run['run_id']}"
+    results = env.get(f"{base}/results").json()
+    assert (
+        results["summary"]["n_lesions"] == len(ITEMS) == results["summary"]["n_vois_with_lesions"]
+    )
+    vois = [v for scan in results["scans"] for v in scan["vois"] if v["n_lesions"]]
+    assert len(vois) == len(ITEMS) and all(v["largest_lesion_ml"] > 0 for v in vois)
+
+    def no_volume(*_: object, **__: object) -> None:
+        raise AssertionError("a profile must not read volumes")
+
+    with monkeypatch.context() as m:
+        m.setattr(nib, "load", no_volume)
+        p = env.post(f"{base}/profile", json={"bin_percentiles": [50], "balancing_alpha": 1})
+    assert p.status_code == 200, p.text
+    prof = p.json()["profile"]
+    assert len(prof["size_bins"]) == 2 and prof["settings"]["hu_window"] == [-100.0, 300.0]
+    assert sum(prof["target_size_bin_probabilities"].values()) == pytest.approx(1.0)
+    assert len(p.json()["lesion_volumes_mm3"]) == len(ITEMS)
+    assert_problem(env.post(f"{base}/profile", json={"hu_window": [10, -10]}), "validation")
+    assert_problem(env.post(f"{base}/profile", json={"nope": 1}), "validation")
+
+    saved = env.put(
+        f"{base}/profiles/balanced", json={"balancing_alpha": 1}, headers={"X-Reviewer": "Dr. P"}
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["name"] == "balanced" and saved.json()["saved_by"] == "Dr. P"
+    [row] = env.get(f"{base}/profiles").json()
+    assert row["name"] == "balanced" and row["num_lesions"] == len(ITEMS)
+    assert env.get(f"{base}/profiles/balanced/export").json() == saved.json()["profile"]
+    own = env.get(f"{base}/profiles/run/export").json()
+    assert own == json.loads((Path(run["output_dir"]) / "sampling_profile.json").read_text())
+    assert own["balancing_alpha"] == 0.5 and saved.json()["profile"]["balancing_alpha"] == 1.0
+    assert_problem(env.put(f"{base}/profiles/run", json={}), "validation")
+    assert_problem(env.put(f"{base}/profiles/Bad%20Name", json={}), "validation")
+    assert_problem(env.get(f"{base}/profiles/other/export"), "not-found")
+
+
+def test_an_invalid_profile_fails_before_any_crop(
+    env: TestClient, proj: str, tmp_path: Path
+) -> None:
+    with_derived(env, proj, tmp_path)
+    r = env.post(
+        f"{API}/projects/{proj}/task-runs",
+        json={
+            "task_id": "voi.extract",
+            "settings": {"region": "kidney", "hu_window": [300, -100]},
+            "selection": {"item_ids": ITEMS[:1], "seg_id": "imported"},
+        },
+        headers={"X-Reviewer": "T"},
+    )
+    assert r.status_code == 202, r.text
+    run = finish(env, proj, r.json())
+    assert run["status"] == "failed" and "low < high" in (run["error"] or ""), run
 
 
 def test_region_needs_its_organ_label(env: TestClient, proj: str) -> None:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { activeLabels, boxMode, chosenLabels, dropOverrides, effectiveBox, flaggedScan, fmtSize, isExcluded, isSwapped, namesSide, needsReview, orphanOverrides, overridesOf, reviewCounts, shownSide, sideConfidence, sideSource, skipExistingOf, toggleExclude, toggleSwap, withBoxMode } from './model'
+import { activeLabels, alphaOf, boxMode, chosenLabels, dropOverrides, effectiveBox, flaggedScan, fmtSize, huWindowOf, isExcluded, isSwapped, lesionLabelsOf, measureLesionsOf, minLesionVoxelsOf, namesSide, needsReview, organLabelsOf, orphanOverrides, overridesOf, parsePercentiles, percentilesOf, reviewCounts, shownSide, sideConfidence, sideSource, skipExistingOf, toggleExclude, toggleSwap, withBoxMode } from './model'
 
 const kidney = { labels: ['kidney', 'kidney_left', 'kidney_right', 'tumor', 'cyst'], organ: ['kidney', 'kidney_left', 'kidney_right'], margin_mm: 5, min_size_mm: [96, 96, 120] }
 
@@ -94,5 +94,22 @@ describe('voi model', () => {
     expect(sideConfidence('uncertain', true)).toBe('reviewer')
     expect(sideConfidence('verified', false)).toBe('verified')
     expect(sideConfidence('', true)).toBe('')
+  })
+
+  it('reads the lesion and profile settings with the task defaults', () => {
+    const region = { protect: ['tumor'], organ: ['kidney', 'kidney_left', 'kidney_right'] }
+    expect(measureLesionsOf({})).toBe(true)
+    expect(measureLesionsOf({ measure_lesions: false })).toBe(false)
+    expect(minLesionVoxelsOf({})).toBe(10)
+    expect(lesionLabelsOf({}, region)).toEqual(['tumor'])
+    expect(lesionLabelsOf({ lesion_labels: ['tumor', 'cyst'] }, region)).toEqual(['tumor', 'cyst'])
+    expect(organLabelsOf({ organ_labels: [] }, region)).toEqual(['kidney', 'kidney_left', 'kidney_right'])
+    expect(percentilesOf({})).toEqual([20, 50, 80, 95])
+    expect(alphaOf({ balancing_alpha: 1 })).toBe(1)
+    expect(huWindowOf({ hu_window: [-200, 300] })).toEqual([-200, 300])
+    expect(parsePercentiles('80, 20 ;50 50')).toEqual([20, 50, 80])
+    expect(parsePercentiles('0, 50')).toBeNull()
+    expect(parsePercentiles('a')).toBeNull()
+    expect(parsePercentiles('')).toBeNull()
   })
 })

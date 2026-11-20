@@ -161,7 +161,7 @@ def test_preview_and_extract(tmp_path: Path) -> None:
         str(tmp_path / "vm.nii.gz"),
         resample_mm=None,
     )
-    assert meta["shape"] == [cand.crop[1][a] - cand.crop[0][a] for a in range(3)]
+    assert meta.geo["shape"] == [cand.crop[1][a] - cand.crop[0][a] for a in range(3)]
     out = nib.load(tmp_path / "vm.nii.gz")
     assert nib.aff2axcodes(out.affine) == ("R", "A", "S")
     assert (
@@ -176,7 +176,7 @@ def test_preview_and_extract(tmp_path: Path) -> None:
         str(tmp_path / "rm.nii.gz"),
         resample_mm=2.0,
     )
-    assert meta["spacing"] == [2.0, 2.0, 2.0]
+    assert meta.geo["spacing"] == [2.0, 2.0, 2.0]
 
 
 def test_mask_with_a_mirrored_header_follows_the_image(tmp_path: Path) -> None:

@@ -7,7 +7,7 @@ import { useDashboardView, type ResultRow } from '../../../api'
 import { fmtInt, fmtValue, itemName } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, type ChartInstance, type ChartOption } from '../Chart'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import {
   ChartOrTable,
   FeatureSelect,
@@ -39,20 +39,20 @@ interface Pt {
   itemStyle: Record<string, unknown>
 }
 
-export function GroupComparisonView({ runId }: ViewProps) {
+export function GroupComparisonView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters } = useRunDashboard(runId)
+  const { filters } = useTableDashboard(tableId)
   const [variable, setVariable] = useState<string | null>(null)
   const [feature, setFeature] = useState<string | null>(null)
   const [test, setTest] = useState<TestMode>('auto')
   const [chart, setChart] = useState<ChartInstance | null>(null)
-  useFocusParams(runId, 'group-comparison', (p) => {
+  useFocusParams(tableId, 'group-comparison', (p) => {
     setVariable(str(p.variable) ?? variable)
     setFeature(str(p.feature) ?? feature)
   })
-  const q = useDashboardView(pid, runId, 'group-comparison', variable ? { filters, variable, feature, test, unit: unitFor(filters.label) } : null)
-  const sel = useSelection(runId)
+  const q = useDashboardView(pid, tableId, 'group-comparison', variable ? { filters, variable, feature, test, unit: unitFor(filters.label) } : null)
+  const sel = useSelection(tableId)
   const d = q.data
   const levels = useMemo(() => (d?.boxes ?? []).map((b) => b.level), [d])
   const color = useLevelColors(levels)
@@ -99,7 +99,7 @@ export function GroupComparisonView({ runId }: ViewProps) {
       controls={
         <>
           <VariableSelect kind="categorical" value={variable} onChange={setVariable} label={t('dashboard.grouping')} />
-          <FeatureSelect runId={runId} value={d?.feature ?? feature} onChange={setFeature} />
+          <FeatureSelect tableId={tableId} value={d?.feature ?? feature} onChange={setFeature} />
           <TestSwitch value={test} onChange={setTest} />
           {d ? <span className="muted">{t('dashboard.unitSummary', { rows: fmtInt(d.unit.n_rows), cases: fmtInt(d.unit.n_cases) })}</span> : null}
         </>
@@ -110,7 +110,7 @@ export function GroupComparisonView({ runId }: ViewProps) {
           <div className="db-split-main db-stack">
             <TestResult choice={d.choice} row={d.selected} />
             <div className="db-chart-fill">
-              <ChartOrTable runId={runId} rows={() => [['item_id', 'case_id', variable ?? '', d.feature ?? ''], ...d.points.map((p) => [p.item_id, p.case_id, p.group, p.value])]}>
+              <ChartOrTable tableId={tableId} rows={() => [['item_id', 'case_id', variable ?? '', d.feature ?? ''], ...d.points.map((p) => [p.item_id, p.case_id, p.group, p.value])]}>
                 <Chart
                   option={option}
                   onReady={setChart}

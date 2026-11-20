@@ -1,12 +1,12 @@
 import { createElement, lazy, Suspense, type ComponentProps } from 'react'
 
 import i18n from '../../i18n'
-import { api, fetchSettled, keys, queryClient, useFeatures, useRuns, type RunStatus, type RunSummary } from '../../api'
-import { openEditor, registry, toast, useWorkbench } from '../../shell'
+import { api, fetchSettled, keys, queryClient, useFeatures, useRuns, type RunStatus, type TableSummary } from '../../api'
+import { openEditor, registry, toast, useWorkbench, type EditorProps } from '../../shell'
 import { useViewerSync } from '../../state'
 import { codicon } from '../../theme'
 import { revealView, type FrontendPlugin } from '../host'
-import type { RunParams } from './DashboardEditor'
+import type { TableParams } from './DashboardEditor'
 import { DashboardsView } from './DashboardsView'
 
 // ECharts stays out of the initial bundle
@@ -36,15 +36,27 @@ export const plugin: FrontendPlugin = {
 
 const DONE: RunStatus[] = ['completed', 'completed_with_errors']
 
-/** Open the dashboard of the newest completed run */
+/** Open the dashboard of the newest finished analysis table */
 async function openLatest() {
   const pid = useWorkbench.getState().pid
   if (!pid) return
-  const runs = await fetchSettled(queryClient, keys.runs(pid), () => api.listRuns(pid))
-  const latest = runs.filter((r) => DONE.includes(r.status)).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
-  if (latest) openEditor('run', { runId: latest.run_id })
+  const tables = await fetchSettled(queryClient, keys.tables(pid), () => api.listTables(pid))
+  const latest = tables.filter((t) => DONE.includes(t.status as RunStatus)).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+  if (latest) openEditor('table', { tableId: latest.table_id })
   else toast({ message: i18n.t('dashboard.noRuns') })
 }
+
+const tableTitle = (tableId: string) => {
+  const pid = useWorkbench.getState().pid ?? ''
+  const table = queryClient.getQueryData<TableSummary[]>(keys.tables(pid))?.find((t) => t.table_id === tableId)
+  return table?.title ?? i18n.t('dashboard.tabTitle')
+}
+
+/** Tabs and links of the radiomics-run dashboards (before analysis tables) open the same tab */
+interface RunParams {
+  runId: string
+}
+const RunAlias = ({ params, ...rest }: EditorProps<RunParams>) => createElement(DashboardEditor, { ...rest, params: { tableId: params.runId } })
 
 /** The active item has feature rows in the run the Measurements panel shows first */
 function useMeasurementsContent() {
@@ -58,18 +70,27 @@ export function registerDashboard() {
   registry.view({ id: 'dashboards', writes: true, title: 'view.dashboards', icon: codicon('graph'), order: 70, component: DashboardsView, hideImageSection: true })
   registry.command({ id: 'dashboard.openLatest', writes: true, title: 'cmd.openLatestDashboard', category: 'cat.navigate', keywords: ['kw.radiomics', 'kw.features'], menuGroup: 3, run: () => void openLatest() })
   registry.panelTab({ id: 'measurements', title: 'panel.measurements', order: 10, component: MeasurementsPanel, useHasContent: useMeasurementsContent })
+  registry.editor<TableParams>({
+    type: 'table',
+    writes: true,
+    component: DashboardEditor,
+    id: (p) => `table:${p.tableId}`,
+    title: (p) => tableTitle(p.tableId),
+    icon: () => codicon('graph'),
+    path: (pid, p) => `/p/${pid}/table/${p.tableId}`,
+    match: (path) => {
+      const m = /^\/table\/([^/]+)$/.exec(path)
+      return m?.[1] ? { tableId: m[1] } : null
+    },
+  })
   registry.editor<RunParams>({
     type: 'run',
     writes: true,
-    component: DashboardEditor,
-    id: (p) => `run:${p.runId}`,
-    title: (p) => {
-      const pid = useWorkbench.getState().pid ?? ''
-      const run = queryClient.getQueryData<RunSummary[]>(keys.runs(pid))?.find((r) => r.run_id === p.runId)
-      return run?.name ?? i18n.t('dashboard.tabTitle')
-    },
+    component: RunAlias,
+    id: (p) => `table:${p.runId}`,
+    title: (p) => tableTitle(p.runId),
     icon: () => codicon('graph'),
-    path: (pid, p) => `/p/${pid}/run/${p.runId}`,
+    path: (pid, p) => `/p/${pid}/table/${p.runId}`,
     match: (path) => {
       const m = /^\/run\/([^/]+)$/.exec(path)
       return m?.[1] ? { runId: m[1] } : null

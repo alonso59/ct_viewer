@@ -12,7 +12,7 @@ Find **bad data** (segmentation errors, wrong phase, outliers), understand featu
 
 | ID | Requirement | Pri |
 |---|---|---|
-| DB-01 | One dashboard tab per run; views arranged as dockview sub-panels; the arrangement persists per run. | M |
+| DB-01 | The Dashboards view lists the finished analysis tables (ADR-0060) grouped by kind (Radiomics, VOI lesions, …), with items, columns and, for one row per instance, the number of instances. One dashboard tab per table (`/p/{pid}/table/{tid}`; the former `/run/{rid}` tabs and links open the same tab); views arranged as dockview sub-panels; the arrangement persists per table. The header names the table, its status (a radiomics run also its engine and settings hash) and downloads it as CSV (API-84); Feature vs volume is offered only when the table has a volume column; the overview counts instances and notes cases with several of a label, whose rows are not independent. | M |
 | DB-02 | Global filters on any visible variable (VAR-10) plus phase, scope, side, label, curation status apply to every view. | M |
 | DB-03 | Every point, bar or cell that represents items supports hover (ID + value) and click (opens the item in a case tab, same slice context if available). Table rows that open an item or pick a feature also work from the keyboard: one Tab stop per table (the row focused last), ↑ ↓ Home End move between rows, Enter acts as the click and Shift+F10 (or the menu key) opens the item menu. | M |
 | DB-04 | Selection in one view (lasso/brush) highlights the same items in all views and can be sent to the Explorer as a filter. | S |

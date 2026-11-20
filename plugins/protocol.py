@@ -10,6 +10,7 @@ Cancel = a `cancel` file in the job dir, checked between items.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -155,6 +156,24 @@ class Job:
     def rel(self, name: str) -> Path:
         """A workspace file of this job (tabular outputs), referenced relative to the job dir."""
         return self.dir / name
+
+    def table(self, name: str, path: Path, spec: dict[str, Any]) -> None:
+        """Declare an analysis table the task wrote at `path` (a Parquet file inside the job dir
+        with the canonical columns). `spec` says what it holds: kind, title, grain,
+        instance_name, columns ({name, group, unit, description}) and roles ({"volume": name})."""
+        h = hashlib.sha256()
+        with path.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                h.update(chunk)
+        self.outputs_manifest.append(
+            {
+                "kind": "table",
+                "name": name,
+                "path": str(path.relative_to(self.dir)),
+                "sha256": h.hexdigest(),
+                "spec": spec,
+            }
+        )
 
     def run_items(self, fn: Callable[[Job, dict[str, Any]], Outputs]) -> None:
         """Call `fn` per item (resume skips `ok` items); stops between items on cancel."""

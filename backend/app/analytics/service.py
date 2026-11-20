@@ -41,13 +41,15 @@ from app.analytics.models import (
 )
 from app.analytics.recommend import recommend
 from app.core.errors import NotFound
-from app.core.fsio import atomic_write_bytes, atomic_write_json, read_json
+from app.core.fsio import atomic_write_bytes, atomic_write_json, iter_jsonl, read_json
 from app.core.ids import is_ulid, new_ulid, utc_now
 from app.core.locks import ProjectLocks
 from app.curation import state as curation_state
 from app.events.bus import EventBus
 from app.ingest.store import IndexStore
 from app.projects.service import Workspace
+from app.tables.service import RUN_JSON, Source, source
+from app.tasks.records import item_outcomes
 from app.variables.service import VariableService
 
 ANALYSES = Path("analyses")
@@ -64,11 +66,12 @@ EXPORT_NAMES: dict[str, tuple[str, str]] = {
     "spec": ("spec.json", "application/json"),
 }
 SAFE = re.compile(r"[^A-Za-z0-9_.-]+")
+ERRORS = "errors.jsonl"  # a radiomics run's failed and skipped (item, label) pairs
 
 
 @dataclass
 class Inputs:
-    run_dir: Path
+    src: Source
     frame: dt.Frame
     selected: set[str] | None  # item ids passing the item-level filters (None = all)
 
@@ -83,10 +86,10 @@ class AnalyticsBase:
         self.bus = bus
         self.variables = VariableService(workspace, store, locks, bus)
 
-    async def inputs(self, pid: str, run_id: str, filters: GlobalFilters) -> Inputs:
-        """Load the run, apply the filters, join statuses and variables."""
+    async def inputs(self, pid: str, table_id: str, filters: GlobalFilters) -> Inputs:
+        """Load the table, apply the filters, join statuses and variables."""
         pdir = self.workspace.project_dir(pid)
-        rdir = dt.run_dir(pdir, run_id)
+        src = source(pdir, table_id)
         priority = list(self.workspace.get(pid).phase_priority)
         catalog = await self.variables.catalog(pid)
         var_items = (
@@ -96,13 +99,13 @@ class AnalyticsBase:
         phases = self.store.effective_phases(pid)
 
         def work() -> Inputs:
-            rd = dt.join_phase(dt.load_run(rdir, run_id), phases)
+            rd = dt.join_phase(dt.load_table(src), phases)
             statuses = curation_state.item_statuses(pdir)
             n_total = rd.n
             rd, status = dt.apply_filters(rd, filters, statuses, var_items)
             frame = dt.Frame(rd, status, dt.VarTable.build(catalog, table), priority, n_total)
             selected = _selected_items(self.store, pid, filters, statuses, var_items)
-            return Inputs(rdir, frame, selected)
+            return Inputs(src, frame, selected)
 
         return await asyncio.to_thread(work)
 
@@ -114,7 +117,7 @@ def _selected_items(
     statuses: dict[str, str],
     var_items: set[str] | None,
 ) -> set[str] | None:
-    """Index items passing the item-level filters (used for run errors without features)."""
+    """Index items passing the item-level filters (used for run errors without values)."""
     if not any([f.phase, f.scope, f.side, f.status, f.item_ids, var_items is not None]):
         return None
     out: set[str] = set()
@@ -137,22 +140,35 @@ def _selected_items(
 
 class DashboardService(AnalyticsBase):
     async def run_overview(
-        self, pid: str, run_id: str, req: RunOverviewRequest
+        self, pid: str, table_id: str, req: RunOverviewRequest
     ) -> RunOverviewResponse:
-        inp = await self.inputs(pid, run_id, req.filters)
+        inp = await self.inputs(pid, table_id, req.filters)
 
         def work() -> RunOverviewResponse:
-            run = dt.read_run(inp.run_dir)
-            errors = dt.read_errors(inp.run_dir)
+            run, errors = _producer(inp.src)
             return vw.run_overview(inp.frame, run, errors, inp.selected, req)
 
         return await asyncio.to_thread(work)
 
     async def view[Req: ViewRequest, Resp: BaseModel](
-        self, pid: str, run_id: str, req: Req, fn: Callable[[dt.Frame, Req], Resp]
+        self, pid: str, table_id: str, req: Req, fn: Callable[[dt.Frame, Req], Resp]
     ) -> Resp:
-        inp = await self.inputs(pid, run_id, req.filters)
+        inp = await self.inputs(pid, table_id, req.filters)
         return await asyncio.to_thread(fn, inp.frame, req)
+
+
+def _producer(src: Source) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The producer run's record and its failed or skipped items, for the overview."""
+    raw = read_json(src.run_dir / RUN_JSON)
+    run: dict[str, Any] = raw if isinstance(raw, dict) else {}
+    if src.store == "radiomics":
+        return run, list(iter_jsonl(src.run_dir / ERRORS))
+    errors = [
+        {"item_id": iid, "message": row.get("message") or "", "kind": row["status"]}
+        for iid, row in item_outcomes(src.run_dir).items()
+        if row.get("status") in ("failed", "skipped")
+    ]
+    return {**run, "name": src.title}, errors
 
 
 @dataclass
@@ -183,7 +199,7 @@ def compute_analysis(
         if spec.question != "balance":
             an.check_type(cv, dt.LEVEL_TYPES, ("body", "confounder"), "a confounder")
     frame = dt.Frame(
-        dt.select_features(frame.rd, spec.features, spec.feature_class),
+        dt.select_features(frame.rd, spec.features, spec.groups),
         frame.status,
         frame.vars,
         frame.priority,
@@ -318,7 +334,7 @@ class AnalysisService(AnalyticsBase):
         return d
 
     async def create(self, pid: str, spec: AnalysisSpec, reviewer: str | None) -> Analysis:
-        inp = await self.inputs(pid, spec.run_id, spec.filters)
+        inp = await self.inputs(pid, spec.table_id, spec.filters)
         aid, at = new_ulid(), utc_now()
         out = await asyncio.to_thread(compute_analysis, inp.frame, spec, aid, at, reviewer)
         a = out.analysis
@@ -372,7 +388,7 @@ class AnalysisService(AnalyticsBase):
         d = self._adir(pid, aid)
         return await asyncio.to_thread(self._read, d)
 
-    async def list(self, pid: str, run_id: str | None = None) -> AnalysisList:
+    async def list(self, pid: str, table_id: str | None = None) -> AnalysisList:
         root = self._dir(pid)
 
         def work() -> list[AnalysisSummary]:
@@ -384,7 +400,7 @@ class AnalysisService(AnalyticsBase):
                     continue
                 head = read_json(d / SPEC)
                 spec = AnalysisSpec.model_validate(head["spec"])
-                if run_id is not None and spec.run_id != run_id:
+                if table_id is not None and spec.table_id != table_id:
                     continue
                 res = pq.read_table(d / RESULTS, columns=["q"]).column("q").to_pylist()
                 recs = read_json(d / RECOMMENDATIONS)
@@ -394,7 +410,7 @@ class AnalysisService(AnalyticsBase):
                         name=spec.name,
                         created_at=head["created_at"],
                         created_by=head.get("created_by"),
-                        run_id=spec.run_id,
+                        table_id=spec.table_id,
                         question=spec.question,
                         variable=spec.variable,
                         confounder=spec.confounder,

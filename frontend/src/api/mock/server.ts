@@ -29,4 +29,6 @@ export const mockServer: Api = {
   labelExportUrl: () => '#',
   voiPreviewUrl: () => null,
   voiResultPreviewUrl: () => null,
+  voiProfileExportUrl: () => '#',
+  tableExportUrl: () => '#',
 }

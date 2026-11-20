@@ -314,7 +314,37 @@ def scenario(rec: Recorder, data: Path, derived: Path) -> None:
         ("association", {"variable": "marker_a"}),
         ("group-comparison", {"variable": "marker_group", "feature": "original_firstorder_Mean"}),
     ):
-        call("POST", f"{R}/views/{view}", body, ok=(200, 422))
+        call("POST", f"{P}/tables/{rid}/views/{view}", body, ok=(200, 422))
+
+    # A VOI extraction: its lesions, sampling profile (recomputed, one saved variant) and the
+    # lesions table read by the dashboard
+    vsel = {"seg_id": "imported", "item_ids": [f"case_{n:05d}.01.complete.-" for n in (1, 2, 3)]}
+    vset = {"region": "kidney", "resample_mm": 1.0, "bin_percentiles": [50]}
+    vrun = call(
+        "POST",
+        f"{P}/task-runs",
+        {"task_id": "voi.extract", "name": "Kidney VOIs", "settings": vset, "selection": vsel},
+        AP,
+    )
+    wait_jobs(c, pid)
+    V = f"{API}/plugins/voi/projects/{pid}/runs/{vrun['run_id']}"
+    get(f"{P}/task-runs/{vrun['run_id']}")
+    get(f"{V}/results?view=cases&offset=0&limit=1")
+    get(f"{V}/results?view=scans&offset=0&limit=50")
+    call("POST", f"{V}/profile", {})
+    call("POST", f"{V}/profile", {"balancing_alpha": 1})
+    call("PUT", f"{V}/profiles/balanced", {"balancing_alpha": 1}, AP)
+    get(f"{V}/profiles")
+    lesions = f"{vrun['run_id']}-lesions"
+    get(f"{P}/tables/{lesions}")
+    get(f"{P}/tables/{rid}")
+    for view, body in (
+        ("run-overview", {}),
+        ("missing-matrix", {}),
+        ("feature-distribution", {"feature": "volume_ml"}),
+    ):
+        call("POST", f"{P}/tables/{lesions}/views/{view}", body, ok=(200, 422))
+    get(f"{P}/tables")
     get(f"{P}/analyses")
 
     # The catalogue, the threshold task's validate / preflight / estimate

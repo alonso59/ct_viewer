@@ -1,22 +1,19 @@
-"""Run inputs for analytics: `features.parquet` → wide observation matrix, global filters,
+"""Table inputs for analytics: an analysis table → wide observation matrix, global filters,
 variable columns and the unit of analysis.
 
-An observation is one `(item_id, label)` pair; a feature key is
-`{image_type}_{feature_class}_{feature}` (PyRadiomics naming, e.g. `original_shape_MeshVolume`).
+An observation is one `(item_id, label, instance)`; `instance` is empty in label-grain tables.
+A column is a value name of the table (e.g. `original_shape_MeshVolume` in a radiomics run).
 """
 
 from __future__ import annotations
 
 import math
-import re
 import threading
 from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 from typing import Any
 
-import duckdb
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -24,17 +21,12 @@ from numpy.typing import NDArray
 
 from app.analytics.models import ColorBy, GlobalFilters, UnitSpec
 from app.analytics.stats import F64, quiet
-from app.core.errors import NotFound, ValidationProblem
-from app.core.fsio import iter_jsonl, read_json
+from app.core.errors import ValidationProblem
+from app.tables.models import VOLUME
+from app.tables.service import Source, read_long
 from app.variables.models import Catalog, Variable
 
-RUNS_DIR = Path("radiomics") / "runs"
-FEATURES = "features.parquet"
-RUN_JSON = "run.json"
-ERRORS = "errors.jsonl"
-VOLUME_KEY = "original_shape_MeshVolume"
 NOT_REVIEWED = "not_reviewed"
-RUN_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 # Types usable as groups. `numeric-discrete` must be confirmed first, except as a
 # color/confounder level where no test depends on the type.
 GROUP_TYPES = frozenset({"categorical"})
@@ -51,36 +43,17 @@ def bad(loc: Sequence[str], msg: str) -> ValidationProblem:
     return ValidationProblem(msg, errors=[{"loc": list(loc), "msg": msg}])
 
 
-def run_dir(project_dir: Path, run_id: str) -> Path:
-    """`radiomics/runs/{rid}/` with `run.json` + `features.parquet`, else `not-found`."""
-    if not RUN_ID_RE.match(run_id):
-        raise NotFound(f"Run {run_id!r} not found")
-    d = project_dir / RUNS_DIR / run_id
-    if not (d / RUN_JSON).is_file() or not (d / FEATURES).is_file():
-        raise NotFound(f"Run {run_id!r} not found (or has no features yet)")
-    return d
-
-
-def read_run(d: Path) -> dict[str, Any]:
-    raw = read_json(d / RUN_JSON)
-    return raw if isinstance(raw, dict) else {}
-
-
-def read_errors(d: Path) -> list[dict[str, Any]]:
-    return list(iter_jsonl(d / ERRORS))
-
-
 @dataclass
-class RunData:
-    """Wide observation matrix. `x[i, j]` is NaN where the feature is absent (`present`).
+class TableData:
+    """Wide observation matrix. `x[i, j]` is NaN where the column is absent (`present`).
 
     `phase` is the effective phase once `join_phase` ran; `phase_at_run` keeps the value the
-    run recorded.
+    producer recorded. `roles` names the columns with a known meaning (`volume`).
     """
 
-    run_id: str
+    table_id: str
     features: list[str]
-    feature_class: list[str]
+    group: list[str]
     item_id: Obj
     case_id: Obj
     scan_idx: Obj
@@ -88,94 +61,83 @@ class RunData:
     side: Obj
     phase: Obj
     label: NDArray[np.int64]
+    instance: Obj
     x: F64
     present: Bool
     phase_at_run: Obj
+    roles: dict[str, str] = field(default_factory=dict)
 
     @property
     def n(self) -> int:
         return int(self.item_id.size)
 
-    def take(self, rows: Idx | Bool) -> RunData:
-        return RunData(
-            self.run_id,
-            self.features,
-            self.feature_class,
-            self.item_id[rows],
-            self.case_id[rows],
-            self.scan_idx[rows],
-            self.scope[rows],
-            self.side[rows],
-            self.phase[rows],
-            self.label[rows],
-            self.x[rows],
-            self.present[rows],
-            self.phase_at_run[rows],
+    @property
+    def volume(self) -> str | None:
+        """The volume column, when the table has one."""
+        name = self.roles.get(VOLUME)
+        return name if name in self.features else None
+
+    def take(self, rows: Idx | Bool) -> TableData:
+        return replace(
+            self,
+            item_id=self.item_id[rows],
+            case_id=self.case_id[rows],
+            scan_idx=self.scan_idx[rows],
+            scope=self.scope[rows],
+            side=self.side[rows],
+            phase=self.phase[rows],
+            label=self.label[rows],
+            instance=self.instance[rows],
+            x=self.x[rows],
+            present=self.present[rows],
+            phase_at_run=self.phase_at_run[rows],
         )
 
-    def cols(self, keep: Sequence[int]) -> RunData:
+    def cols(self, keep: Sequence[int]) -> TableData:
         k = list(keep)
-        return RunData(
-            self.run_id,
-            [self.features[i] for i in k],
-            [self.feature_class[i] for i in k],
-            self.item_id,
-            self.case_id,
-            self.scan_idx,
-            self.scope,
-            self.side,
-            self.phase,
-            self.label,
-            self.x[:, k],
-            self.present[:, k],
-            self.phase_at_run,
+        return replace(
+            self,
+            features=[self.features[i] for i in k],
+            group=[self.group[i] for i in k],
+            x=self.x[:, k],
+            present=self.present[:, k],
         )
 
     def col(self, feature: str, loc: Sequence[str] = ("body", "feature")) -> F64:
         try:
             j = self.features.index(feature)
         except ValueError:
-            raise bad(loc, f"Unknown feature {feature!r} in run {self.run_id}") from None
+            raise bad(loc, f"Unknown feature {feature!r} in table {self.table_id}") from None
         return self.x[:, j]
 
 
-_SQL = """
-SELECT item_id, case_id, scan_idx, scope, side, phase, CAST(label AS BIGINT) AS label,
-       image_type || '_' || feature_class || '_' || feature AS key, feature_class,
-       CAST(value AS DOUBLE) AS value
-FROM read_parquet(?)
-"""
-
-_cache: OrderedDict[tuple[str, int, int], RunData] = OrderedDict()
+_cache: OrderedDict[tuple[str, int, int], TableData] = OrderedDict()
 _cache_lock = threading.Lock()
 CACHE_MAX = 4
 
 
-def load_run(d: Path, run_id: str) -> RunData:
-    """Pivot `features.parquet` (long) into `RunData`; LRU-cached by file identity."""
-    path = d / FEATURES
-    st = path.stat()
-    key = (str(path), st.st_mtime_ns, st.st_size)
+def load_table(src: Source) -> TableData:
+    """Pivot the table's long values into `TableData`; LRU-cached by file identity."""
+    st = src.data.stat()
+    key = (str(src.data), st.st_mtime_ns, st.st_size)
     with _cache_lock:
         hit = _cache.get(key)
         if hit is not None:
             _cache.move_to_end(key)
             return hit
-    with duckdb.connect() as con:
-        t: pa.Table = con.execute(_SQL, [str(path)]).to_arrow_table()
-    rd = _pivot(t, run_id)
+    td = _pivot(read_long(src), src.table_id, src.roles)
     with _cache_lock:
-        _cache[key] = rd
+        _cache[key] = td
         while len(_cache) > CACHE_MAX:
             _cache.popitem(last=False)
-    return rd
+    return td
 
 
-def _pivot(t: pa.Table, run_id: str) -> RunData:
+def _pivot(t: pa.Table, table_id: str, roles: dict[str, str]) -> TableData:
     if t.num_rows == 0:
         e = np.asarray([], dtype=object)
-        return RunData(
-            run_id,
+        return TableData(
+            table_id,
             [],
             [],
             e,
@@ -185,16 +147,18 @@ def _pivot(t: pa.Table, run_id: str) -> RunData:
             e,
             e,
             np.asarray([], dtype=np.int64),
+            e,
             np.zeros((0, 0)),
             np.zeros((0, 0), dtype=bool),
             e,
+            dict(roles),
         )
     obs_key = pc.binary_join_element_wise(
-        t["item_id"], pc.cast(t["label"], pa.string()), "\x1f"
+        t["item_id"], pc.cast(t["label"], pa.string()), t["instance"], "\x1f"
     ).combine_chunks()
     obs_enc = pc.dictionary_encode(obs_key)
     obs_idx = np.asarray(obs_enc.indices.to_numpy(zero_copy_only=False), dtype=np.intp)
-    key_enc = pc.dictionary_encode(t["key"].combine_chunks())
+    key_enc = pc.dictionary_encode(t["name"].combine_chunks())
     key_names = [str(k) for k in key_enc.dictionary.to_pylist()]
     order = sorted(range(len(key_names)), key=lambda j: key_names[j])
     remap = np.empty(len(key_names), dtype=np.intp)
@@ -214,12 +178,12 @@ def _pivot(t: pa.Table, run_id: str) -> RunData:
     def rows(name: str) -> Obj:
         return np.asarray(t[name].take(pa.array(first)).to_pylist(), dtype=object)
 
-    fclass = t["feature_class"].take(pa.array(first_f)).to_pylist()
+    groups = t["group"].take(pa.array(first_f)).to_pylist()
     phase = rows("phase")
-    return RunData(
-        run_id=run_id,
+    return TableData(
+        table_id=table_id,
         features=[key_names[j] for j in order],
-        feature_class=[str(c) for c in fclass],
+        group=[str(g) for g in groups],
         item_id=rows("item_id"),
         case_id=rows("case_id"),
         scan_idx=rows("scan_idx"),
@@ -227,15 +191,17 @@ def _pivot(t: pa.Table, run_id: str) -> RunData:
         side=rows("side"),
         phase=phase,
         label=np.asarray(t["label"].take(pa.array(first)).to_pylist(), dtype=np.int64),
+        instance=np.asarray(["" if v is None else str(v) for v in rows("instance")], dtype=object),
         x=x,
         present=present,
         phase_at_run=phase.copy(),
+        roles=dict(roles),
     )
 
 
-def join_phase(rd: RunData, effective: dict[str, str]) -> RunData:
-    """Each item's effective phase replaces the run's value, which stays in `phase_at_run`.
-    Items no longer in the index keep the run's value."""
+def join_phase(rd: TableData, effective: dict[str, str]) -> TableData:
+    """Each item's effective phase replaces the producer's value, kept in `phase_at_run`.
+    Items no longer in the index keep the producer's value."""
     phase = np.asarray(
         [effective.get(str(i), p) for i, p in zip(rd.item_id, rd.phase_at_run, strict=True)],
         dtype=object,
@@ -244,8 +210,8 @@ def join_phase(rd: RunData, effective: dict[str, str]) -> RunData:
 
 
 def select_features(
-    rd: RunData, features: Sequence[str] | None, feature_class: Sequence[str] | None
-) -> RunData:
+    rd: TableData, features: Sequence[str] | None, groups: Sequence[str] | None
+) -> TableData:
     if features is not None:
         known = set(rd.features)
         unknown = [f for f in features if f not in known]
@@ -253,9 +219,9 @@ def select_features(
             raise bad(("body", "features"), f"Unknown features: {', '.join(unknown[:10])}")
         want = set(features)
         rd = rd.cols([j for j, f in enumerate(rd.features) if f in want])
-    if feature_class is not None:
-        cls = set(feature_class)
-        rd = rd.cols([j for j, c in enumerate(rd.feature_class) if c in cls])
+    if groups is not None:
+        keep = set(groups)
+        rd = rd.cols([j for j, g in enumerate(rd.group) if g in keep])
     return rd
 
 
@@ -308,9 +274,9 @@ def level_str(v: Any) -> str | None:
 
 @dataclass
 class Frame:
-    """A filtered run joined with statuses and variables (one request's inputs)."""
+    """A filtered table joined with statuses and variables (one request's inputs)."""
 
-    rd: RunData
+    rd: TableData
     status: Obj
     vars: VarTable
     priority: list[str]
@@ -336,11 +302,11 @@ class Frame:
 
 
 def apply_filters(
-    rd: RunData,
+    rd: TableData,
     f: GlobalFilters,
     statuses: dict[str, str],
     var_items: set[str] | None,
-) -> tuple[RunData, Obj]:
+) -> tuple[TableData, Obj]:
     """Phase/scope/side/label filter the run's own columns; `var_items` are the item ids that
     match `f.var` (None: no variable filter)."""
     status = np.asarray([statuses.get(str(i), NOT_REVIEWED) for i in rd.item_id], dtype=object)
@@ -434,8 +400,16 @@ def _most_frequent(values: NDArray[Any], prefer: Any = None) -> Any:
     return sorted(tied, key=lambda s: (len(s), s))[0]
 
 
+def _instance_rank(instance: Any) -> tuple[int, int, str]:
+    """Producers number instances (1 = first, e.g. the largest lesion); numbers sort as numbers."""
+    s = str(instance)
+    return (0, int(s), "") if s.isdigit() else (1, 0, s)
+
+
 def build_unit(frame: Frame, spec: UnitSpec) -> Unit:
-    """Filter to one label/scope (and phase), then one row per case."""
+    """Filter to one label/scope (and phase), then one row per case; within a case the first
+    observation is by phase priority, scan, instance (a scan's lesions are numbered across its
+    sides), then side."""
     rd = frame.rd
     if rd.n == 0:
         raise bad(("body", "filters"), "No feature rows match the filters")
@@ -456,6 +430,7 @@ def build_unit(frame: Frame, spec: UnitSpec) -> Unit:
             str(rd.case_id[i]),
             prank.get(str(rd.phase[i]), len(prank)),
             str(rd.scan_idx[i]),
+            _instance_rank(rd.instance[i]),
             str(rd.side[i]),
         ),
     )

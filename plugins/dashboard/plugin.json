@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "title": "Dashboard & analysis",
   "icon": "graph",
-  "description": "Feature QC views, click-through to the viewer and guided statistics on any features run.",
+  "description": "Feature QC views, click-through to the viewer and guided statistics on any analysis table (a radiomics run, a task's table such as VOI lesions).",
   "contributes": {
     "views": [
       "dashboards"
@@ -17,11 +17,8 @@
     ]
   },
   "requires": {
-    "plugins": [
-      "radiomics"
-    ],
     "capabilities": [
-      "features_run"
+      "analysis_table"
     ]
   }
 }

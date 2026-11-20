@@ -51,7 +51,7 @@ function ExportMenu({ analysis }: { analysis: Analysis }) {
   )
 }
 
-function Recommendations({ recs, runId }: { recs: Recommendation[]; runId: string }) {
+function Recommendations({ recs, tableId }: { recs: Recommendation[]; tableId: string }) {
   const { t } = useTranslation()
   return (
     <section className="an-section" aria-label={t('analysis.recommendations')}>
@@ -67,7 +67,7 @@ function Recommendations({ recs, runId }: { recs: Recommendation[]; runId: strin
               type="button"
               className="an-rec"
               title={t('analysis.openView')}
-              onClick={() => useDashboardStore.getState().focusView(runId, r.view, r.params ?? {})}
+              onClick={() => useDashboardStore.getState().focusView(tableId, r.view, r.params ?? {})}
             >
               <Icon spec={codicon('lightbulb')} />
               <span className="an-rec-body">
@@ -163,7 +163,7 @@ function Descriptives({ analysis, feature }: { analysis: Analysis; feature: stri
   )
 }
 
-function Contingency({ analysis, runId }: { analysis: Analysis; runId: string }) {
+function Contingency({ analysis, tableId }: { analysis: Analysis; tableId: string }) {
   const { t } = useTranslation()
   const b = analysis.balance
   if (!b) return null
@@ -177,7 +177,7 @@ function Contingency({ analysis, runId }: { analysis: Analysis; runId: string })
           className="icon-btn an-count"
           title={t('analysis.openView')}
           aria-label={t('analysis.openView')}
-          onClick={() => useDashboardStore.getState().focusView(runId, 'balance', { variable: b.variable, other: b.other })}
+          onClick={() => useDashboardStore.getState().focusView(tableId, 'balance', { variable: b.variable, other: b.other })}
         >
           <Icon spec={codicon('link-external')} />
         </button>
@@ -223,7 +223,7 @@ function Contingency({ analysis, runId }: { analysis: Analysis; runId: string })
   )
 }
 
-export function AnalysisResult({ analysis, runId, labels }: { analysis: Analysis; runId: string; labels: LabelDef[] }) {
+export function AnalysisResult({ analysis, tableId, labels }: { analysis: Analysis; tableId: string; labels: LabelDef[] }) {
   const { t } = useTranslation()
   const { spec, choice, unit } = analysis
   const results = useMemo(() => sortResults(analysis.results.filter((r) => r.feature)), [analysis.results])
@@ -237,7 +237,7 @@ export function AnalysisResult({ analysis, runId, labels }: { analysis: Analysis
   const onSelect = (r: ResultRow) => {
     setPicked(r.feature)
     const view = viewForResult(spec.question)
-    if (view && r.feature && spec.variable) useDashboardStore.getState().focusView(runId, view, { variable: spec.variable, feature: r.feature })
+    if (view && r.feature && spec.variable) useDashboardStore.getState().focusView(tableId, view, { variable: spec.variable, feature: r.feature })
   }
 
   return (
@@ -276,8 +276,8 @@ export function AnalysisResult({ analysis, runId, labels }: { analysis: Analysis
           ))}
         </div>
       ) : null}
-      <Recommendations recs={analysis.recommendations} runId={runId} />
-      <Contingency analysis={analysis} runId={runId} />
+      <Recommendations recs={analysis.recommendations} tableId={tableId} />
+      <Contingency analysis={analysis} tableId={tableId} />
       {results.length && spec.question !== 'balance' ? (
         <section className="an-section" aria-label={t('analysis.results')}>
           <div className="section-title an-title">

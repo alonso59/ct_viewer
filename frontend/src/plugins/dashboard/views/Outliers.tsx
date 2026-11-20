@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useDashboardView, useProject } from '../../../api'
 import { ItemName, NumberInput, StatusBadge, featureUnit, fmtColumn, fmtInt, useRowKeys } from '../../../lib'
-import { useDashboardStore, useRunDashboard } from '../store'
+import { useDashboardStore, useTableDashboard } from '../store'
 import { asStatus, numParam, rowProps, useFocusParams, useLabelName, usePid, useSelection, ValueFlag, ViewFrame, type ViewProps } from './common'
 
 export const OUTLIERS_TOP = 10
@@ -14,27 +14,27 @@ export const OUTLIERS_THRESHOLD = 3.5
 /** Share of an item's features that must be over the threshold, in % */
 export const OUTLIERS_MIN_PCT = 5
 
-export function OutliersView({ runId }: ViewProps) {
+export function OutliersView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters } = useRunDashboard(runId)
+  const { filters } = useTableDashboard(tableId)
   const focusView = useDashboardStore((s) => s.focusView)
   const modality = useProject(pid).data?.default_modality
   const [threshold, setThreshold] = useState(OUTLIERS_THRESHOLD)
   const [minPct, setMinPct] = useState(OUTLIERS_MIN_PCT)
   const [all, setAll] = useState(false)
-  useFocusParams(runId, 'outliers', (p) => {
+  useFocusParams(tableId, 'outliers', (p) => {
     setThreshold(numParam(p.threshold) ?? threshold)
     setMinPct(numParam(p.min_feature_pct) ?? minPct)
   })
   const body = { filters, threshold, min_feature_pct: minPct }
-  const first = useDashboardView(pid, runId, 'outliers', { ...body, top_n: OUTLIERS_TOP })
+  const first = useDashboardView(pid, tableId, 'outliers', { ...body, top_n: OUTLIERS_TOP })
   const nFlagged = first.data?.n_flagged ?? 0
   const more = all && nFlagged > OUTLIERS_TOP
-  const full = useDashboardView(pid, runId, 'outliers', more ? { ...body, top_n: nFlagged } : null)
+  const full = useDashboardView(pid, tableId, 'outliers', more ? { ...body, top_n: nFlagged } : null)
   const q = more && full.data ? full : first
   const labelName = useLabelName()
-  const { selected } = useSelection(runId)
+  const { selected } = useSelection(tableId)
   const d = q.data
   // the server lists flagged items only, ranked
   const rows = d?.items ?? []
@@ -112,7 +112,7 @@ export function OutliersView({ runId }: ViewProps) {
                           title={top.feature}
                           onClick={(e) => {
                             e.stopPropagation()
-                            focusView(runId, 'feature-distribution', { feature: top.feature })
+                            focusView(tableId, 'feature-distribution', { feature: top.feature })
                           }}
                         >
                           {top.feature}

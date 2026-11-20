@@ -11,7 +11,7 @@ import numpy as np
 
 from app.analytics import stats as st
 from app.analytics.analysis import Computed, contingency
-from app.analytics.data import CONTINUOUS_TYPES, LEVEL_TYPES, MODALITY_VAR, VOLUME_KEY, Unit
+from app.analytics.data import CONTINUOUS_TYPES, LEVEL_TYPES, MODALITY_VAR, Unit
 from app.analytics.models import AnalysisSpec, Recommendation, ViewSlug
 from app.variables.models import Catalog
 
@@ -204,13 +204,14 @@ def confounder(c: Ctx) -> Recommendation | None:
 
 
 def volume(c: Ctx) -> Recommendation | None:
-    """REC-VOLUME: a significant feature has |rho| > 0.8 with shape MeshVolume."""
-    if VOLUME_KEY not in c.unit.features:
+    """REC-VOLUME: a significant feature has |rho| > 0.8 with the table's volume column."""
+    name = c.unit.frame.rd.volume
+    if name is None or name not in c.unit.features:
         return None
-    vol = c.unit.col(VOLUME_KEY)
+    vol = c.unit.col(name)
     flagged: list[str] = []
     for f in c.significant():
-        if f == VOLUME_KEY:
+        if f == name:
             continue
         o = st.associate(vol, c.unit.col(f), "auto")
         if o.test is not None and abs(o.effect) > VOLUME_RHO:
@@ -220,7 +221,7 @@ def volume(c: Ctx) -> Recommendation | None:
     return rec(
         "REC-VOLUME",
         f"{len(flagged)} significant feature(s) may just reflect size (|rho| > {VOLUME_RHO} with "
-        f"MeshVolume): {_names(flagged)}; check them against volume.",
+        f"{name}): {_names(flagged)}; check them against volume.",
         "feature-vs-volume",
         feature=flagged[0],
         features=flagged[:LIST_CAP],

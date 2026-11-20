@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useDashboardView } from '../../../api'
 import { fmtInt, fmtNum, useRowKeys } from '../../../lib'
 import type { ChartInstance } from '../Chart'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import {
   asStatus,
   FeatureSelect,
@@ -21,16 +21,16 @@ import {
 } from './common'
 import { Scatter, type ScatterPoint } from './Scatter'
 
-export function FeatureVsVolumeView({ runId }: ViewProps) {
+export function FeatureVsVolumeView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters, colorBy } = useRunDashboard(runId)
-  const names = useFeatureNames(runId)
+  const { filters, colorBy } = useTableDashboard(tableId)
+  const names = useFeatureNames(tableId)
   const [wanted, setWanted] = useState<string | null>(null)
   const [chart, setChart] = useState<ChartInstance | null>(null)
   const feature = pickFeature(names.filter((n) => !n.name.endsWith('_MeshVolume')), wanted)
-  useFocusParams(runId, 'feature-vs-volume', (p) => setWanted(str(p.feature) ?? wanted))
-  const q = useDashboardView(pid, runId, 'feature-vs-volume', feature ? { filters, feature, color_by: colorBy } : null)
+  useFocusParams(tableId, 'feature-vs-volume', (p) => setWanted(str(p.feature) ?? wanted))
+  const q = useDashboardView(pid, tableId, 'feature-vs-volume', feature ? { filters, feature, color_by: colorBy } : null)
   const levelName = useLevelName(colorBy)
   const d = q.data
   const points = useMemo<ScatterPoint[]>(
@@ -46,7 +46,7 @@ export function FeatureVsVolumeView({ runId }: ViewProps) {
       csv={() => [['item_id', 'case_id', 'label', 'color', d?.volume_feature ?? 'volume', feature ?? ''], ...(d?.points ?? []).map((p) => [p.item_id, p.case_id, p.label, p.color, p.x, p.y])]}
       controls={
         <>
-          <FeatureSelect runId={runId} value={feature} onChange={setWanted} exclude={d?.volume_feature} />
+          <FeatureSelect tableId={tableId} value={feature} onChange={setWanted} exclude={d?.volume_feature} />
           {d ? <span className="muted">{t('dashboard.rho', { rho: d.rho != null ? fmtNum(d.rho) : '—', n: fmtInt(d.n) })}</span> : null}
           {d?.size_driven ? <span className="badge" data-tone="warn">{t('dashboard.sizeDriven')}</span> : null}
         </>
@@ -54,7 +54,7 @@ export function FeatureVsVolumeView({ runId }: ViewProps) {
     >
       <div className="db-split">
         <div className="db-split-main">
-          <Scatter runId={runId} points={points} xName={d?.volume_feature ?? ''} yName={feature ?? ''} levelName={levelName} onReady={setChart} />
+          <Scatter tableId={tableId} points={points} xName={d?.volume_feature ?? ''} yName={feature ?? ''} levelName={levelName} onReady={setChart} />
         </div>
         <div className="db-split-side">
           <table className="table">

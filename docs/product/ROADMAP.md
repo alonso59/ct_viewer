@@ -32,6 +32,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7j | Deployment options: native, HPC (ADR-0043, ADR-0051) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
 | P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | ✅ K1–K3 2026-11-05, exit accepted by the owner (ADR-0049 for K3); COH-11 not built. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
 | P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | ✅ 2026-11-05 (owner accepted the exit); independent of P7k |
+| P7m | Analysis tables for the dashboard; VOI lesion measurement and training profile (ADR-0060, ADR-0061) | 🟨 T0–T4 done 2026-11-20; T5 (release 3.7.0, research loader) next after owner confirmation |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -141,6 +142,17 @@ Steps as COHORT.md; independent of P7g–P7j. After P7k, a separate cleanup deci
 - [x] K2 Clinical & labels editing in the grid, pack templates, external tables retired, Balance check (COHORT §K2); COH-11 left out
 - [x] K3 Timeline: ADR-0049 (event level, date policy), event tables, time-to-event variables, the view
 **Exit:** on the synthetic fixtures and Dataset820, a user filters the cohort by a value from the column summary, compares a case's scans and opens one in the viewer; nothing in the Metadata section writes except the correction-queue flag.
+
+### P7m — Analysis tables and VOI lesion profile (ADR-0060, ADR-0061, TABLES_PLAN.md)
+
+Steps as TABLES_PLAN.md; owner confirmation between steps.
+- [x] T0 ADR-0060, ADR-0061 and the plan accepted (2026-11-20)
+- [x] T1 Analysis tables in the backend, no visible change (2026-11-20)
+- [x] T2 Lesion measurement in `voi.extract` (parity with Dataset421: 179/179 VOIs, 182 lesions; 2026-11-20)
+- [x] T3 Training contract: lesion catalog, sampling profile, fingerprint, profile endpoints (2026-11-20)
+- [x] T4 Frontend: VOI Lesions & profile tab, dashboard over tables (2026-11-20)
+- [ ] T5 Release 3.7.0 and the research loader
+**Exit:** on Kidney_ukb, one `voi.extract` run gives the three training files and a lesion table the dashboard analyzes; a training config samples patches from that run; radiomics runs and saved analyses behave as in 3.6.1.
 
 ### Pending plugin after P7g
 - [x] VOI extractor plugin (v3.2.0, ADR-0050, VOI.md): candidates per scan, patient or batch with axial previews; sides from patient coordinates; `voi.extract` crops; the owner's writer used `xyz`, which settles SRC-12 — owner review and release pending

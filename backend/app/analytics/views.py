@@ -15,9 +15,9 @@ import numpy as np
 from app.analytics import analysis as an
 from app.analytics import stats as st
 from app.analytics.data import (
-    VOLUME_KEY,
     Frame,
     Obj,
+    TableData,
     Unit,
     bad,
     build_unit,
@@ -215,7 +215,7 @@ def run_overview(
         if rd.phase_at_run[i] != rd.phase[i]
     ]
     return RunOverviewResponse(
-        run_id=rd.run_id,
+        table_id=rd.table_id,
         name=str(run.get("name") or ""),
         status=str(run.get("status") or ""),
         created_at=run.get("created_at"),
@@ -231,7 +231,17 @@ def run_overview(
         n_errors=len(rows),
         errors=run_errors,
         phase_changed=changed,
+        n_instances=int((rd.instance != "").sum()),
+        n_cases_with_several=_cases_with_several(rd),
     )
+
+
+def _cases_with_several(rd: TableData) -> int:
+    """Cases with more than one instance of a label (in any scan, side or phase)."""
+    if not (rd.instance != "").any():
+        return 0
+    per = Counter(zip(rd.case_id.tolist(), rd.label.tolist(), strict=True))
+    return len({case for (case, _), n in per.items() if n > 1})
 
 
 def feature_distribution(
@@ -290,7 +300,7 @@ def feature_distribution(
 
 def missing_matrix(frame: Frame, req: MissingMatrixRequest) -> MissingMatrixResponse:
     """Feature x item NaN/inf/absent cells (sparse), worst items first."""
-    rd = select_features(frame.rd, None, req.feature_class)
+    rd = select_features(frame.rd, None, req.groups)
     nan = rd.present & np.isnan(rd.x)
     inf = rd.present & np.isinf(rd.x)
     absent = ~rd.present
@@ -300,7 +310,7 @@ def missing_matrix(frame: Frame, req: MissingMatrixRequest) -> MissingMatrixResp
     features = [
         MissingFeature(
             feature=f,
-            feature_class=rd.feature_class[j],
+            group=rd.group[j],
             n_nan=int(nan[:, j].sum()),
             n_inf=int(inf[:, j].sum()),
             n_absent=int(absent[:, j].sum()),
@@ -346,7 +356,7 @@ def _usable(x: F64) -> list[int]:
 
 def correlation(frame: Frame, req: CorrelationRequest) -> CorrelationResponse:
     """Spearman rho between features in clustered order + |rho| > threshold clusters."""
-    rd = select_features(frame.rd, None, req.feature_class)
+    rd = select_features(frame.rd, None, req.groups)
     keep = _usable(rd.x)
     truncated = len(keep) > req.max_features
     if truncated:  # keep the most complete, then most variable (robust spread) features
@@ -377,7 +387,7 @@ def correlation(frame: Frame, req: CorrelationRequest) -> CorrelationResponse:
 
 def embedding(frame: Frame, req: EmbeddingRequest) -> EmbeddingResponse:
     """PCA on z-scored features."""
-    rd = select_features(frame.rd, req.features, req.feature_class)
+    rd = select_features(frame.rd, req.features, req.groups)
     keep = _usable(rd.x)
     if len(keep) < 2 or rd.n < 3:
         raise bad(("body", "features"), "Embedding needs ≥ 2 varying features and ≥ 3 items")
@@ -415,7 +425,7 @@ def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
     |z| over the threshold. Flagged items rank by the number of features over the threshold, then
     by max |z|: one wild feature does not outrank a broadly abnormal item. Per-feature counts
     cover every item."""
-    rd = select_features(frame.rd, None, req.feature_class)
+    rd = select_features(frame.rd, None, req.groups)
     z = st.robust_z(rd.x)
     az = np.abs(np.nan_to_num(z, nan=0.0))
     over = az > req.threshold
@@ -458,11 +468,15 @@ def outliers(frame: Frame, req: OutliersRequest) -> OutliersResponse:
 
 
 def feature_vs_volume(frame: Frame, req: FeatureVsVolumeRequest) -> FeatureVsVolumeResponse:
-    """Scatter of a feature against shape MeshVolume, rho, and all features ranked by |rho|."""
+    """Scatter of a feature against the table's volume, rho, and all features ranked by |rho|."""
     rd = frame.rd
-    if VOLUME_KEY not in rd.features:
-        raise bad(("path", "view"), f"Run has no {VOLUME_KEY} (enable the shape class)")
-    vol = rd.col(VOLUME_KEY, ("path", "view"))
+    volume = rd.volume
+    if volume is None:
+        raise bad(
+            ("path", "view"),
+            "The table has no volume column (in a radiomics run, enable the shape class)",
+        )
+    vol = rd.col(volume, ("path", "view"))
     y = rd.col(req.feature)
     o = st.associate(vol, y, "auto")
     levels = frame.levels(req.color_by, ("body", "color_by"))
@@ -478,13 +492,13 @@ def feature_vs_volume(frame: Frame, req: FeatureVsVolumeRequest) -> FeatureVsVol
         (
             RankedFeature(feature=f, rho=num(rho[j]), n=int(n_pair[j]))
             for j, f in enumerate(rd.features)
-            if f != VOLUME_KEY
+            if f != volume
         ),
         key=lambda r: -abs(r.rho) if r.rho is not None else 1.0,
     )
     return FeatureVsVolumeResponse(
         feature=req.feature,
-        volume_feature=VOLUME_KEY,
+        volume_feature=volume,
         rho=num(o.effect),
         p=num(o.p),
         n=o.n,
@@ -497,7 +511,7 @@ def feature_vs_volume(frame: Frame, req: FeatureVsVolumeRequest) -> FeatureVsVol
 
 def _unit(frame: Frame, req: GroupComparisonRequest | AssociationRequest) -> Unit:
     frame = Frame(
-        select_features(frame.rd, req.features, req.feature_class),
+        select_features(frame.rd, req.features, req.groups),
         frame.status,
         frame.vars,
         frame.priority,
@@ -584,9 +598,9 @@ def balance(frame: Frame, req: BalanceRequest) -> BalanceResponse:
 def _pair_key(frame: Frame, i: int, kind: str) -> tuple[Any, ...]:
     rd = frame.rd
     if kind == "phase":
-        return (rd.case_id[i], rd.scope[i], rd.side[i], int(rd.label[i]))
+        return (rd.case_id[i], rd.scope[i], rd.side[i], int(rd.label[i]), rd.instance[i])
     if kind == "label":
-        return (rd.item_id[i],)
+        return (rd.item_id[i], rd.instance[i])
     return (rd.case_id[i], rd.scan_idx[i], int(rd.label[i]))
 
 

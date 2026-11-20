@@ -21,8 +21,8 @@ interface Datum {
   itemStyle: Record<string, unknown>
 }
 
-export function Scatter({ runId, points, xName, yName, levelName, markLines, onReady }: {
-  runId: string
+export function Scatter({ tableId, points, xName, yName, levelName, markLines, onReady }: {
+  tableId: string
   points: ScatterPoint[]
   xName: string
   yName: string
@@ -32,7 +32,7 @@ export function Scatter({ runId, points, xName, yName, levelName, markLines, onR
   onReady?: (c: ChartInstance) => void
 }) {
   const { t } = useTranslation()
-  const sel = useSelection(runId)
+  const sel = useSelection(tableId)
   const levels = useMemo(() => [...new Set(points.map((p) => p.level))].sort((a, b) => (a ?? '').localeCompare(b ?? '')), [points])
   const color = useLevelColors(levels)
   const option = useMemo<ChartOption>(() => {
@@ -72,7 +72,7 @@ export function Scatter({ runId, points, xName, yName, levelName, markLines, onR
   }, [points, levels, levelName, color, sel, xName, yName, markLines, t])
   if (!points.length) return <div className="empty">{t('dashboard.noPoints')}</div>
   return (
-    <ChartOrTable runId={runId} rows={() => [['item_id', 'case_id', t('dashboard.table.group'), xName, yName], ...points.map((p) => [p.item_id, p.case_id, levelName(p.level), p.x, p.y])]}>
+    <ChartOrTable tableId={tableId} rows={() => [['item_id', 'case_id', t('dashboard.table.group'), xName, yName], ...points.map((p) => [p.item_id, p.case_id, levelName(p.level), p.x, p.y])]}>
       <Chart
         option={option}
         onReady={onReady}

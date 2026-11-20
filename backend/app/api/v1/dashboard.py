@@ -1,9 +1,11 @@
 """Each dashboard view has its own route so request and response bodies are typed in OpenAPI;
-an unknown view is `not-found`."""
+an unknown view is `not-found`. Views read an analysis table; the radiomics-run paths of the
+same views stay as unlisted aliases."""
 
 from __future__ import annotations
 
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Query
 from fastapi.responses import FileResponse
@@ -41,7 +43,18 @@ from app.api.v1.deps import Ctx
 from app.core.errors import NotFound
 
 router = APIRouter(tags=["dashboard"])
-VIEWS = "/projects/{pid}/radiomics/runs/{rid}/views"
+VIEWS = "/projects/{pid}/tables/{tid}/views"
+RUN_VIEWS = "/projects/{pid}/radiomics/runs/{tid}/views"
+
+
+def view_route(slug: str, model: Any) -> Callable[[Any], Any]:
+    """Register a view under the table path and, unlisted, under the radiomics-run path."""
+
+    def register(fn: Any) -> Any:
+        router.post(f"{RUN_VIEWS}/{slug}", response_model=model, include_in_schema=False)(fn)
+        return router.post(f"{VIEWS}/{slug}", response_model=model)(fn)
+
+    return register
 
 
 def dashboard(ctx: Ctx) -> DashboardService:
@@ -52,94 +65,96 @@ def analyses(ctx: Ctx) -> AnalysisService:
     return AnalysisService(ctx.workspace, ctx.index, ctx.locks, ctx.bus)
 
 
-@router.post(f"{VIEWS}/run-overview", response_model=RunOverviewResponse)
+@view_route("run-overview", RunOverviewResponse)
 async def run_overview(
-    pid: str, rid: str, ctx: Ctx, body: RunOverviewRequest | None = None
+    pid: str, tid: str, ctx: Ctx, body: RunOverviewRequest | None = None
 ) -> RunOverviewResponse:
-    """Run overview: items ok/failed, per-label counts, runtime, errors -> item."""
-    return await dashboard(ctx).run_overview(pid, rid, body or RunOverviewRequest())
+    """Overview of the table and its producer run: items ok/failed, per-label counts, runtime,
+    errors -> item."""
+    return await dashboard(ctx).run_overview(pid, tid, body or RunOverviewRequest())
 
 
-@router.post(f"{VIEWS}/feature-distribution", response_model=FeatureDistributionResponse)
+@view_route("feature-distribution", FeatureDistributionResponse)
 async def feature_distribution(
-    pid: str, rid: str, body: FeatureDistributionRequest, ctx: Ctx
+    pid: str, tid: str, body: FeatureDistributionRequest, ctx: Ctx
 ) -> FeatureDistributionResponse:
     """Histogram / box of one feature split by a color variable."""
-    return await dashboard(ctx).view(pid, rid, body, vw.feature_distribution)
+    return await dashboard(ctx).view(pid, tid, body, vw.feature_distribution)
 
 
-@router.post(f"{VIEWS}/missing-matrix", response_model=MissingMatrixResponse)
+@view_route("missing-matrix", MissingMatrixResponse)
 async def missing_matrix(
-    pid: str, rid: str, ctx: Ctx, body: MissingMatrixRequest | None = None
+    pid: str, tid: str, ctx: Ctx, body: MissingMatrixRequest | None = None
 ) -> MissingMatrixResponse:
     """Feature x item NaN/inf/absent cells, sparse."""
-    return await dashboard(ctx).view(pid, rid, body or MissingMatrixRequest(), vw.missing_matrix)
+    return await dashboard(ctx).view(pid, tid, body or MissingMatrixRequest(), vw.missing_matrix)
 
 
-@router.post(f"{VIEWS}/correlation", response_model=CorrelationResponse)
+@view_route("correlation", CorrelationResponse)
 async def correlation(
-    pid: str, rid: str, ctx: Ctx, body: CorrelationRequest | None = None
+    pid: str, tid: str, ctx: Ctx, body: CorrelationRequest | None = None
 ) -> CorrelationResponse:
     """Spearman correlation between features, clustered order."""
-    return await dashboard(ctx).view(pid, rid, body or CorrelationRequest(), vw.correlation)
+    return await dashboard(ctx).view(pid, tid, body or CorrelationRequest(), vw.correlation)
 
 
-@router.post(f"{VIEWS}/embedding", response_model=EmbeddingResponse)
+@view_route("embedding", EmbeddingResponse)
 async def embedding(
-    pid: str, rid: str, ctx: Ctx, body: EmbeddingRequest | None = None
+    pid: str, tid: str, ctx: Ctx, body: EmbeddingRequest | None = None
 ) -> EmbeddingResponse:
     """PCA on z-scored features."""
-    return await dashboard(ctx).view(pid, rid, body or EmbeddingRequest(), vw.embedding)
+    return await dashboard(ctx).view(pid, tid, body or EmbeddingRequest(), vw.embedding)
 
 
-@router.post(f"{VIEWS}/outliers", response_model=OutliersResponse)
+@view_route("outliers", OutliersResponse)
 async def outliers(
-    pid: str, rid: str, ctx: Ctx, body: OutliersRequest | None = None
+    pid: str, tid: str, ctx: Ctx, body: OutliersRequest | None = None
 ) -> OutliersResponse:
     """Robust z-score (median/MAD) per item; top-N items and features."""
-    return await dashboard(ctx).view(pid, rid, body or OutliersRequest(), vw.outliers)
+    return await dashboard(ctx).view(pid, tid, body or OutliersRequest(), vw.outliers)
 
 
-@router.post(f"{VIEWS}/feature-vs-volume", response_model=FeatureVsVolumeResponse)
+@view_route("feature-vs-volume", FeatureVsVolumeResponse)
 async def feature_vs_volume(
-    pid: str, rid: str, body: FeatureVsVolumeRequest, ctx: Ctx
+    pid: str, tid: str, body: FeatureVsVolumeRequest, ctx: Ctx
 ) -> FeatureVsVolumeResponse:
-    """Scatter of a feature against shape MeshVolume; size-driven features ranked."""
-    return await dashboard(ctx).view(pid, rid, body, vw.feature_vs_volume)
+    """Scatter of a feature against the table's volume; size-driven features ranked."""
+    return await dashboard(ctx).view(pid, tid, body, vw.feature_vs_volume)
 
 
-@router.post(f"{VIEWS}/group-comparison", response_model=GroupComparisonResponse)
+@view_route("group-comparison", GroupComparisonResponse)
 async def group_comparison(
-    pid: str, rid: str, body: GroupComparisonRequest, ctx: Ctx
+    pid: str, tid: str, body: GroupComparisonRequest, ctx: Ctx
 ) -> GroupComparisonResponse:
     """Box per group + test for one feature, results for all features."""
-    return await dashboard(ctx).view(pid, rid, body, vw.group_comparison)
+    return await dashboard(ctx).view(pid, tid, body, vw.group_comparison)
 
 
-@router.post(f"{VIEWS}/association", response_model=AssociationResponse)
+@view_route("association", AssociationResponse)
 async def association(
-    pid: str, rid: str, body: AssociationRequest, ctx: Ctx
+    pid: str, tid: str, body: AssociationRequest, ctx: Ctx
 ) -> AssociationResponse:
     """Scatter feature x continuous variable with rho; ranked table."""
-    return await dashboard(ctx).view(pid, rid, body, vw.association)
+    return await dashboard(ctx).view(pid, tid, body, vw.association)
 
 
-@router.post(f"{VIEWS}/balance", response_model=BalanceResponse)
-async def balance(pid: str, rid: str, body: BalanceRequest, ctx: Ctx) -> BalanceResponse:
+@view_route("balance", BalanceResponse)
+async def balance(pid: str, tid: str, body: BalanceRequest, ctx: Ctx) -> BalanceResponse:
     """Contingency heat map of two categorical variables with chi2 / Fisher."""
-    return await dashboard(ctx).view(pid, rid, body, vw.balance)
+    return await dashboard(ctx).view(pid, tid, body, vw.balance)
 
 
-@router.post(f"{VIEWS}/phase-side-consistency", response_model=ConsistencyResponse)
+@view_route("phase-side-consistency", ConsistencyResponse)
 async def phase_side_consistency(
-    pid: str, rid: str, body: ConsistencyRequest, ctx: Ctx
+    pid: str, tid: str, body: ConsistencyRequest, ctx: Ctx
 ) -> ConsistencyResponse:
     """Same case across phases or sides, Bland-Altman style."""
-    return await dashboard(ctx).view(pid, rid, body, vw.consistency)
+    return await dashboard(ctx).view(pid, tid, body, vw.consistency)
 
 
+@router.post(RUN_VIEWS + "/{view}", include_in_schema=False)
 @router.post(VIEWS + "/{view}", include_in_schema=False)
-async def unknown_view(pid: str, rid: str, view: str) -> None:
+async def unknown_view(pid: str, tid: str, view: str) -> None:
     raise NotFound(f"Unknown view {view!r}")
 
 
@@ -156,10 +171,13 @@ async def create_analysis(
 
 @router.get("/projects/{pid}/analyses", response_model=AnalysisList)
 async def list_analyses(
-    pid: str, ctx: Ctx, run_id: Annotated[str | None, Query()] = None
+    pid: str,
+    ctx: Ctx,
+    table_id: Annotated[str | None, Query()] = None,
+    run_id: Annotated[str | None, Query(include_in_schema=False)] = None,
 ) -> AnalysisList:
-    """Saved analyses, newest first (optionally for one run)."""
-    return await analyses(ctx).list(pid, run_id)
+    """Saved analyses, newest first (optionally for one table)."""
+    return await analyses(ctx).list(pid, table_id or run_id)
 
 
 @router.get("/projects/{pid}/analyses/{aid}", response_model=Analysis)

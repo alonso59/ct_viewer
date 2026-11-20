@@ -1,12 +1,12 @@
 {
   "manifest": 1,
   "id": "voi.extract",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "Extract VOIs",
-  "description": "Crops one VOI (image + mask) per organ side from the selected segmentation set. Sides come from patient coordinates, so prone and feet-first scans are handled. Writes NIfTI in RAS and a voi_catalog.jsonl into the derived root.",
+  "description": "Crops one VOI (image + mask) per organ side from the selected segmentation set and measures the lesions in each crop. Sides come from patient coordinates, so prone and feet-first scans are handled. Writes NIfTI in RAS, a voi_catalog.jsonl and the training files (lesion catalog, sampling profile, dataset fingerprint) into the derived root, and a lesions table for the dashboard.",
   "kind": "conversion",
   "input": "items",
-  "outputs": ["images"],
+  "outputs": ["images", "tables"],
   "requires": { "modality": ["CT", "MR"], "scope": "complete", "without_vois": true, "seg": { "labels": [] } },
   "settings_schema": {
     "type": "object",
@@ -31,6 +31,68 @@
       "resample_mm": { "type": "number", "minimum": 0, "maximum": 10, "default": 1.0, "x-help": "Isotropic voxel size of the output; 0 keeps the scan's voxels" },
       "skip_existing": { "type": "boolean", "default": true, "x-help": "Leave out scans that already have VOIs in the project; off extracts them again into this run's folder" },
       "keep_labels": { "type": "boolean", "default": true, "x-help": "Keep every label in the mask crop; off writes a binary mask of the VOI labels" },
+      "measure_lesions": { "type": "boolean", "default": true, "x-group": "Lesions", "x-help": "Measure every lesion (a connected part of the lesion labels) in the crop as written" },
+      "lesion_labels": {
+        "type": "array",
+        "items": { "type": "string" },
+        "x-group": "Lesions",
+        "x-help": "Label names that make up lesions; empty uses the region's protected labels (kidney: tumor)"
+      },
+      "organ_labels": {
+        "type": "array",
+        "items": { "type": "string" },
+        "x-group": "Lesions",
+        "x-help": "Label names a lesion's contact is measured against; empty uses the region's organ labels"
+      },
+      "min_lesion_voxels": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 10, "x-group": "Lesions", "x-help": "Smaller connected parts are left out and counted in the catalog" },
+      "bin_percentiles": {
+        "type": "array",
+        "items": { "type": "number", "minimum": 1, "maximum": 99 },
+        "minItems": 1,
+        "maxItems": 9,
+        "default": [20, 50, 80, 95],
+        "x-group": "Training profile",
+        "x-help": "Lesion volume percentiles that cut the size bins of the sampling profile"
+      },
+      "balancing_alpha": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.5, "x-group": "Training profile", "x-help": "0 samples each size bin as often as it occurs; 1 samples every bin equally" },
+      "budget_by_bin": {
+        "type": "array",
+        "items": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "x-group": "Training profile",
+        "x-advanced": true,
+        "x-help": "Patches per lesion for each size bin, smallest first; empty grows with the bin"
+      },
+      "role_priors_by_bin": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "center": { "type": "number", "minimum": 0 },
+            "border": { "type": "number", "minimum": 0 },
+            "context": { "type": "number", "minimum": 0 }
+          }
+        },
+        "x-group": "Training profile",
+        "x-advanced": true,
+        "x-help": "Center, border and context weights per size bin, smallest first; empty shifts from center to context as bins grow"
+      },
+      "hu_window": {
+        "type": "array",
+        "items": { "type": "number", "minimum": -1024, "maximum": 3071 },
+        "minItems": 2,
+        "maxItems": 2,
+        "default": [-100, 300],
+        "x-group": "Training profile",
+        "x-advanced": true,
+        "x-help": "HU window the loader rescales to -1…1 (low, high)"
+      },
+      "patch_size_candidates": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 1024 }, "minItems": 3, "maxItems": 3 },
+        "x-group": "Training profile",
+        "x-advanced": true,
+        "x-help": "Patch sizes (x, y, z voxels) to check against the lesion boxes"
+      },
       "workers": { "type": "integer", "minimum": 1, "maximum": 16, "default": 4, "x-advanced": true },
       "overrides": {
         "type": "array",

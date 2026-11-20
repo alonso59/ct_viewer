@@ -184,6 +184,37 @@ export function reviewCounts(values: Values, items: readonly { itemId: string; c
 }
 
 /** `x × y × z mm`, axes right–left, anterior–posterior, superior–inferior */
+// Lesions and the training profile (ADR-0061): defaults as the task applies them
+export const measureLesionsOf = (values: Values) => values.measure_lesions !== false
+export const minLesionVoxelsOf = (values: Values) => num(values.min_lesion_voxels) ?? 10
+/** Lesion labels: the chosen ones, else the region's protected labels (kidney: tumor) */
+export const lesionLabelsOf = (values: Values, region: Pick<VoiRegion, 'protect'> | undefined) => {
+  const chosen = strList(values.lesion_labels)
+  return chosen?.length ? chosen : [...(region?.protect ?? [])]
+}
+/** Organ labels a lesion's contact is measured against: the chosen ones, else the region's organ */
+export const organLabelsOf = (values: Values, region: Pick<VoiRegion, 'organ'> | undefined) => {
+  const chosen = strList(values.organ_labels)
+  return chosen?.length ? chosen : [...(region?.organ ?? [])]
+}
+export const DEFAULT_PERCENTILES = [20, 50, 80, 95]
+export const percentilesOf = (values: Values): number[] =>
+  Array.isArray(values.bin_percentiles) && values.bin_percentiles.every((p) => typeof p === 'number') && values.bin_percentiles.length
+    ? (values.bin_percentiles as number[])
+    : DEFAULT_PERCENTILES
+export const alphaOf = (values: Values) => num(values.balancing_alpha) ?? 0.5
+export const huWindowOf = (values: Values): [number, number] => {
+  const w = values.hu_window
+  return Array.isArray(w) && w.length === 2 && w.every((x) => typeof x === 'number') ? [w[0] as number, w[1] as number] : [-100, 300]
+}
+/** "20, 50, 80" → sorted unique percentiles; null unless every part is a number between 0 and 100 */
+export function parsePercentiles(text: string): number[] | null {
+  const parts = text.split(/[\s,;]+/).filter(Boolean)
+  const ps = parts.map(Number)
+  if (!ps.length || ps.length > 9 || ps.some((p) => !Number.isFinite(p) || p <= 0 || p >= 100)) return null
+  return [...new Set(ps)].sort((a, b) => a - b)
+}
+
 export const fmtSize = (mm: readonly number[]) => `${mm.map((v) => Math.round(v)).join(' × ')} mm`
 
 /** Warning codes with their own text; others show as the code */

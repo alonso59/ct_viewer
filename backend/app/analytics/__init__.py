@@ -1,1 +1,1 @@
-"""Dashboard views, guided analyses and recommendations over radiomics runs."""
+"""Dashboard views, guided analyses and recommendations over analysis tables."""

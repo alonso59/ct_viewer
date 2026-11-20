@@ -21,6 +21,7 @@ from app.jobs.types import JobInfo
 from app.projects.labels import match_labels
 from app.projects.models import LabelEntry, SegmentationSet, SegProducer
 from app.sources import identity as identity_store
+from app.tables.service import store_task_table
 from app.tasks.dicom_execution import attempt_cleaned
 from app.tasks.dicom_timings import record_stage
 from app.tasks.dry_run import DICOM_CONVERT
@@ -349,7 +350,7 @@ class RegistrationBase(EstimateBase):
         self.bus.publish(live.pid, "project.updated", {"fields": ["segmentations"]})
 
     async def _register_tabular(self, live: Live, result: dict[str, Any]) -> None:
-        """Identity, annotations, images + metadata → an import."""
+        """Identity, analysis tables, annotations, images + metadata → an import."""
         from app.ingest.service import IngestService
 
         pid, rid, m = live.pid, live.rid, live.manifest
@@ -364,6 +365,18 @@ class RegistrationBase(EstimateBase):
         new_outputs: list[TaskRunOutput] = []
         activated = False
         for o in manifest:
+            if o.get("kind") == "table" and "tables" in m.outputs:
+                status = str(result.get("status") or "")
+                table = await asyncio.to_thread(
+                    store_task_table, live.run_dir, m.id, status, o, live.job_dir
+                )
+                ref = f"tasks/runs/{rid}/tables/{o['name']}"
+                new_outputs.append(
+                    TaskRunOutput(
+                        kind="table", ref=ref, sha256=o.get("sha256"), detail=table.table_id
+                    )
+                )
+                continue
             if o.get("kind") == "annotations" and "annotations" in m.outputs:
                 src = (live.job_dir / str(o.get("path", ""))).resolve()
                 if not src.is_file() or not src.is_relative_to(live.job_dir.resolve()):

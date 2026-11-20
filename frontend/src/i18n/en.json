@@ -725,12 +725,17 @@
     "title": "Who is reviewing?"
   },
   "radiomics": {
-    "newRun": "New radiomics run",
-    "runMeta": "{{items}} items · {{features}} features · {{ago}}"
+    "newRun": "New radiomics run"
   },
   "dashboard": {
-    "noRuns": "No completed runs yet.",
-    "tabTitle": "Dashboard"
+    "instanceMeta": "{{count}} × {{name}} · {{items}} items · {{columns}} columns · {{ago}}",
+    "kind": {
+      "radiomics": "Radiomics",
+      "voi_lesions": "VOI lesions"
+    },
+    "noRuns": "No finished analysis table yet.",
+    "tabTitle": "Dashboard",
+    "tableMeta": "{{items}} items · {{columns}} columns · {{ago}}"
   },
   "measurements": {
     "class": "Class",

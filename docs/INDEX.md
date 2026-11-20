@@ -86,6 +86,7 @@ Read only for the named work. At phase exit, move durable facts into the owning 
 | Supervised segmentation jobs (P7g): approved plan, GPU safety, acceptance matrix | `domain/SEGMENTATION_JOB_PLAN.md`; `ops/SEGMENTATION_JOB_TEST_PLAN.md`; `adr/0033-supervised-segmentation-jobs.md` |
 | Cohort dashboard K1 (P7k): ordered tasks C1–C5 | `frontend/COHORT_PLAN.md`; `frontend/COHORT.md`; `adr/0045-cohort-dashboard-read-only-metadata.md`; `adr/0046-clinical-and-labels-in-cohort.md` |
 | DICOM discovery, background conversion, interruption/resume | `domain/DICOM_JOB_PLAN.md`; `ops/DICOM_JOB_TEST_PLAN.md`; `adr/0035-durable-dicom-source-operations.md` |
+| Analysis tables and VOI lesion profile (P7m): steps T1–T5 | `domain/TABLES_PLAN.md`; `adr/0060-analysis-tables-for-the-dashboard.md`; `adr/0061-voi-lesions-and-training-profile.md` |
 | Standalone DICOM converter package (`rw_dicom`), per-unit pinning, parallel units, incomplete datasets (P7i) | `domain/DICOM_STANDALONE_PLAN.md`; `ops/DICOM_STANDALONE_TEST_PLAN.md`; `adr/0042-standalone-dicom-converter-package.md` |
 
 ## Not for agents

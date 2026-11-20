@@ -70,7 +70,7 @@ function CombineDialog({ pid, runs, onClose }: { pid: string; runs: RunSummary[]
     onSuccess: (run) => {
       toast({ message: t('rad.combined', { name: run.name }), tone: 'ok' })
       onClose()
-      openEditor('run', { runId: run.run_id })
+      openEditor('table', { tableId: run.run_id })
     },
   })
   return <Dialog open onOpenChange={(o) => { if (!o) close() }} title={t('rad.combineTitle')} icon={codicon('merge')} footer={<>
@@ -113,7 +113,7 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
       <div className="list-row-title">
         <Icon spec={codicon('graph')} />
         {done ? (
-          <button type="button" className="link rad-run-name" title={run.name} onClick={() => openEditor('run', { runId: run.run_id })}>{run.name}</button>
+          <button type="button" className="link rad-run-name" title={run.name} onClick={() => openEditor('table', { tableId: run.run_id })}>{run.name}</button>
         ) : (
           <span className="rad-run-name" title={run.name}>{run.name}</span>
         )}
@@ -138,7 +138,7 @@ function RunRow({ pid, run, jobs, onErrors }: { pid: string; run: RunSummary; jo
         {ACTIVE.includes(run.status) ? <ConfirmInline question={t('rad.cancelConfirm')} confirm={t('common.yesCancel')} onConfirm={() => void act('cancel')} trigger={(ask) => <IconButton label={t('rad.cancel')} icon={codicon('debug-stop')} disabled={control.isPending} onClick={ask} />} /> : null}
         {RESUMABLE.includes(run.status) ? <IconButton label={t('rad.resume')} icon={codicon('debug-continue')} disabled={control.isPending} onClick={() => void act('resume')} /> : null}
         {done ? (
-          <button type="button" className="btn btn-sm" onClick={() => openEditor('run', { runId: run.run_id })}>
+          <button type="button" className="btn btn-sm" onClick={() => openEditor('table', { tableId: run.run_id })}>
             <Icon spec={codicon('graph')} />
             {t('rad.openDashboard')}
           </button>

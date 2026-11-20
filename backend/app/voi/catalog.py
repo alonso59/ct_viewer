@@ -50,9 +50,11 @@ def summary(rows: Iterable[dict[str, Any]]) -> VoiSummary:
     cases: set[str] = set()
     scans: set[str] = set()
     by_conf = dict.fromkeys(CONFIDENCES, 0)
-    n = n_warn = n_review = 0
+    n = n_warn = n_review = n_lesions = n_with = 0
     for row in rows:
         n += 1
+        n_lesions += len(row.get("lesions") or [])
+        n_with += bool(row.get("lesions"))
         cases.add(_case(row))
         scans.add(row["item_id"])
         if row.get("side") and row.get("side_confidence") in by_conf:
@@ -66,6 +68,8 @@ def summary(rows: Iterable[dict[str, Any]]) -> VoiSummary:
         by_confidence=by_conf,
         n_warnings=n_warn,
         n_review=n_review,
+        n_lesions=n_lesions,
+        n_vois_with_lesions=n_with,
     )
 
 
@@ -92,7 +96,14 @@ def _matches(
 
 
 def _voi(n: int, row: dict[str, Any]) -> VoiResult:
-    return VoiResult(n=n, **{k: v for k, v in row.items() if k in VoiResult.model_fields})
+    found = row.get("lesions") or []
+    largest = max((float(x["volume_mm3"]) for x in found), default=None)
+    return VoiResult(
+        n=n,
+        **{k: v for k, v in row.items() if k in VoiResult.model_fields},
+        n_lesions=len(found),
+        largest_lesion_ml=None if largest is None else round(largest / 1000, 3),
+    )
 
 
 def query(

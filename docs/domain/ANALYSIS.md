@@ -13,9 +13,9 @@ The user states **what question** they ask; the app picks a sensible test, expla
 
 | ID | Requirement | Pri |
 |---|---|---|
-| ANA-01 | An analysis = run + filter + unit + question type + variable (+ optional confounder). Saved in `analyses/{analysis_id}/spec.json`, re-runnable. | M |
+| ANA-01 | An analysis = analysis table (a radiomics run or a task table, ADR-0060) + filter + unit + question type + variable (+ optional confounder). Saved in `analyses/{analysis_id}/spec.json` (`table_id`; specs saved as `run_id` still load), re-runnable. | M |
 | ANA-02 | Question types (§Tests): **Explore**, **Compare groups**, **Association**, **Balance check**. The UI offers only types valid for the chosen variable's type. | M |
-| ANA-03 | Unit of analysis defaults to **one row per case**: one label, one phase (project phase priority), one scope. If > 1 item per case remains, the user picks: first by phase priority, or mean. | M |
+| ANA-03 | Unit of analysis defaults to **one row per case**: one label, one phase (project phase priority), one scope. If > 1 item per case remains, the user picks: first by phase priority, or mean. In a table with one row per instance (e.g. per lesion) the first is the producer's first instance (the largest lesion), mean averages the instances, and keeping every instance triggers REC-NONINDEP. | M |
 | ANA-04 | Automatic test choice (§Tests) with a one-line reason; the user may switch to the alternative test. | M |
 | ANA-05 | Every feature tested gets p, **q (Benjamini–Hochberg FDR)** and an effect size. Results table sorts by q, then effect size. | M |
 | ANA-06 | Minimum n: groups with < 5 rows are excluded from tests (still shown descriptively). | M |
@@ -43,7 +43,7 @@ The user states **what question** they ask; the app picks a sensible test, expla
 | REC-IMBALANCE | largest/smallest group > 4 | Groups are imbalanced; prefer nonparametric tests and report n. |
 | REC-MISSING | variable missing for > 30 % of cases | Analysis uses only {n} of {N} cases; check whether missingness is random. |
 | REC-CONFOUNDER | a `confounder` variable is associated with the grouping (balance check q < 0.05) or with > 20 % of significant features | Possible scanner/protocol effect; stratify, or harmonize outside the app (e.g. ComBat). |
-| REC-VOLUME | a significant feature has \|ρ\| > 0.8 with mesh volume | Feature may just reflect size; check it against volume. |
+| REC-VOLUME | a significant feature has \|ρ\| > 0.8 with the table's volume column (radiomics: mesh volume) | Feature may just reflect size; check it against volume. |
 | REC-REDUNDANT | clusters of features with \|ρ\| > 0.9 | Many redundant features; keep one per cluster for modeling. |
 | REC-NONINDEP | more than one item per case in the unit | Rows are not independent; aggregate per case. |
 | REC-NO-SIGNAL | no feature with q < 0.1 | No robust differences; consider effect sizes and power before concluding. |

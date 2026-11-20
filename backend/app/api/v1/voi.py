@@ -1,19 +1,30 @@
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Request, Response
 
-from app.api.v1.deps import Ctx
+from app.api.v1.deps import Ctx, Reviewer
 from app.api.v1.tasks import svc as task_svc
 from app.api.v1.volumes import local_volume
 from app.context import AppContext
 from app.core.errors import NotFound
 from app.imaging import streaming
 from app.tasks.models import TaskRunDetail
-from app.voi import catalog
-from app.voi.models import VoiCandidates, VoiRegion, VoiRequest, VoiRunResults
+from app.tasks.records import RUNS, TASKS
+from app.voi import catalog, profiles
+from app.voi.models import (
+    VoiCandidates,
+    VoiProfile,
+    VoiProfileSettings,
+    VoiProfileSummary,
+    VoiRegion,
+    VoiRequest,
+    VoiRunResults,
+)
 from app.voi.service import VoiService, regions
 
 router = APIRouter(prefix="/plugins/voi", tags=["voi"])
@@ -137,3 +148,53 @@ async def result_preview(ctx: Ctx, pid: str, rid: str, n: int, request: Request)
         raise NotFound("the run has no output folder")
     path = await svc(ctx, pid).result_preview(rid, Path(run.output_dir), n)
     return streaming.webp_response(path, path.stem, request)  # changes with the renderer
+
+
+def _dirs(ctx: AppContext, pid: str, run: TaskRunDetail) -> tuple[Path, Path]:
+    """The run's record folder (saved profiles) and its output folder (catalog, training files)."""
+    if not run.output_dir:
+        raise NotFound("the run has no output folder")
+    return ctx.workspace.project_dir(pid) / TASKS / RUNS / run.run_id, Path(run.output_dir)
+
+
+@router.post("/projects/{pid}/runs/{rid}/profile", response_model=VoiProfile)
+async def recompute_profile(ctx: Ctx, pid: str, rid: str, body: VoiProfileSettings) -> VoiProfile:
+    """The run's sampling profile with these settings over the run's own, from its measured
+    lesions (no volume is read), plus the lesion volumes for the distribution."""
+    run = await _voi_run(ctx, pid, rid)
+    _, out = _dirs(ctx, pid, run)
+    return await asyncio.to_thread(profiles.compute, out, run.settings, body)
+
+
+@router.get("/projects/{pid}/runs/{rid}/profiles", response_model=list[VoiProfileSummary])
+async def list_profiles(ctx: Ctx, pid: str, rid: str) -> list[VoiProfileSummary]:
+    """The run's saved profile variants."""
+    run_dir, _ = _dirs(ctx, pid, await _voi_run(ctx, pid, rid))
+    return await asyncio.to_thread(profiles.saved, run_dir)
+
+
+@router.put("/projects/{pid}/runs/{rid}/profiles/{name}", response_model=VoiProfile)
+async def save_profile(
+    ctx: Ctx, pid: str, rid: str, name: str, body: VoiProfileSettings, x_reviewer: Reviewer = None
+) -> VoiProfile:
+    """Compute and save a named variant (replacing one of the same name)."""
+    run = await _voi_run(ctx, pid, rid)
+    run_dir, out = _dirs(ctx, pid, run)
+    computed = await asyncio.to_thread(profiles.compute, out, run.settings, body)
+    return await asyncio.to_thread(profiles.save, run_dir, name, computed, x_reviewer)
+
+
+@router.get(
+    "/projects/{pid}/runs/{rid}/profiles/{name}/export",
+    response_class=Response,
+    responses={200: {"content": {"application/json": {}}, "description": "sampling_profile.json"}},
+)
+async def export_profile(ctx: Ctx, pid: str, rid: str, name: str) -> Response:
+    """A profile as the sampler reads it: `run` is the one the run wrote, else a saved variant."""
+    run_dir, out = _dirs(ctx, pid, await _voi_run(ctx, pid, rid))
+    body = await asyncio.to_thread(profiles.export, run_dir, out, name)
+    return Response(
+        json.dumps(body, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="sampling_profile.json"'},
+    )

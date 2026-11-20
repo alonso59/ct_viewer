@@ -2410,7 +2410,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/run-overview": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/run-overview": {
         parameters: {
             query?: never;
             header?: never;
@@ -2421,16 +2421,17 @@ export interface paths {
         put?: never;
         /**
          * Run Overview
-         * @description Run overview: items ok/failed, per-label counts, runtime, errors -> item.
+         * @description Overview of the table and its producer run: items ok/failed, per-label counts, runtime,
+         *     errors -> item.
          */
-        post: operations["run_overview_api_v1_projects__pid__radiomics_runs__rid__views_run_overview_post"];
+        post: operations["run_overview_api_v1_projects__pid__tables__tid__views_run_overview_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/feature-distribution": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/feature-distribution": {
         parameters: {
             query?: never;
             header?: never;
@@ -2443,14 +2444,14 @@ export interface paths {
          * Feature Distribution
          * @description Histogram / box of one feature split by a color variable.
          */
-        post: operations["feature_distribution_api_v1_projects__pid__radiomics_runs__rid__views_feature_distribution_post"];
+        post: operations["feature_distribution_api_v1_projects__pid__tables__tid__views_feature_distribution_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/missing-matrix": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/missing-matrix": {
         parameters: {
             query?: never;
             header?: never;
@@ -2463,14 +2464,14 @@ export interface paths {
          * Missing Matrix
          * @description Feature x item NaN/inf/absent cells, sparse.
          */
-        post: operations["missing_matrix_api_v1_projects__pid__radiomics_runs__rid__views_missing_matrix_post"];
+        post: operations["missing_matrix_api_v1_projects__pid__tables__tid__views_missing_matrix_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/correlation": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/correlation": {
         parameters: {
             query?: never;
             header?: never;
@@ -2483,14 +2484,14 @@ export interface paths {
          * Correlation
          * @description Spearman correlation between features, clustered order.
          */
-        post: operations["correlation_api_v1_projects__pid__radiomics_runs__rid__views_correlation_post"];
+        post: operations["correlation_api_v1_projects__pid__tables__tid__views_correlation_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/embedding": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/embedding": {
         parameters: {
             query?: never;
             header?: never;
@@ -2503,14 +2504,14 @@ export interface paths {
          * Embedding
          * @description PCA on z-scored features.
          */
-        post: operations["embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post"];
+        post: operations["embedding_api_v1_projects__pid__tables__tid__views_embedding_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/outliers": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/outliers": {
         parameters: {
             query?: never;
             header?: never;
@@ -2523,14 +2524,14 @@ export interface paths {
          * Outliers
          * @description Robust z-score (median/MAD) per item; top-N items and features.
          */
-        post: operations["outliers_api_v1_projects__pid__radiomics_runs__rid__views_outliers_post"];
+        post: operations["outliers_api_v1_projects__pid__tables__tid__views_outliers_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/feature-vs-volume": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/feature-vs-volume": {
         parameters: {
             query?: never;
             header?: never;
@@ -2541,16 +2542,16 @@ export interface paths {
         put?: never;
         /**
          * Feature Vs Volume
-         * @description Scatter of a feature against shape MeshVolume; size-driven features ranked.
+         * @description Scatter of a feature against the table's volume; size-driven features ranked.
          */
-        post: operations["feature_vs_volume_api_v1_projects__pid__radiomics_runs__rid__views_feature_vs_volume_post"];
+        post: operations["feature_vs_volume_api_v1_projects__pid__tables__tid__views_feature_vs_volume_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/group-comparison": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/group-comparison": {
         parameters: {
             query?: never;
             header?: never;
@@ -2563,14 +2564,14 @@ export interface paths {
          * Group Comparison
          * @description Box per group + test for one feature, results for all features.
          */
-        post: operations["group_comparison_api_v1_projects__pid__radiomics_runs__rid__views_group_comparison_post"];
+        post: operations["group_comparison_api_v1_projects__pid__tables__tid__views_group_comparison_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/association": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/association": {
         parameters: {
             query?: never;
             header?: never;
@@ -2583,14 +2584,14 @@ export interface paths {
          * Association
          * @description Scatter feature x continuous variable with rho; ranked table.
          */
-        post: operations["association_api_v1_projects__pid__radiomics_runs__rid__views_association_post"];
+        post: operations["association_api_v1_projects__pid__tables__tid__views_association_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/balance": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/balance": {
         parameters: {
             query?: never;
             header?: never;
@@ -2603,14 +2604,14 @@ export interface paths {
          * Balance
          * @description Contingency heat map of two categorical variables with chi2 / Fisher.
          */
-        post: operations["balance_api_v1_projects__pid__radiomics_runs__rid__views_balance_post"];
+        post: operations["balance_api_v1_projects__pid__tables__tid__views_balance_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{pid}/radiomics/runs/{rid}/views/phase-side-consistency": {
+    "/api/v1/projects/{pid}/tables/{tid}/views/phase-side-consistency": {
         parameters: {
             query?: never;
             header?: never;
@@ -2623,7 +2624,7 @@ export interface paths {
          * Phase Side Consistency
          * @description Same case across phases or sides, Bland-Altman style.
          */
-        post: operations["phase_side_consistency_api_v1_projects__pid__radiomics_runs__rid__views_phase_side_consistency_post"];
+        post: operations["phase_side_consistency_api_v1_projects__pid__tables__tid__views_phase_side_consistency_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2639,7 +2640,7 @@ export interface paths {
         };
         /**
          * List Analyses
-         * @description Saved analyses, newest first (optionally for one run).
+         * @description Saved analyses, newest first (optionally for one table).
          */
         get: operations["list_analyses_api_v1_projects__pid__analyses_get"];
         put?: never;
@@ -2687,6 +2688,66 @@ export interface paths {
          *     or `spec` JSON.
          */
         get: operations["export_analysis_api_v1_projects__pid__analyses__aid__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tables
+         * @description Every analysis table of the project (radiomics runs and task tables), newest first.
+         */
+        get: operations["list_tables_api_v1_projects__pid__tables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/tables/{tid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Table
+         * @description The table's manifest with its columns.
+         */
+        get: operations["get_table_api_v1_projects__pid__tables__tid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{pid}/tables/{tid}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Table
+         * @description The table's values: `long` (one row per value) or `wide` (one row per observation).
+         */
+        get: operations["export_table_api_v1_projects__pid__tables__tid__export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3193,6 +3254,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recompute Profile
+         * @description The run's sampling profile with these settings over the run's own, from its measured
+         *     lesions (no volume is read), plus the lesion volumes for the distribution.
+         */
+        post: operations["recompute_profile_api_v1_plugins_voi_projects__pid__runs__rid__profile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Profiles
+         * @description The run's saved profile variants.
+         */
+        get: operations["list_profiles_api_v1_plugins_voi_projects__pid__runs__rid__profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/profiles/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Profile
+         * @description Compute and save a named variant (replacing one of the same name).
+         */
+        put: operations["save_profile_api_v1_plugins_voi_projects__pid__runs__rid__profiles__name__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/voi/projects/{pid}/runs/{rid}/profiles/{name}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Profile
+         * @description A profile as the sampler reads it: `run` is the one the run wrote, else a saved variant.
+         */
+        get: operations["export_profile_api_v1_plugins_voi_projects__pid__runs__rid__profiles__name__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3229,14 +3371,14 @@ export interface components {
         };
         /**
          * AnalysisSpec
-         * @description Run + filter + unit + question type + variable (+ optional confounder).
+         * @description Table + filter + unit + question type + variable (+ optional confounder).
          *
          *     `balance` compares `variable` x `confounder` (both categorical). `paired` is rejected
-         *     with `validation`.
+         *     with `validation`. Specs saved before analysis tables name the table `run_id`.
          */
         AnalysisSpec: {
-            /** Run Id */
-            run_id: string;
+            /** Table Id */
+            table_id: string;
             /**
              * Name
              * @default
@@ -3261,8 +3403,8 @@ export interface components {
             test: "auto" | "default" | "alternative";
             /** Features */
             features?: string[] | null;
-            /** Feature Class */
-            feature_class?: string[] | null;
+            /** Groups */
+            groups?: string[] | null;
         };
         /** AnalysisSummary */
         AnalysisSummary: {
@@ -3274,8 +3416,8 @@ export interface components {
             created_at: string;
             /** Created By */
             created_by?: string | null;
-            /** Run Id */
-            run_id: string;
+            /** Table Id */
+            table_id: string;
             /**
              * Question
              * @enum {string}
@@ -3341,8 +3483,8 @@ export interface components {
             unit?: components["schemas"]["UnitSpec"];
             /** Features */
             features?: string[] | null;
-            /** Feature Class */
-            feature_class?: string[] | null;
+            /** Groups */
+            groups?: string[] | null;
         };
         /** AssociationResponse */
         AssociationResponse: {
@@ -4175,8 +4317,8 @@ export interface components {
         /** CorrelationRequest */
         CorrelationRequest: {
             filters?: components["schemas"]["GlobalFilters"];
-            /** Feature Class */
-            feature_class?: string[] | null;
+            /** Groups */
+            groups?: string[] | null;
             /**
              * Threshold
              * @default 0.9
@@ -4458,8 +4600,8 @@ export interface components {
             filters?: components["schemas"]["GlobalFilters"];
             /** Features */
             features?: string[] | null;
-            /** Feature Class */
-            feature_class?: string[] | null;
+            /** Groups */
+            groups?: string[] | null;
             /**
              * N Components
              * @default 2
@@ -4974,8 +5116,8 @@ export interface components {
             unit?: components["schemas"]["UnitSpec"];
             /** Features */
             features?: string[] | null;
-            /** Feature Class */
-            feature_class?: string[] | null;
+            /** Groups */
+            groups?: string[] | null;
         };
         /** GroupComparisonResponse */
         GroupComparisonResponse: {
@@ -5665,8 +5807,8 @@ export interface components {
         MissingFeature: {
             /** Feature */
             feature: string;
-            /** Feature Class */
-            feature_class: string;
+            /** Group */
+            group: string;
             /** N Nan */
             n_nan: number;
             /** N Inf */
@@ -5692,8 +5834,8 @@ export interface components {
         /** MissingMatrixRequest */
         MissingMatrixRequest: {
             filters?: components["schemas"]["GlobalFilters"];
-            /** Feature Class */
-            feature_class?: string[] | null;
+            /** Groups */
+            groups?: string[] | null;
             /**
              * Max Cells
              * @default 50000
@@ -5964,8 +6106,8 @@ export interface components {
              * @default 5
              */
             top_features: number;
-            /** Feature Class */
-            feature_class?: string[] | null;
+            /** Groups */
+            groups?: string[] | null;
         };
         /** OutliersResponse */
         OutliersResponse: {
@@ -6411,7 +6553,7 @@ export interface components {
             /** Plugins */
             plugins?: string[];
             /** Capabilities */
-            capabilities?: ("derived_root" | "runner" | "segmentation" | "event_store" | "features_run")[];
+            capabilities?: ("derived_root" | "runner" | "segmentation" | "event_store" | "analysis_table")[];
         };
         /** PreflightRequest */
         PreflightRequest: {
@@ -7156,8 +7298,8 @@ export interface components {
         };
         /** RunOverviewResponse */
         RunOverviewResponse: {
-            /** Run Id */
-            run_id: string;
+            /** Table Id */
+            table_id: string;
             /** Name */
             name: string;
             /** Status */
@@ -7191,6 +7333,16 @@ export interface components {
             errors: components["schemas"]["app__analytics__models__RunError"][];
             /** Phase Changed */
             phase_changed?: components["schemas"]["PhaseChange"][];
+            /**
+             * N Instances
+             * @default 0
+             */
+            n_instances: number;
+            /**
+             * N Cases With Several
+             * @default 0
+             */
+            n_cases_with_several: number;
         };
         /** RunProgress */
         RunProgress: {
@@ -8204,6 +8356,41 @@ export interface components {
             /** Bins */
             bins?: components["schemas"]["SummaryBin"][] | null;
         };
+        /** TableColumn */
+        TableColumn: {
+            /** Name */
+            name: string;
+            /**
+             * Group
+             * @default
+             */
+            group: string;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** TableCounts */
+        TableCounts: {
+            /**
+             * Items
+             * @default 0
+             */
+            items: number;
+            /**
+             * Columns
+             * @default 0
+             */
+            columns: number;
+            /** Observations */
+            observations?: number | null;
+        };
         /** TableCreate */
         TableCreate: {
             /** Name */
@@ -8245,6 +8432,40 @@ export interface components {
             /** Progress */
             progress?: components["schemas"]["ColumnProgress"][];
         };
+        /**
+         * TableManifest
+         * @description `table.json` of a task table; built from `run.json` for a radiomics run.
+         */
+        TableManifest: {
+            /** Table Id */
+            table_id: string;
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at: string;
+            producer: components["schemas"]["TableProducer"];
+            /**
+             * Grain
+             * @default label
+             * @enum {string}
+             */
+            grain: "label" | "instance";
+            /** Instance Name */
+            instance_name?: string | null;
+            /** Roles */
+            roles?: {
+                [key: string]: string;
+            };
+            /** Labels */
+            labels?: number[];
+            counts?: components["schemas"]["TableCounts"];
+            /** Columns */
+            columns?: components["schemas"]["TableColumn"][];
+        };
         /** TablePatch */
         TablePatch: {
             /** Name */
@@ -8253,6 +8474,42 @@ export interface components {
             hidden?: boolean | null;
             /** Columns */
             columns?: components["schemas"]["ColumnIn"][] | null;
+        };
+        /** TableProducer */
+        TableProducer: {
+            /** Task */
+            task: string;
+            /** Run Id */
+            run_id: string;
+        };
+        /** TableSummary */
+        TableSummary: {
+            /** Table Id */
+            table_id: string;
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at: string;
+            producer: components["schemas"]["TableProducer"];
+            /**
+             * Grain
+             * @default label
+             * @enum {string}
+             */
+            grain: "label" | "instance";
+            /** Instance Name */
+            instance_name?: string | null;
+            /** Roles */
+            roles?: {
+                [key: string]: string;
+            };
+            /** Labels */
+            labels?: number[];
+            counts?: components["schemas"]["TableCounts"];
         };
         /**
          * TargetState
@@ -8452,7 +8709,7 @@ export interface components {
              */
             input: "items" | "rows" | "source";
             /** Outputs */
-            outputs: ("images" | "masks" | "features" | "metadata" | "annotations")[];
+            outputs: ("images" | "masks" | "features" | "metadata" | "annotations" | "tables")[];
             requires?: components["schemas"]["Requires"];
             /** Settings Schema */
             settings_schema?: {
@@ -8911,7 +9168,8 @@ export interface components {
          *
          *     `phase = null` picks, per case, the item whose phase ranks first in the project phase
          *     priority. `aggregate` resolves > 1 item per case: `first` (by phase priority, then
-         *     scan, side), `mean` (feature means), or `none` (keep every item; triggers REC-NONINDEP).
+         *     scan, instance, side), `mean` (feature means), or `none` (keep every item; triggers
+         *     REC-NONINDEP).
          *     `label`/`scope` default to the most frequent in the filtered run.
          */
         UnitSpec: {
@@ -9205,6 +9463,57 @@ export interface components {
             /** N Review */
             n_review: number;
         };
+        /**
+         * VoiProfile
+         * @description A sampling profile of a run (schema 2, as `sampling_profile.json`); `name` when saved.
+         */
+        VoiProfile: {
+            /** Name */
+            name?: string | null;
+            /** Saved At */
+            saved_at?: string | null;
+            /** Saved By */
+            saved_by?: string | null;
+            /** Profile */
+            profile: {
+                [key: string]: unknown;
+            };
+            /** Lesion Volumes Mm3 */
+            lesion_volumes_mm3?: number[];
+        };
+        /**
+         * VoiProfileSettings
+         * @description Profile settings to change; the run's own settings fill the rest.
+         */
+        VoiProfileSettings: {
+            /** Bin Percentiles */
+            bin_percentiles?: number[] | null;
+            /** Balancing Alpha */
+            balancing_alpha?: number | null;
+            /** Budget By Bin */
+            budget_by_bin?: number[] | null;
+            /** Role Priors By Bin */
+            role_priors_by_bin?: {
+                [key: string]: number;
+            }[] | null;
+            /** Hu Window */
+            hu_window?: number[] | null;
+            /** Patch Size Candidates */
+            patch_size_candidates?: number[][] | null;
+        };
+        /** VoiProfileSummary */
+        VoiProfileSummary: {
+            /** Name */
+            name: string;
+            /** Saved At */
+            saved_at: string;
+            /** Saved By */
+            saved_by?: string | null;
+            /** Settings Hash */
+            settings_hash: string;
+            /** Num Lesions */
+            num_lesions: number;
+        };
         /** VoiRegion */
         VoiRegion: {
             /**
@@ -9286,6 +9595,13 @@ export interface components {
              * @default
              */
             side_confidence: string;
+            /**
+             * N Lesions
+             * @default 0
+             */
+            n_lesions: number;
+            /** Largest Lesion Ml */
+            largest_lesion_ml?: number | null;
         };
         /** VoiRunResults */
         VoiRunResults: {
@@ -9353,6 +9669,16 @@ export interface components {
             n_warnings: number;
             /** N Review */
             n_review: number;
+            /**
+             * N Lesions
+             * @default 0
+             */
+            n_lesions: number;
+            /**
+             * N Vois With Lesions
+             * @default 0
+             */
+            n_vois_with_lesions: number;
         };
         /** VolumeRef */
         VolumeRef: {
@@ -14646,13 +14972,13 @@ export interface operations {
             };
         };
     };
-    run_overview_api_v1_projects__pid__radiomics_runs__rid__views_run_overview_post: {
+    run_overview_api_v1_projects__pid__tables__tid__views_run_overview_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14682,13 +15008,13 @@ export interface operations {
             };
         };
     };
-    feature_distribution_api_v1_projects__pid__radiomics_runs__rid__views_feature_distribution_post: {
+    feature_distribution_api_v1_projects__pid__tables__tid__views_feature_distribution_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14718,13 +15044,13 @@ export interface operations {
             };
         };
     };
-    missing_matrix_api_v1_projects__pid__radiomics_runs__rid__views_missing_matrix_post: {
+    missing_matrix_api_v1_projects__pid__tables__tid__views_missing_matrix_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14754,13 +15080,13 @@ export interface operations {
             };
         };
     };
-    correlation_api_v1_projects__pid__radiomics_runs__rid__views_correlation_post: {
+    correlation_api_v1_projects__pid__tables__tid__views_correlation_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14790,13 +15116,13 @@ export interface operations {
             };
         };
     };
-    embedding_api_v1_projects__pid__radiomics_runs__rid__views_embedding_post: {
+    embedding_api_v1_projects__pid__tables__tid__views_embedding_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14826,13 +15152,13 @@ export interface operations {
             };
         };
     };
-    outliers_api_v1_projects__pid__radiomics_runs__rid__views_outliers_post: {
+    outliers_api_v1_projects__pid__tables__tid__views_outliers_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14862,13 +15188,13 @@ export interface operations {
             };
         };
     };
-    feature_vs_volume_api_v1_projects__pid__radiomics_runs__rid__views_feature_vs_volume_post: {
+    feature_vs_volume_api_v1_projects__pid__tables__tid__views_feature_vs_volume_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14898,13 +15224,13 @@ export interface operations {
             };
         };
     };
-    group_comparison_api_v1_projects__pid__radiomics_runs__rid__views_group_comparison_post: {
+    group_comparison_api_v1_projects__pid__tables__tid__views_group_comparison_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14934,13 +15260,13 @@ export interface operations {
             };
         };
     };
-    association_api_v1_projects__pid__radiomics_runs__rid__views_association_post: {
+    association_api_v1_projects__pid__tables__tid__views_association_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -14970,13 +15296,13 @@ export interface operations {
             };
         };
     };
-    balance_api_v1_projects__pid__radiomics_runs__rid__views_balance_post: {
+    balance_api_v1_projects__pid__tables__tid__views_balance_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -15006,13 +15332,13 @@ export interface operations {
             };
         };
     };
-    phase_side_consistency_api_v1_projects__pid__radiomics_runs__rid__views_phase_side_consistency_post: {
+    phase_side_consistency_api_v1_projects__pid__tables__tid__views_phase_side_consistency_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 pid: string;
-                rid: string;
+                tid: string;
             };
             cookie?: never;
         };
@@ -15045,7 +15371,7 @@ export interface operations {
     list_analyses_api_v1_projects__pid__analyses_get: {
         parameters: {
             query?: {
-                run_id?: string | null;
+                table_id?: string | null;
             };
             header?: never;
             path: {
@@ -15166,6 +15492,105 @@ export interface operations {
                 content: {
                     "text/csv": string;
                     "application/json": Record<string, never>;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tables_api_v1_projects__pid__tables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_table_api_v1_projects__pid__tables__tid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableManifest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_table_api_v1_projects__pid__tables__tid__export_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "parquet";
+                shape?: "long" | "wide";
+            };
+            header?: never;
+            path: {
+                pid: string;
+                tid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The table */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                    "application/vnd.apache.parquet": unknown;
                 };
             };
             /** @description Validation Error */
@@ -16153,6 +16578,146 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recompute_profile_api_v1_plugins_voi_projects__pid__runs__rid__profile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiProfileSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiProfile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_profiles_api_v1_plugins_voi_projects__pid__runs__rid__profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiProfileSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_profile_api_v1_plugins_voi_projects__pid__runs__rid__profiles__name__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string | null;
+            };
+            path: {
+                pid: string;
+                rid: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiProfileSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiProfile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_profile_api_v1_plugins_voi_projects__pid__runs__rid__profiles__name__export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+                rid: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description sampling_profile.json */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
             /** @description Validation Error */
             422: {

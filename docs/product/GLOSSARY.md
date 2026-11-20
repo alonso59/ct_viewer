@@ -53,6 +53,9 @@ Depends: none (terms point to their owning docs by ID).
 | Rollup | Case status derived from the worst item status |
 | Correction queue | Items needing external (3D Slicer) correction |
 | Profile | Named, hashed radiomics settings set |
+| Analysis table | What the dashboard and analyses read: one row per item, label and (optionally) instance, numeric columns, from a radiomics run or a task (ADR-0060) |
+| Lesion | A connected component of a lesion label in a VOI crop, measured by `voi.extract` (ADR-0061) |
+| Sampling profile | Lesion size bins, bin probabilities, patch budgets and role priors that a training patch sampler reads (ADR-0061); not a radiomics profile |
 | Run | One execution of a task over a selection (a radiomics extraction with one profile, a conversion, a segmentation, …) |
 | Job | One piece of background work the server tracks (index, hashes, thumbnails, a run, opening a source); the Jobs panel lists them |
 | Dataset | A converted or managed data folder (a conversion's destination, or the legacy `_datasets/`), viewable without a project or reopened as one (PRJ-19) |

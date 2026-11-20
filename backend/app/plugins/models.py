@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 PLUGIN_ID_RE = r"^[a-z][a-z0-9_-]{0,63}$"
-Capability = Literal["derived_root", "runner", "segmentation", "event_store", "features_run"]
+Capability = Literal["derived_root", "runner", "segmentation", "event_store", "analysis_table"]
 PluginStatus = Literal[
     "ready", "needs_runner", "needs_derived_root", "needs_segmentation", "pending"
 ]

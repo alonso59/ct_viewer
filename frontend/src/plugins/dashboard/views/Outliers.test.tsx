@@ -34,7 +34,7 @@ test('sends the threshold and the minimum share, and lists the flagged items (DB
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <OutliersView runId="r1" />
+      <OutliersView tableId="r1" />
     </QueryClientProvider>,
   )
   await waitFor(() => expect(view).toHaveBeenCalledWith(DEMO_PID, 'r1', 'outliers', expect.objectContaining({ threshold: OUTLIERS_THRESHOLD, min_feature_pct: OUTLIERS_MIN_PCT, top_n: OUTLIERS_TOP })))

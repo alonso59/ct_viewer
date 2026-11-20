@@ -1,13 +1,170 @@
 // `voi.extract` settings in the task tab: region, labels (the region's, or a custom pick from the
-// segmentation set's active labels), the box preset and the output.
+// segmentation set's active labels), the box preset, the output, the lesions measured in each crop
+// and the training profile written at the end (tunable later in the run's results).
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useProject, useSegmentations, useVoiRegions } from '../../api'
 import { NumberInput, RadioSeg } from '../../lib'
 import type { TaskSettingsProps } from '../../shell'
-import { activeLabels, boxMode, chosenLabels, effectiveBox, fmtSize, keepLabelsOf, regionOf, resampleOf, skipExistingOf, withBoxMode, type BoxMode } from './model'
+import {
+  activeLabels,
+  alphaOf,
+  boxMode,
+  chosenLabels,
+  effectiveBox,
+  fmtSize,
+  huWindowOf,
+  keepLabelsOf,
+  lesionLabelsOf,
+  measureLesionsOf,
+  minLesionVoxelsOf,
+  organLabelsOf,
+  parsePercentiles,
+  percentilesOf,
+  regionOf,
+  resampleOf,
+  skipExistingOf,
+  withBoxMode,
+  type BoxMode,
+  type Values,
+} from './model'
 import './voi.css'
+
+/** Label names for one role: the region's by default, or a pick from the set's active labels */
+function LabelPick({ title, help, chosen, isDefault, available, onPick, onReset }: {
+  title: string
+  help: string
+  chosen: string[]
+  isDefault: boolean
+  available: { name: string; value: number; color: string }[]
+  onPick: (names: string[]) => void
+  onReset: () => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const toggle = (name: string) => onPick(chosen.includes(name) ? chosen.filter((n) => n !== name) : [...chosen, name])
+  return (
+    <div className="task-field">
+      <span className="field-label">{title}</span>
+      <span className="voi-label-summary">
+        {chosen.length ? chosen.join(', ') : <span className="muted">{t('voi.lesions.none')}</span>}
+        <button type="button" className="link" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {t(open ? 'voi.doneCustomizing' : 'voi.customize')}
+        </button>
+        {!isDefault ? (
+          <button type="button" className="link" onClick={onReset}>
+            {t('voi.regionLabels')}
+          </button>
+        ) : null}
+      </span>
+      <span className="muted task-help">{help}</span>
+      {open ? (
+        <fieldset className="voi-labels" aria-label={title}>
+          {available.length ? (
+            <div className="voi-label-list">
+              {available.map((l) => (
+                <label key={l.value} className="voi-label">
+                  <input type="checkbox" checked={chosen.includes(l.name)} onChange={() => toggle(l.name)} />
+                  <span className="dot" style={{ background: l.color }} />
+                  {l.name}
+                </label>
+              ))}
+            </div>
+          ) : (
+            <span className="muted">{t('voi.noSetLabels')}</span>
+          )}
+        </fieldset>
+      ) : null}
+    </div>
+  )
+}
+
+/** Lesions measured in each crop and the sampling profile the run writes */
+function LesionSettings({ values, onChange, region, available }: {
+  values: Values
+  onChange: (v: Values) => void
+  region: { protect: string[]; organ: string[] } | undefined
+  available: { name: string; value: number; color: string }[]
+}) {
+  const { t } = useTranslation()
+  const measure = measureLesionsOf(values)
+  const [pct, setPct] = useState(() => percentilesOf(values).join(', '))
+  const parsed = parsePercentiles(pct)
+  const [lo, hi] = huWindowOf(values)
+  const set = (patch: Values) => onChange({ ...values, ...patch })
+  return (
+    <>
+      <fieldset className="task-form voi-section">
+        <legend className="field-label">{t('voi.lesions.title')}</legend>
+        <label className="task-field voi-check">
+          <span>
+            <input type="checkbox" checked={measure} onChange={(e) => set({ measure_lesions: e.target.checked })} /> {t('voi.lesions.measure')}
+          </span>
+          <span className="muted task-help">{t('voi.lesions.measureHelp')}</span>
+        </label>
+        {measure ? (
+          <>
+            <LabelPick
+              title={t('voi.lesions.labels')}
+              help={t('voi.lesions.labelsHelp')}
+              chosen={lesionLabelsOf(values, region)}
+              isDefault={!(values.lesion_labels as string[] | undefined)?.length}
+              available={available}
+              onPick={(names) => set({ lesion_labels: names })}
+              onReset={() => set({ lesion_labels: undefined })}
+            />
+            <LabelPick
+              title={t('voi.lesions.organ')}
+              help={t('voi.lesions.organHelp')}
+              chosen={organLabelsOf(values, region)}
+              isDefault={!(values.organ_labels as string[] | undefined)?.length}
+              available={available}
+              onPick={(names) => set({ organ_labels: names })}
+              onReset={() => set({ organ_labels: undefined })}
+            />
+            <label className="task-field">
+              <span className="field-label">{t('voi.lesions.minVoxels')}</span>
+              <NumberInput className="input num" value={minLesionVoxelsOf(values)} min={1} max={100000} step={1} onChange={(n) => set({ min_lesion_voxels: n ?? 10 })} />
+              <span className="muted task-help">{t('voi.lesions.minVoxelsHelp')}</span>
+            </label>
+          </>
+        ) : null}
+      </fieldset>
+      {measure ? (
+        <fieldset className="task-form voi-section">
+          <legend className="field-label">{t('voi.profile.title')}</legend>
+          <label className="task-field">
+            <span className="field-label">{t('voi.profile.percentiles')}</span>
+            <input
+              className="input"
+              value={pct}
+              aria-invalid={!parsed}
+              onChange={(e) => {
+                setPct(e.target.value)
+                const ps = parsePercentiles(e.target.value)
+                if (ps) set({ bin_percentiles: ps })
+              }}
+            />
+            {parsed ? <span className="muted task-help">{t('voi.profile.percentilesHelp', { n: parsed.length + 1 })}</span> : <span className="field-error">{t('voi.profile.percentilesInvalid')}</span>}
+          </label>
+          <label className="task-field">
+            <span className="field-label">{t('voi.profile.alpha')}</span>
+            <NumberInput className="input num" value={alphaOf(values)} min={0} max={1} step={0.1} onChange={(n) => set({ balancing_alpha: n ?? 0.5 })} />
+            <span className="muted task-help">{t('voi.profile.alphaHelp')}</span>
+          </label>
+          <fieldset className="task-field voi-field voi-size">
+            <legend className="field-label">{t('voi.profile.window')}</legend>
+            <NumberInput className="input input-sm num" aria-label={t('voi.profile.windowLow')} value={lo} min={-1024} max={3071} onChange={(n) => set({ hu_window: [n ?? -100, hi] })} />
+            <NumberInput className="input input-sm num" aria-label={t('voi.profile.windowHigh')} value={hi} min={-1024} max={3071} onChange={(n) => set({ hu_window: [lo, n ?? 300] })} />
+            <span className="muted task-help">{lo < hi ? t('voi.profile.windowHelp') : <span className="field-error">{t('voi.profile.windowInvalid')}</span>}</span>
+          </fieldset>
+          <span className="muted task-help">{t('voi.profile.later')}</span>
+        </fieldset>
+      ) : null}
+    </>
+  )
+}
 
 export default function VoiSettings({ pid, values, onChange, segId }: TaskSettingsProps) {
   const { t } = useTranslation()
@@ -123,6 +280,7 @@ export default function VoiSettings({ pid, values, onChange, segId }: TaskSettin
           <span className="muted task-help">{t('voi.skipExistingHelp')}</span>
         </label>
       </div>
+      <LesionSettings values={values} onChange={onChange} region={region} available={available} />
     </div>
   )
 }

@@ -33,6 +33,7 @@ import type {
   VariablePatch,
   ViewRequest,
   VoiRequest,
+  VoiProfileSettings,
   VoiResultsQuery,
   TaskRunStatus,
 } from './types'
@@ -81,6 +82,11 @@ export const useRuns = (pid: string) =>
   useQuery({ queryKey: keys.runs(pid), queryFn: () => api.listRuns(pid), enabled: enabled(pid) })
 export const useRun = (pid: string, rid: string | null) =>
   useQuery({ queryKey: keys.run(pid, rid ?? ''), queryFn: () => api.getRun(pid, rid ?? ''), enabled: enabled(pid, rid) })
+/** Analysis tables (radiomics runs and task tables), newest first */
+export const useTables = (pid: string) =>
+  useQuery({ queryKey: keys.tables(pid), queryFn: () => api.listTables(pid), enabled: enabled(pid) })
+export const useTable = (pid: string, tid: string | null) =>
+  useQuery({ queryKey: keys.table(pid, tid ?? ''), queryFn: () => api.getTable(pid, tid ?? ''), enabled: enabled(pid, tid), staleTime: 60_000 })
 export const useFeatures = (pid: string, rid: string | null | undefined, iid?: string | null) =>
   useQuery({
     // `iid = null` (no active item) is disabled and must not share the whole-run key
@@ -389,6 +395,29 @@ export const useVoiRunResults = (pid: string, rid: string | null, query: VoiResu
     placeholderData: keepPreviousData,
     refetchInterval: (q) => (isTaskRunPending(q.state.data?.status as TaskRunStatus | undefined) ? 2000 : false),
   })
+/** The run's sampling profile with these settings; the previous answer stays while editing */
+export const useVoiProfile = (pid: string, rid: string | null, body: VoiProfileSettings) =>
+  useQuery({
+    queryKey: keys.voiProfile(pid, rid ?? '', body),
+    queryFn: () => api.voiProfile(pid, rid ?? '', body),
+    enabled: enabled(pid, rid),
+    placeholderData: keepPreviousData,
+    retry: false,
+    staleTime: Infinity,
+  })
+export const useVoiProfiles = (pid: string, rid: string | null) =>
+  useQuery({ queryKey: keys.voiProfiles(pid, rid ?? ''), queryFn: () => api.voiProfiles(pid, rid ?? ''), enabled: enabled(pid, rid) })
+export function useSaveVoiProfile(pid: string, rid: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { name: string; body: VoiProfileSettings }) => {
+      const reviewer = await requireReviewer()
+      if (!reviewer) throw new ReviewerCancelled()
+      return api.saveVoiProfile(pid, rid, p.name, p.body, reviewer)
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.voiProfiles(pid, rid) }),
+  })
+}
 export const useLabelTables = (pid: string) =>
   useQuery({ queryKey: keys.labelTables(pid), queryFn: () => api.listLabelTables(pid), enabled: enabled(pid) })
 /** Deleted tables, for Restore */
@@ -512,6 +541,7 @@ export function useEstimate(pid: string) {
 
 function invalidateRuns(qc: QueryClient, pid: string) {
   void qc.invalidateQueries({ queryKey: keys.runs(pid) })
+  void qc.invalidateQueries({ queryKey: keys.tables(pid) })
   void qc.invalidateQueries({ queryKey: keys.scope(pid, 'run') })
   void qc.invalidateQueries({ queryKey: keys.allJobs() })
 }
@@ -638,11 +668,13 @@ export function applyServerEvent(qc: QueryClient, pid: string, e: ServerEvent) {
       if (e.data.kind === 'radiomics') {
         void qc.invalidateQueries({ queryKey: keys.runs(pid) })
         void qc.invalidateQueries({ queryKey: keys.scope(pid, 'run') })
+        void qc.invalidateQueries({ queryKey: keys.tables(pid) })
       }
       if (e.data.kind === 'thumbnail') useConnection.getState().bumpThumbs()
       // A finished task run may have registered a segmentation set, annotations or an import
       if (e.data.kind === 'task') {
         void qc.invalidateQueries({ queryKey: keys.taskRuns(pid) })
+        void qc.invalidateQueries({ queryKey: keys.tables(pid) })
         void qc.invalidateQueries({ queryKey: keys.segmentations(pid) })
         void qc.invalidateQueries({ queryKey: keys.scope(pid, 'case') })
         void qc.invalidateQueries({ queryKey: keys.scope(pid, 'item') })

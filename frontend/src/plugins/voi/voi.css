@@ -89,3 +89,16 @@
 .voi-toolbar .select, .voi-toolbar .input { width: auto; }
 .voi-toolbar .select { max-width: 220px; }
 .voi-toolbar .voi-search { width: 220px; }
+
+/* Lesions and training profile */
+.voi-section { margin: 0; padding: var(--sp-2) 0 0; border: 0; border-top: var(--border-width) solid var(--border-muted); }
+.voi-profile { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.voi-profile-controls, .voi-profile-save { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2); }
+.voi-hist { margin: 0; max-width: 560px; }
+.voi-hist svg { width: 100%; height: auto; display: block; }
+.voi-hist-bar { fill: var(--cat-1); }
+.voi-hist-cut { stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.voi-hist-axis { fill: var(--fg-muted); font-size: 11px; }
+.voi-profile-table-wrap { overflow-x: auto; }
+.voi-profile-table td .input { width: 64px; }
+.voi-profile-files { margin: 0; padding-left: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }

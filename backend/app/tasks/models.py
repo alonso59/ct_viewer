@@ -13,7 +13,7 @@ from app.radiomics.models import EstimateResult, RunDetail, RunError, RunSummary
 TASK_ID_RE = r"^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)+$"
 TaskKind = Literal["conversion", "analyzer", "features", "segmentation"]
 TaskInput = Literal["items", "rows", "source"]
-OutputType = Literal["images", "masks", "features", "metadata", "annotations"]
+OutputType = Literal["images", "masks", "features", "metadata", "annotations", "tables"]
 VOLUME_OUTPUTS: frozenset[str] = frozenset({"images", "masks"})
 TaskRunStatus = Literal[
     "queued",
@@ -329,7 +329,7 @@ class TaskRunInput(BaseModel):
 
 
 class TaskRunOutput(BaseModel):
-    kind: str  # mask | image | annotations | features | metadata | segmentation_set | import
+    kind: str  # mask, image, annotations, features, metadata, segmentation_set, import, table
     item_id: str | None = None
     ref: str | None = None  # DERIVED:… for volumes; project-relative path for tabular outputs
     seg_id: str | None = None

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useDashboardView } from '../../../api'
 import { fmtValue } from '../../../lib'
 import { Chart, axisStyle, type ChartInstance, type ChartOption } from '../Chart'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import {
   ChartOrTable,
   FeatureSelect,
@@ -22,18 +22,18 @@ import {
   type ViewProps,
 } from './common'
 
-export function DistributionView({ runId }: ViewProps) {
+export function DistributionView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters, colorBy } = useRunDashboard(runId)
-  const names = useFeatureNames(runId)
+  const { filters, colorBy } = useTableDashboard(tableId)
+  const names = useFeatureNames(tableId)
   const [wanted, setWanted] = useState<string | null>(null)
   const [log, setLog] = useState(false)
   const [chart, setChart] = useState<ChartInstance | null>(null)
   const feature = pickFeature(names, wanted)
-  useFocusParams(runId, 'feature-distribution', (p) => setWanted(str(p.feature) ?? wanted))
-  const q = useDashboardView(pid, runId, 'feature-distribution', feature ? { filters, feature, split: colorBy, log_scale: log } : null)
-  const sel = useSelection(runId)
+  useFocusParams(tableId, 'feature-distribution', (p) => setWanted(str(p.feature) ?? wanted))
+  const q = useDashboardView(pid, tableId, 'feature-distribution', feature ? { filters, feature, split: colorBy, log_scale: log } : null)
+  const sel = useSelection(tableId)
   const levelName = useLevelName(colorBy)
   const d = q.data
   const levels = useMemo(() => (d?.groups ?? []).map((g) => g.level), [d])
@@ -89,7 +89,7 @@ export function DistributionView({ runId }: ViewProps) {
       csv={() => [['item_id', 'case_id', 'label', 'split', feature ?? ''], ...(d?.points ?? []).map((p) => [p.item_id, p.case_id, p.label, p.color, p.value])]}
       controls={
         <>
-          <FeatureSelect runId={runId} value={feature} onChange={setWanted} />
+          <FeatureSelect tableId={tableId} value={feature} onChange={setWanted} />
           <label className="check">
             <input type="checkbox" checked={log} onChange={(e) => setLog(e.target.checked)} />
             {t('dashboard.logScale')}
@@ -97,7 +97,7 @@ export function DistributionView({ runId }: ViewProps) {
         </>
       }
     >
-      <ChartOrTable runId={runId}>
+      <ChartOrTable tableId={tableId}>
         <Chart option={option} onReady={setChart} onClick={onBar} />
       </ChartOrTable>
     </ViewFrame>

@@ -28,27 +28,27 @@ const EMPTY: RunDashboard = { filters: {}, colorBy: { kind: 'phase' }, selection
 
 interface DashboardStore {
   runs: Record<string, RunDashboard>
-  patch: (runId: string, p: Partial<Omit<RunDashboard, 'focus'>>) => void
-  setFilters: (runId: string, f: GlobalFilters) => void
-  select: (runId: string, itemIds: string[]) => void
-  focusView: (runId: string, view: DashboardView, params?: Record<string, unknown>) => void
+  patch: (tableId: string, p: Partial<Omit<RunDashboard, 'focus'>>) => void
+  setFilters: (tableId: string, f: GlobalFilters) => void
+  select: (tableId: string, itemIds: string[]) => void
+  focusView: (tableId: string, view: DashboardView, params?: Record<string, unknown>) => void
 }
 
 /** What survives a reload: a run's filters and colouring, not its selection */
 type Kept = Pick<RunDashboard, 'filters' | 'colorBy' | 'filterVars'>
 
 export const useDashboardStore = create<DashboardStore>()(persist((set) => {
-  const update = (runId: string, fn: (r: RunDashboard) => Partial<RunDashboard>) =>
+  const update = (tableId: string, fn: (r: RunDashboard) => Partial<RunDashboard>) =>
     set((s) => {
-      const cur = s.runs[runId] ?? EMPTY
-      return { runs: { ...s.runs, [runId]: { ...cur, ...fn(cur) } } }
+      const cur = s.runs[tableId] ?? EMPTY
+      return { runs: { ...s.runs, [tableId]: { ...cur, ...fn(cur) } } }
     })
   return {
     runs: {},
-    patch: (runId, p) => update(runId, () => p),
-    setFilters: (runId, filters) => update(runId, () => ({ filters })),
-    select: (runId, selection) => update(runId, () => ({ selection })),
-    focusView: (runId, view, params = {}) => update(runId, (r) => ({ focus: { view, params, nonce: (r.focus?.nonce ?? 0) + 1 } })),
+    patch: (tableId, p) => update(tableId, () => p),
+    setFilters: (tableId, filters) => update(tableId, () => ({ filters })),
+    select: (tableId, selection) => update(tableId, () => ({ selection })),
+    focusView: (tableId, view, params = {}) => update(tableId, (r) => ({ focus: { view, params, nonce: (r.focus?.nonce ?? 0) + 1 } })),
   }
 }, {
   name: 'rw.dashboard',
@@ -60,4 +60,4 @@ export const useDashboardStore = create<DashboardStore>()(persist((set) => {
 }))
 
 /** State of one run's dashboard (defaults until something is set) */
-export const useRunDashboard = (runId: string): RunDashboard => useDashboardStore((s) => s.runs[runId] ?? EMPTY)
+export const useTableDashboard = (tableId: string): RunDashboard => useDashboardStore((s) => s.runs[tableId] ?? EMPTY)

@@ -1,20 +1,21 @@
 // Run overview: items ok/failed, per-label and per-phase counts, curation, runtime, errors → item
 import { useTranslation } from 'react-i18next'
 
-import { useDashboardView } from '../../../api'
+import { useDashboardView, useTable } from '../../../api'
 import { ItemName, StatusBadge, fmtDuration, fmtInt, useRowKeys } from '../../../lib'
 import { Icon, codicon } from '../../../theme'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import { asStatus, rowProps, useLabelName, usePid, useSelection, ViewFrame, type ViewProps } from './common'
 
-export function RunOverviewView({ runId }: ViewProps) {
+export function RunOverviewView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters } = useRunDashboard(runId)
-  const q = useDashboardView(pid, runId, 'run-overview', { filters })
+  const { filters } = useTableDashboard(tableId)
+  const q = useDashboardView(pid, tableId, 'run-overview', { filters })
   const labelName = useLabelName()
-  const { selected } = useSelection(runId)
+  const { selected } = useSelection(tableId)
   const d = q.data
+  const instanceName = useTable(pid, tableId).data?.instance_name ?? ''
   // errors without an item are plain rows; the others open the item
   const errorId = (e: NonNullable<typeof d>['errors'][number], i: number) => `${e.item_id}|${e.label ?? ''}|${i}`
   const rowKeys = useRowKeys((d?.errors ?? []).flatMap((e, i) => (e.item_id ? [errorId(e, i)] : [])))
@@ -32,8 +33,14 @@ export function RunOverviewView({ runId }: ViewProps) {
             <div><span className="kpi num" style={{ color: d.n_items_failed ? 'var(--error)' : undefined }}>{fmtInt(d.n_items_failed)}</span><span className="muted">{t('dashboard.kpi.failed')}</span></div>
             <div title={t('dashboard.kpi.skippedHelp')}><span className="kpi num" style={{ color: d.n_items_skipped ? 'var(--warn)' : undefined }}>{fmtInt(d.n_items_skipped)}</span><span className="muted">{t('dashboard.kpi.skipped')}</span></div>
             <div><span className="kpi num">{fmtInt(d.n_features)}</span><span className="muted">{t('dashboard.kpi.features')}</span></div>
+            {d.n_instances ? <div><span className="kpi num">{fmtInt(d.n_instances)}</span><span className="muted">{instanceName || t('dashboard.kpi.instances')}</span></div> : null}
             <div><span className="kpi num">{d.runtime_s != null ? fmtDuration(d.runtime_s) : '—'}</span><span className="muted">{t('dashboard.kpi.runtime')}</span></div>
           </div>
+          {d.n_cases_with_several ? (
+            <p className="db-note" role="note">
+              <Icon spec={codicon('info')} /> {t('dashboard.severalInstances', { count: d.n_cases_with_several, name: instanceName })}
+            </p>
+          ) : null}
           <div className="db-overview-lists">
             <table className="table">
               <thead><tr><th>{t('dashboard.label')}</th><th className="num">{t('dashboard.kpi.items')}</th></tr></thead>

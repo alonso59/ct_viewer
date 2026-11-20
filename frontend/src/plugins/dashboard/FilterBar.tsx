@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { CURATION_STATUSES, PHASES, useProject, type ColorBy, type GlobalFilters, type Variable } from '../../api'
 import { NumberInput, toolbarKeyDown } from '../../lib'
 import { Icon, codicon } from '../../theme'
-import { useDashboardStore, useRunDashboard } from './store'
+import { useDashboardStore, useTableDashboard } from './store'
 import { useLabelName, usePid, useVisibleVariables } from './views/common'
 
 type ListKey = 'phase' | 'scope' | 'side' | 'label' | 'status'
@@ -81,11 +81,11 @@ function VarFilter({ v, value, onChange }: { v: Variable; value: string[]; onCha
   )
 }
 
-export function FilterBar({ runId, labels, trailing }: { runId: string; labels: number[]; trailing?: ReactNode }) {
+export function FilterBar({ tableId, labels, trailing }: { tableId: string; labels: number[]; trailing?: ReactNode }) {
   const { t } = useTranslation()
   const pid = usePid()
   const project = useProject(pid).data
-  const { filters, colorBy, filterVars } = useRunDashboard(runId)
+  const { filters, colorBy, filterVars } = useTableDashboard(tableId)
   const setFilters = useDashboardStore((s) => s.setFilters)
   const patch = useDashboardStore((s) => s.patch)
   const vars = useVisibleVariables()
@@ -99,7 +99,7 @@ export function FilterBar({ runId, labels, trailing }: { runId: string; labels: 
     if (!v.length) delete next[k]
     else if (k === 'label') next.label = v.map(Number)
     else (next as Record<string, string[]>)[k] = v
-    setFilters(runId, next)
+    setFilters(tableId, next)
   }
   const varFilters = filters.var ?? {}
   const setVar = (name: string, v: string[] | null) => {
@@ -108,14 +108,14 @@ export function FilterBar({ runId, labels, trailing }: { runId: string; labels: 
     else delete nextVar[name]
     const next: GlobalFilters = { ...filters, var: nextVar }
     if (!Object.keys(nextVar).length) delete next.var
-    setFilters(runId, next)
-    patch(runId, { filterVars: v === null ? filterVars.filter((n) => n !== name) : filterVars.includes(name) ? filterVars : [...filterVars, name] })
+    setFilters(tableId, next)
+    patch(tableId, { filterVars: v === null ? filterVars.filter((n) => n !== name) : filterVars.includes(name) ? filterVars : [...filterVars, name] })
   }
   const activeVars = [...new Set([...filterVars, ...Object.keys(varFilters)])]
   const colorValue = colorBy ? (colorBy.kind === 'variable' ? `variable:${colorBy.name ?? ''}` : colorBy.kind) : ''
   const setColor = (v: string) => {
     const c: ColorBy | null = !v ? null : v.startsWith('variable:') ? { kind: 'variable', name: v.slice(9) } : { kind: v as ColorBy['kind'] }
-    patch(runId, { colorBy: c })
+    patch(tableId, { colorBy: c })
   }
   const nActive = (['phase', 'scope', 'side', 'label', 'status'] as const).filter((k) => list(k).length).length + activeVars.filter((n) => varFilters[n]?.length).length
   return (
@@ -148,8 +148,8 @@ export function FilterBar({ runId, labels, trailing }: { runId: string; labels: 
       </Menu.Root>
       {nActive ? (
         <button type="button" className="btn btn-sm" onClick={() => {
-          setFilters(runId, {})
-          patch(runId, { filterVars: [] })
+          setFilters(tableId, {})
+          patch(tableId, { filterVars: [] })
         }}>
           {t('dashboard.filter.clearAll', { count: nActive })}
         </button>

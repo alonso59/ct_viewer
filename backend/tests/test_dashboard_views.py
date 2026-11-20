@@ -39,8 +39,18 @@ def rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(curation_state, "item_statuses", lambda _p: {OUTLIER_ITEM: "rejected"})
 
 
+def test_radiomics_run_paths_alias_the_table_paths(mod_client: TestClient, syn: Synthetic) -> None:
+    old = f"/api/v1/projects/{syn.pid}/radiomics/runs/{syn.run_id}/views"
+    for slug, body in (("run-overview", None), ("correlation", {"filters": {"label": [2]}})):
+        assert ok(mod_client.post(f"{old}/{slug}", json=body)) == ok(
+            view(mod_client, syn, slug, body)
+        )
+    assert_problem(mod_client.post(f"{old}/nope", json={}), "not-found")
+
+
 def test_run_overview(mod_client: TestClient, syn: Synthetic) -> None:
     body = ok(view(mod_client, syn, "run-overview"))
+    assert body["table_id"] == syn.run_id
     n_items = len(syn.items)
     assert body["n_items_ok"] == n_items and body["n_items_failed"] == 1
     assert body["n_items_selected"] == n_items + 1 and body["runtime_s"] == 150
@@ -93,8 +103,10 @@ def test_missing_matrix(mod_client: TestClient, syn: Synthetic) -> None:
     kinds = sorted(c["kind"] for c in body["cells"])
     assert kinds == ["absent", "inf", "nan", "nan", "nan"]
     assert len(body["items"]) == 5 and all(i["n_invalid"] == 1 for i in body["items"])
-    only_glcm = ok(view(mod_client, syn, "missing-matrix", {"feature_class": ["glcm"]}))
-    assert {f["feature_class"] for f in only_glcm["features"]} == {"glcm"}
+    only_glcm = ok(view(mod_client, syn, "missing-matrix", {"groups": ["glcm"]}))
+    assert {f["group"] for f in only_glcm["features"]} == {"glcm"}
+    old_name = ok(view(mod_client, syn, "missing-matrix", {"feature_class": ["glcm"]}))
+    assert old_name["features"] == only_glcm["features"]
 
 
 def test_correlation(mod_client: TestClient, syn: Synthetic) -> None:

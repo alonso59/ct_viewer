@@ -641,9 +641,12 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
         .map((e) => e.radiomics)
         .filter((e): e is RunError => e != null),
 
-    dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/radiomics/runs/${enc(rid)}/views/${view}`, body),
+    listTables: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/tables', { params: { path: { pid } } })),
+    getTable: (pid, tid) => unwrap(client.GET('/api/v1/projects/{pid}/tables/{tid}', { params: { path: { pid, tid } } })),
+    tableExportUrl: (pid, tid, format, shape) => `${V1}/projects/${enc(pid)}/tables/${enc(tid)}/export?format=${format}&shape=${shape}`,
+    dashboardView: (pid, rid, view, body) => send('POST', `/projects/${enc(pid)}/tables/${enc(rid)}/views/${view}`, body),
     async listAnalyses(pid, rid) {
-      const r = await unwrap(client.GET('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, query: rid ? { run_id: rid } : {} } }))
+      const r = await unwrap(client.GET('/api/v1/projects/{pid}/analyses', { params: { path: { pid }, query: rid ? { table_id: rid } : {} } }))
       return r.items
     },
     getAnalysis: (pid, aid) => unwrap(client.GET('/api/v1/projects/{pid}/analyses/{aid}', { params: { path: { pid, aid } } })),
@@ -715,6 +718,11 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
     voiPreviewUrl: (pid, token) => `${V1}/plugins/voi/projects/${enc(pid)}/previews/${enc(token)}`,
     voiRunResults: (pid, rid, query) => unwrap(client.GET('/api/v1/plugins/voi/projects/{pid}/runs/{rid}/results', { params: { path: { pid, rid }, query } })),
     voiResultPreviewUrl: (pid, rid, n) => `${V1}/plugins/voi/projects/${enc(pid)}/runs/${enc(rid)}/results/${n}/preview`,
+    voiProfile: (pid, rid, body) => unwrap(client.POST('/api/v1/plugins/voi/projects/{pid}/runs/{rid}/profile', { params: { path: { pid, rid } }, body })),
+    voiProfiles: (pid, rid) => unwrap(client.GET('/api/v1/plugins/voi/projects/{pid}/runs/{rid}/profiles', { params: { path: { pid, rid } } })),
+    saveVoiProfile: (pid, rid, name, body, reviewer) =>
+      unwrap(client.PUT('/api/v1/plugins/voi/projects/{pid}/runs/{rid}/profiles/{name}', { params: { path: { pid, rid, name }, header: { 'X-Reviewer': reviewer } }, body })),
+    voiProfileExportUrl: (pid, rid, name) => `${V1}/plugins/voi/projects/${enc(pid)}/runs/${enc(rid)}/profiles/${enc(name)}/export`,
     labelExportUrl: (pid, tid, format) => viewPath(`${V1}/plugins/labeling/projects/${enc(pid)}/tables/${enc(tid)}/export?format=${format}`),
     estimateWorkspaceTask: (tid, selection, settings = {}, progressId) =>
       unwrap(client.POST('/api/v1/tasks/{tid}/estimate', { params: { path: { tid }, query: { progress_id: progressId ?? null } }, body: { selection, settings } })),

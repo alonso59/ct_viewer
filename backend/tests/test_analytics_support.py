@@ -229,7 +229,7 @@ def syn(mod_client: TestClient) -> Synthetic:
 
 
 def view(c: TestClient, s: Synthetic, slug: str, body: dict[str, Any] | None = None) -> Any:
-    return c.post(f"{API}/projects/{s.pid}/radiomics/runs/{s.run_id}/views/{slug}", json=body)
+    return c.post(f"{API}/projects/{s.pid}/tables/{s.run_id}/views/{slug}", json=body)
 
 
 def ok(r: Any, status: int = 200) -> Any:
@@ -238,4 +238,4 @@ def ok(r: Any, status: int = 200) -> Any:
 
 
 def analyze(c: TestClient, s: Synthetic, **spec: Any) -> Any:
-    return c.post(f"{API}/projects/{s.pid}/analyses", json={"run_id": s.run_id, **spec})
+    return c.post(f"{API}/projects/{s.pid}/analyses", json={"table_id": s.run_id, **spec})

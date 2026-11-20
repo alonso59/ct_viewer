@@ -6,18 +6,18 @@ import { useDashboardView } from '../../../api'
 import { NumberInput, fmtNum } from '../../../lib'
 import { token } from '../../../theme'
 import { Chart, fontSize, type ChartInstance, type ChartOption } from '../Chart'
-import { useDashboardStore, useRunDashboard } from '../store'
+import { useDashboardStore, useTableDashboard } from '../store'
 import { ChartOrTable, numParam, usePid, useFocusParams, ViewFrame, type ViewProps } from './common'
 
-export function CorrelationView({ runId }: ViewProps) {
+export function CorrelationView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters } = useRunDashboard(runId)
+  const { filters } = useTableDashboard(tableId)
   const focusView = useDashboardStore((s) => s.focusView)
   const [threshold, setThreshold] = useState(0.9)
   const [chart, setChart] = useState<ChartInstance | null>(null)
-  useFocusParams(runId, 'correlation', (p) => setThreshold(numParam(p.threshold) ?? threshold))
-  const q = useDashboardView(pid, runId, 'correlation', { filters, threshold })
+  useFocusParams(tableId, 'correlation', (p) => setThreshold(numParam(p.threshold) ?? threshold))
+  const q = useDashboardView(pid, tableId, 'correlation', { filters, threshold })
   const d = q.data
   const short = (f: string) => f.replace(/^original_/, '')
   const option = useMemo<ChartOption>(() => {
@@ -63,7 +63,7 @@ export function CorrelationView({ runId }: ViewProps) {
           onReady={setChart}
           onClick={(p) => {
             const f = d?.features[(p.data as number[] | undefined)?.[1] ?? -1]
-            if (f) focusView(runId, 'feature-distribution', { feature: f })
+            if (f) focusView(tableId, 'feature-distribution', { feature: f })
           }}
         />
       </ChartOrTable>

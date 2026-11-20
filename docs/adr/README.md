@@ -65,3 +65,5 @@ Template: `Status · Date · Context · Decision · Consequences · Rejected alt
 | 0057 | Scans are grouped by DICOM exam and series, for display only | Accepted (extends 0011) |
 | 0058 | Recycle bin panel: restore and permanent delete | Accepted (partially supersedes 0029) |
 | 0059 | Derived tumor regions as a task plugin; combined runs and label pairs for analysis | Accepted (extends 0006, 0015, 0016) |
+| 0060 | The dashboard and analyses read analysis tables, not radiomics runs | Accepted (extends 0009, 0012, 0016) |
+| 0061 | The VOI extractor measures lesions and writes the training contract | Accepted (extends 0050, 0060) |

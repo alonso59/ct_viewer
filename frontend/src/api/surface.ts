@@ -49,6 +49,11 @@ import type {
   VoiRequest,
   VoiResultsQuery,
   VoiRunResults,
+  VoiProfile,
+  VoiProfileSettings,
+  VoiProfileSummary,
+  TableManifest,
+  TableSummary,
   PreviewRequest,
   Profile,
   Project,
@@ -324,6 +329,12 @@ export interface Api {
   voiRunResults(pid: string, runId: string, query: VoiResultsQuery): Promise<VoiRunResults>
   /** Axial preview of a written VOI; null when the binding cannot serve images (mock) */
   voiResultPreviewUrl(pid: string, runId: string, n: number): string | null
+  /** The run's sampling profile with these settings over the run's own (no volume is read) */
+  voiProfile(pid: string, runId: string, body: VoiProfileSettings): Promise<VoiProfile>
+  voiProfiles(pid: string, runId: string): Promise<VoiProfileSummary[]>
+  saveVoiProfile(pid: string, runId: string, name: string, body: VoiProfileSettings, reviewer: string): Promise<VoiProfile>
+  /** Download of `sampling_profile.json`: `run` = the one the run wrote, else a saved variant */
+  voiProfileExportUrl(pid: string, runId: string, name: string): string
 
   listTasks(): Promise<TaskList>
   getTask(taskId: string): Promise<TaskInfo>
@@ -397,6 +408,9 @@ export interface Api {
   runExportUrl(pid: string, rid: string, format: RunExportFormat, shape: RunExportShape): string
   runErrors(pid: string, rid: string): Promise<RunError[]>
 
+  listTables(pid: string): Promise<TableSummary[]>
+  getTable(pid: string, tid: string): Promise<TableManifest>
+  tableExportUrl(pid: string, tid: string, format: 'csv' | 'parquet', shape: 'wide' | 'long'): string
   dashboardView<V extends DashboardView>(pid: string, rid: string, view: V, body: ViewRequest<V>): Promise<ViewResponse<V>>
   listAnalyses(pid: string, rid?: string): Promise<AnalysisSummary[]>
   getAnalysis(pid: string, aid: string): Promise<Analysis>

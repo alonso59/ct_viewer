@@ -7,14 +7,19 @@ Floats that cannot be computed are `null`, never NaN.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 Scope = Literal["complete", "voi"]
 Side = Literal["L", "R", "-"]
 Num = float | None
 
+# Column groups to keep (a radiomics feature class, a lesion measure group); requests may still
+# name them `feature_class`.
+Groups = Annotated[
+    list[str] | None, Field(validation_alias=AliasChoices("groups", "feature_class"))
+]
 ViewSlug = Literal[
     "run-overview",
     "feature-distribution",
@@ -102,7 +107,8 @@ class UnitSpec(BaseModel):
 
     `phase = null` picks, per case, the item whose phase ranks first in the project phase
     priority. `aggregate` resolves > 1 item per case: `first` (by phase priority, then
-    scan, side), `mean` (feature means), or `none` (keep every item; triggers REC-NONINDEP).
+    scan, instance, side), `mean` (feature means), or `none` (keep every item; triggers
+    REC-NONINDEP).
     `label`/`scope` default to the most frequent in the filtered run.
     """
 
@@ -151,19 +157,19 @@ class FeatureDistributionRequest(ViewRequest):
 
 
 class MissingMatrixRequest(ViewRequest):
-    feature_class: list[str] | None = None
+    groups: Groups = None
     max_cells: int = Field(default=50_000, ge=1, le=50_000)
 
 
 class CorrelationRequest(ViewRequest):
-    feature_class: list[str] | None = None
+    groups: Groups = None
     threshold: float = Field(default=0.9, gt=0, le=1)
     max_features: int = Field(default=200, ge=2, le=500)
 
 
 class EmbeddingRequest(ViewRequest):
     features: list[str] | None = None
-    feature_class: list[str] | None = None
+    groups: Groups = None
     n_components: int = Field(default=2, ge=2, le=10)
     color_by: ColorBy | None = None
 
@@ -174,7 +180,7 @@ class OutliersRequest(ViewRequest):
     min_feature_pct: float = Field(default=5.0, ge=0, le=100)
     top_n: int = Field(default=10, ge=1, le=5000)  # the UI shows 10, "Show all" = n_flagged
     top_features: int = Field(default=5, ge=1, le=50)
-    feature_class: list[str] | None = None
+    groups: Groups = None
 
 
 class FeatureVsVolumeRequest(ViewRequest):
@@ -189,7 +195,7 @@ class GroupComparisonRequest(ViewRequest):
     test: TestOverride = "auto"
     unit: UnitSpec = Field(default_factory=UnitSpec)
     features: list[str] | None = None
-    feature_class: list[str] | None = None
+    groups: Groups = None
 
 
 class AssociationRequest(ViewRequest):
@@ -198,7 +204,7 @@ class AssociationRequest(ViewRequest):
     test: TestOverride = "auto"  # alternative = Pearson
     unit: UnitSpec = Field(default_factory=UnitSpec)
     features: list[str] | None = None
-    feature_class: list[str] | None = None
+    groups: Groups = None
 
 
 class BalanceRequest(ViewRequest):
@@ -255,7 +261,7 @@ class PhaseChange(BaseModel):
 
 
 class RunOverviewResponse(BaseModel):
-    run_id: str
+    table_id: str
     name: str
     status: str
     created_at: str | None = None
@@ -271,6 +277,10 @@ class RunOverviewResponse(BaseModel):
     n_errors: int
     errors: list[RunError]
     phase_changed: list[PhaseChange] = Field(default_factory=list)
+    # tables with one row per instance (e.g. per lesion): instances, and cases with several of
+    # one label, whose rows are not independent
+    n_instances: int = 0
+    n_cases_with_several: int = 0
 
 
 class DistPoint(ItemRef):
@@ -298,7 +308,7 @@ class FeatureDistributionResponse(BaseModel):
 
 class MissingFeature(BaseModel):
     feature: str
-    feature_class: str
+    group: str
     n_nan: int
     n_inf: int
     n_absent: int
@@ -557,13 +567,13 @@ class ConsistencyResponse(BaseModel):
 
 
 class AnalysisSpec(BaseModel):
-    """Run + filter + unit + question type + variable (+ optional confounder).
+    """Table + filter + unit + question type + variable (+ optional confounder).
 
     `balance` compares `variable` x `confounder` (both categorical). `paired` is rejected
-    with `validation`.
+    with `validation`. Specs saved before analysis tables name the table `run_id`.
     """
 
-    run_id: str
+    table_id: str = Field(validation_alias=AliasChoices("table_id", "run_id"))
     name: str = Field(default="", max_length=200)
     question: Question
     variable: str | None = None
@@ -572,7 +582,7 @@ class AnalysisSpec(BaseModel):
     unit: UnitSpec = Field(default_factory=UnitSpec)
     test: TestOverride = "auto"
     features: list[str] | None = None
-    feature_class: list[str] | None = None
+    groups: Groups = None
 
 
 class Recommendation(BaseModel):
@@ -589,7 +599,7 @@ class AnalysisSummary(BaseModel):
     name: str
     created_at: str
     created_by: str | None = None
-    run_id: str
+    table_id: str
     question: Question
     variable: str | None
     confounder: str | None

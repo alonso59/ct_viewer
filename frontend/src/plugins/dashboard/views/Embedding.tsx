@@ -5,16 +5,16 @@ import { useTranslation } from 'react-i18next'
 import { useDashboardView } from '../../../api'
 import { fmt1 } from '../../../lib'
 import type { ChartInstance } from '../Chart'
-import { useRunDashboard } from '../store'
+import { useTableDashboard } from '../store'
 import { asStatus, useLevelName, usePid, ViewFrame, type ViewProps } from './common'
 import { Scatter, type ScatterPoint } from './Scatter'
 
-export function EmbeddingView({ runId }: ViewProps) {
+export function EmbeddingView({ tableId }: ViewProps) {
   const { t } = useTranslation()
   const pid = usePid()
-  const { filters, colorBy } = useRunDashboard(runId)
+  const { filters, colorBy } = useTableDashboard(tableId)
   const [chart, setChart] = useState<ChartInstance | null>(null)
-  const q = useDashboardView(pid, runId, 'embedding', { filters, color_by: colorBy })
+  const q = useDashboardView(pid, tableId, 'embedding', { filters, color_by: colorBy })
   const levelName = useLevelName(colorBy)
   const d = q.data
   const points = useMemo<ScatterPoint[]>(
@@ -37,7 +37,7 @@ export function EmbeddingView({ runId }: ViewProps) {
         d ? <span className="muted">{t('dashboard.featuresUsed', { count: d.features_used.length })}</span> : null
       }
     >
-      <Scatter runId={runId} points={points} xName={axis(0)} yName={axis(1)} levelName={levelName} onReady={setChart} />
+      <Scatter tableId={tableId} points={points} xName={axis(0)} yName={axis(1)} levelName={levelName} onReady={setChart} />
     </ViewFrame>
   )
 }

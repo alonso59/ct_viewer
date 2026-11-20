@@ -635,6 +635,17 @@ def render_preview(image_path: str, cand: Candidate, *, size_px: int = 320) -> b
 # ---------------------------------------------------------------- extraction
 
 
+@dataclass
+class Written:
+    """What `extract` wrote (`geo`: shape and voxel size) and the crop as written, for measuring:
+    the image, the mask with every label (even when the file holds a binary mask) and the affine."""
+
+    geo: dict[str, Any]
+    image: NDArray[np.float32]
+    labels: NDArray[np.uint8]
+    affine: NDArray[np.float64]
+
+
 def extract(
     image_path: str,
     mask_path: str,
@@ -645,7 +656,7 @@ def extract(
     *,
     resample_mm: float | None,
     keep_labels: bool = True,
-) -> dict[str, Any]:
+) -> Written:
     """Write the crop (image + mask) as NIfTI in RAS; optionally resample to isotropic voxels."""
     raw_img: Any = nib.load(image_path)
     raw_msk, _ = _on_image_grid(nib.load(mask_path), raw_img)
@@ -654,24 +665,30 @@ def extract(
     (x0, y0, z0), (x1, y1, z1) = cand.crop
     sub_i = img.slicer[x0:x1, y0:y1, z0:z1]
     sub_m = msk.slicer[x0:x1, y0:y1, z0:z1]
-    data_m = np.rint(np.asanyarray(sub_m.dataobj)).astype(np.uint8)
-    if not keep_labels:
-        data_m = np.isin(data_m, list(values)).astype(np.uint8)
     out_i = nib.Nifti1Image(np.asanyarray(sub_i.dataobj).astype(np.float32), sub_i.affine)
-    out_m = nib.Nifti1Image(data_m, sub_m.affine)
+    out_l = nib.Nifti1Image(np.rint(np.asanyarray(sub_m.dataobj)).astype(np.uint8), sub_m.affine)
     if resample_mm:
         from nibabel.processing import resample_to_output
 
         vox = [float(resample_mm)] * 3
         out_i = resample_to_output(out_i, vox, order=3, cval=-1000.0)
-        out_m = resample_to_output(out_m, vox, order=0)
-        out_m = nib.Nifti1Image(np.asarray(out_m.dataobj).astype(np.uint8), out_m.affine)
+        out_l = resample_to_output(out_l, vox, order=0)
+        out_l = nib.Nifti1Image(np.asarray(out_l.dataobj).astype(np.uint8), out_l.affine)
+    labels = np.asarray(out_l.dataobj)
+    # Nearest-neighbour sampling commutes with the binarization, so a binary file is the same
+    # whichever comes first.
+    out_m = out_l if keep_labels else nib.Nifti1Image(np.isin(labels, list(values)).astype(np.uint8), out_l.affine)
     nib.save(out_i, out_image)
     nib.save(out_m, out_mask)
-    return {
-        "shape": [int(v) for v in out_i.shape],
-        "spacing": [round(float(v), 3) for v in out_i.header.get_zooms()[:3]],
-    }
+    return Written(
+        geo={
+            "shape": [int(v) for v in out_i.shape],
+            "spacing": [round(float(v), 3) for v in out_i.header.get_zooms()[:3]],
+        },
+        image=np.asarray(out_i.dataobj, dtype=np.float32),
+        labels=labels,
+        affine=np.asarray(out_l.affine, dtype=np.float64),
+    )
 
 
 def render_result(image_path: str, mask_path: str, values: Sequence[int], *, size_px: int = 320) -> bytes:
