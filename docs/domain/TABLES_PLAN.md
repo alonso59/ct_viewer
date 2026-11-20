@@ -1,6 +1,6 @@
 # Analysis tables and VOI lesion profile: implementation plan (P7m)
 
-Status: T0 accepted 2026-11-20 (ADR-0060, ADR-0061); T1 done 2026-11-20 (owner confirmed); T2 done 2026-11-20 (owner confirmed); T3 done 2026-11-20 (owner confirmed); T4 done 2026-11-20 (owner confirmed); T5.3 done; T5.2 release 3.7.0 in progress; T5.1 owner walkthrough after the deploy.
+Status: T0 accepted 2026-11-20 (ADR-0060, ADR-0061); T1 done 2026-11-20 (owner confirmed); T2 done 2026-11-20 (owner confirmed); T3 done 2026-11-20 (owner confirmed); T4 done 2026-11-20 (owner confirmed); T5.3 done; T5.2 3.7.0 deployed 2026-11-20 (`native-20261120-7fa7d6f`); T5.1 owner walkthrough pending.
 Scope: ordered steps T1–T5 for analysis tables (ADR-0060) and VOI lesion measurement with the training contract (ADR-0061). Facts move to their owner docs at each step's exit; this file only sequences work.
 Read when: starting or resuming P7m.
 Depends: ADR-0060, ADR-0061, domain/VOI.md, domain/TASKS.md (§Outputs, §Protocol), domain/ANALYSIS.md, frontend/DASHBOARD.md, plugins/AGENTS.md, skill `rw-api-change`.

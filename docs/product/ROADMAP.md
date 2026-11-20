@@ -32,7 +32,7 @@ Order: **P7b → P7c → quality audit (all done) → P7d nnU-Net planning → P
 | P7j | Deployment options: native, HPC (ADR-0043, ADR-0051) | 🟨 Native deployed on `john` 2026-11-04; HPC acceptance pending a real cluster (OPS-20, OPS-23) |
 | P7k | Cohort dashboard: K1 read-only grid, K2 clinical & labels, K3 Timeline (ADR-0045/0046, COHORT.md) | ✅ K1–K3 2026-11-05, exit accepted by the owner (ADR-0049 for K3); COH-11 not built. Accepted 2026-11-04; independent of P7g–P7j (owner decision) |
 | P7l | Agent interface: agent origin, CTFlow commands, batch reassign, `rw-mcp` (ADR-0048) | ✅ 2026-11-05 (owner accepted the exit); independent of P7k |
-| P7m | Analysis tables for the dashboard; VOI lesion measurement and training profile (ADR-0060, ADR-0061) | 🟨 T0–T4 done 2026-11-20; T5 (release 3.7.0, research loader) next after owner confirmation |
+| P7m | Analysis tables for the dashboard; VOI lesion measurement and training profile (ADR-0060, ADR-0061) | 🟨 T0–T4 done; 3.7.0 deployed 2026-11-20 (`native-20261120-7fa7d6f`); research loader done; owner walkthrough (T5.1) pending |
 | P8 | Electron shell | ⬜ |
 
 Runbook steps 0–3 (bootstrap and parallel lanes) integrated 2026-09-23..24.
@@ -151,7 +151,7 @@ Steps as TABLES_PLAN.md; owner confirmation between steps.
 - [x] T2 Lesion measurement in `voi.extract` (parity with Dataset421: 179/179 VOIs, 182 lesions; 2026-11-20)
 - [x] T3 Training contract: lesion catalog, sampling profile, fingerprint, profile endpoints (2026-11-20)
 - [x] T4 Frontend: VOI Lesions & profile tab, dashboard over tables (2026-11-20)
-- [ ] T5 Release 3.7.0 and the research loader
+- [ ] T5 Release 3.7.0 (deployed 2026-11-20) and the research loader (done); owner walkthrough on Kidney_ukb pending
 **Exit:** on Kidney_ukb, one `voi.extract` run gives the three training files and a lesion table the dashboard analyzes; a training config samples patches from that run; radiomics runs and saved analyses behave as in 3.6.1.
 
 ### Pending plugin after P7g
