@@ -23,8 +23,10 @@ from app.ingest.recycle import (
     MANIFEST,
     RECYCLE,
     RESTORE,
+    RecycleScope,
     RecycleService,
     _jsonl,
+    metadata_scans,
     prune_rows,
 )
 
@@ -43,6 +45,7 @@ class RecycleBinEntry(BaseModel):
     case_id: str | None
     scan_idx: str | None
     item_ids: list[str]
+    scope: RecycleScope = "scan"
     n_files: int
     projects: list[str]
     # False when the bin folder is gone (moved or deleted by hand); only a delete is possible
@@ -80,18 +83,35 @@ def _key(row: dict[str, Any]) -> str:
 
 
 def _unprune(
-    backup: list[dict[str, Any]], current: list[dict[str, Any]], ids: set[str], case: str, scan: str
+    backup: list[dict[str, Any]],
+    current: list[dict[str, Any]],
+    ids: set[str],
+    scans: set[tuple[str, str, str | None]],
 ) -> list[dict[str, Any]]:
     """Put the scan's rows back into the current rows, keeping every later change."""
-    pairs = prune_rows(backup, ids, case, scan)
+    pairs = prune_rows(backup, ids, scans)
     trimmed: dict[str, list[dict[str, Any]]] = {}
     for row, kept in pairs:
         if kept is not None and kept is not row:
-            trimmed.setdefault(_key(kept), []).append(row)
+            key = _key({k: v for k, v in row.items() if k != "outputs"})
+            trimmed.setdefault(key, []).extend(
+                o for o in row["outputs"] if o not in kept["outputs"]
+            )
     out = []
     for row in current:
-        originals = trimmed.get(_key(row))
-        out.append(originals.pop(0) if originals else row)
+        additions = trimmed.get(_key({k: v for k, v in row.items() if k != "outputs"}))
+        if isinstance(row.get("outputs"), list) and additions:
+            out.append(
+                {
+                    **row,
+                    "outputs": [
+                        *row["outputs"],
+                        *(o for o in additions if o not in row["outputs"]),
+                    ],
+                }
+            )
+        else:
+            out.append(row)
     present = {_key(r) for r in out}
     return out + [row for row, kept in pairs if kept is None and _key(row) not in present]
 
@@ -146,6 +166,7 @@ class RecycleBinService(RecycleService):
                     case_id=scan.get("case_id"),
                     scan_idx=scan.get("scan_idx"),
                     item_ids=entry.get("item_ids", []),
+                    scope=scan.get("scope", "scan"),
                     n_files=len(manifest.get("files", [])),
                     projects=sorted(manifest.get("items", {})),
                     available=folder is not None and manifest.get("status") == "completed",
@@ -166,6 +187,7 @@ class RecycleBinService(RecycleService):
             raise ValidationProblem("This recycle did not complete; nothing to restore")
         scan = manifest["scan"]
         case, idx = scan["case_id"], scan["scan_idx"]
+        scope = scan.get("scope", "scan")
         projects = sorted(manifest["items"])
         for other in projects:
             try:
@@ -175,9 +197,11 @@ class RecycleBinService(RecycleService):
                     f"Project {other} shares this scan but is archived or removed; restore it first"
                 ) from None
         items = {p: [Item.model_validate(i) for i in rows] for p, rows in manifest["items"].items()}
-        ids = {i.item_id for its in items.values() for i in its}
         for other in projects:
-            taken = sorted(ids & set(self.index.load_resolved(other).by_id))
+            taken = sorted(
+                {item.item_id for item in items[other]}
+                & self.index.load_resolved(other).by_id.keys()
+            )
             if taken:
                 raise ValidationProblem(f"Already in the index of project {other}: {taken[0]}")
 
@@ -213,12 +237,25 @@ class RecycleBinService(RecycleService):
             if realpath(path) in own:
                 continue
             self._guard_write(path)
-            content = self._merged(path, backup, manifest, ids, case, idx, refs)
+            owner = next(
+                (other for other, pdir in pdirs.items() if path.is_relative_to(pdir)),
+                manifest.get("source_project", pid),
+            )
+            members = items[owner]
+            content = self._merged(
+                path,
+                backup,
+                manifest,
+                {i.item_id for i in members},
+                metadata_scans(members, scope),
+                refs,
+            )
             if content is not None:
                 writes[path] = content
 
         by_original = {realpath(path): backup for path, backup in backups.items()}
         for other, its in items.items():
+            ids = {i.item_id for i in its}
             current = self.index.load_resolved(other)
             pdir = pdirs[other]
             warnings = list(current.warnings)
@@ -271,8 +308,7 @@ class RecycleBinService(RecycleService):
         backup: Path,
         manifest: dict[str, Any],
         ids: set[str],
-        case: str,
-        idx: str,
+        scans: set[tuple[str, str, str | None]],
         refs: set[str],
     ) -> bytes | None:
         """The current file with the scan's rows from `backup` added back; None if unchanged."""
@@ -316,7 +352,7 @@ class RecycleBinService(RecycleService):
             raw["files"] = {**raw.get("files", {}), **added}
             return json.dumps(raw).encode()
         current = list(iter_jsonl(path)) if path.is_file() else []
-        merged = _unprune(list(iter_jsonl(backup)), current, ids, case, idx)
+        merged = _unprune(list(iter_jsonl(backup)), current, ids, scans)
         return None if merged == current else _jsonl(merged)
 
     def preview_restore(self, pid: str, rid: str) -> RestorePlan:

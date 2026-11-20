@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import type { CurationStateRow } from '../../api'
 import i18n from '../../i18n'
 import { decisionsFor, statusOf, targetName, targetsFor } from './model'
@@ -10,7 +11,7 @@ const row = (p: Partial<CurationStateRow>): CurationStateRow => ({
 describe('curation model', () => {
   test('targets follow the label map (PRJ-07) and add voi_mask only for VOI items', () => {
     const labels = [{ value: 1, name: 'kidney' }, { value: 2, name: 'tumor' }]
-    expect(targetsFor({ scope: 'complete' }, labels)).toEqual(['seg', 'label:1', 'label:2', 'side', 'case'])
+    expect(targetsFor({ scope: 'complete' }, labels)).toEqual(['seg', 'label:1', 'label:2', 'side', 'scan', 'case'])
     expect(targetsFor({ scope: 'voi' }, [])).toContain('voi_mask')
   })
 
@@ -55,4 +56,12 @@ describe('curation model', () => {
     // an old event without seg_id is the imported set
     expect(statusOf([row({ seg_id: null })], 'c1.01.complete.-', 'c1', 'seg', 'imported')).toBe('accepted')
   })
+})
+
+test('CUR-03 a whole-scan decision applies to its full volume and either VOI', () => {
+  const a = row({ item_id: null, target: 'scan', scan_idx: '02', status: 'accepted' })
+  const b = row({ item_id: null, target: 'scan', scan_idx: '01', status: 'rejected' })
+  expect(decisionsFor([a, b], 'c1.02.voi.L', 'c1', 'imported')).toEqual([a])
+  expect(statusOf([a, b], 'c1.02.voi.R', 'c1', 'scan', 'imported')).toBe('accepted')
+  expect(statusOf([a, b], 'c1.01.complete.-', 'c1', 'scan', 'imported')).toBe('rejected')
 })

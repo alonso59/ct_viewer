@@ -11,7 +11,7 @@ from collections.abc import Iterable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ from app.events.bus import EventBus
 from app.ingest.cases import build_cases
 from app.ingest.counting import split_items
 from app.ingest.models import Item, QcWarning
-from app.ingest.normalize import PhaseRules
+from app.ingest.normalize import PhaseRules, parse_side
 from app.ingest.store import IndexStore, item_rows
 from app.jobs.manager import JobManager
 from app.jobs.types import TERMINAL
@@ -36,9 +36,13 @@ MANIFEST = "manifest.json"
 RESTORE = "restore.json"  # the restore transaction, next to the recycle manifest
 
 
+RecycleScope = Literal["scan", "voi"]
+
+
 class RecyclePlan(BaseModel):
     case_id: str
     scan_idx: str
+    scope: RecycleScope = "scan"
     item_ids: list[str]
     recycle_bin: str
     n_files: int
@@ -76,16 +80,22 @@ def excluded_items(pdir: Path) -> set[str]:
     return {str(iid) for row in iter_jsonl(pdir / JOURNAL) for iid in row.get("item_ids", [])}
 
 
+def metadata_scans(items: Iterable[Item], scope: RecycleScope) -> set[tuple[str, str, str | None]]:
+    return {(i.case_id, i.scan_idx, i.side if scope == "voi" else None) for i in items}
+
+
 def prune_rows(
-    rows: list[dict[str, Any]], ids: set[str], case_id: str, scan_idx: str
+    rows: list[dict[str, Any]],
+    ids: set[str],
+    scans: set[tuple[str, str, str | None]],
 ) -> list[tuple[dict[str, Any], dict[str, Any] | None]]:
     """Each row with what the recycle keeps of it: None, the row, or the row without the
     scan's nested `outputs` (the derived ledger)."""
     out: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
     for row in rows:
-        if row.get("item_id") in ids or (
-            str(row.get("case_id", "")) == case_id and str(row.get("scan_idx", "")) == scan_idx
-        ):
+        key = (str(row.get("case_id", "")).strip(), str(row.get("scan_idx", "")).strip())
+        side = (parse_side(str(row["side"])) or "-") if row.get("side") else None
+        if row.get("item_id") in ids or (*key, None) in scans or (*key, side) in scans:
             out.append((row, None))
             continue
         outputs = row.get("outputs")
@@ -134,8 +144,10 @@ class RecycleService:
     ) -> None:
         self.workspace, self.index, self.jobs, self.bus = workspace, index, jobs, bus
 
-    def _plan(self, pid: str, iid: str, dry: bool = False) -> _Plan:
+    def _plan(self, pid: str, iid: str, scope: RecycleScope, dry: bool = False) -> _Plan:
         selected = self.index.get_item(pid, iid)
+        if scope == "voi" and selected.scope != "voi":
+            raise ValidationProblem("Select a VOI to recycle it individually")
         resolver = self.workspace.resolver(pid)
         if selected.image is None:
             raise ValidationProblem("The scan has no image reference")
@@ -156,11 +168,15 @@ class RecycleService:
         recycle = root / RECYCLE
         if recycle.is_symlink() or not is_within(realpath(recycle), root):
             raise ValidationProblem("The recycle bin must be a directory inside the dataset")
-        target = [
-            i
-            for i in self.index.load_resolved(pid).items
-            if (i.case_id, i.scan_idx) == (selected.case_id, selected.scan_idx)
-        ]
+        target = (
+            [selected]
+            if scope == "voi"
+            else [
+                i
+                for i in self.index.load_resolved(pid).items
+                if (i.case_id, i.scan_idx) == (selected.case_id, selected.scan_idx)
+            ]
+        )
         images = {resolver.resolve(i.image.ref) for i in target if i.image}
         image_names = {p.name for p in images}
         affected = {pid: target}
@@ -171,15 +187,21 @@ class RecycleService:
                 continue
             other_resolver = self.workspace.resolver(other)
             indexed = self.index.load_resolved(other).items
-            scans = {
-                (i.case_id, i.scan_idx)
+            matched = [
+                i
                 for i in indexed
                 if i.image
                 and PurePosixPath(i.image.ref).name in image_names
                 and other_resolver.resolve(i.image.ref) in images
-            }
-            if scans:
-                affected[other] = [i for i in indexed if (i.case_id, i.scan_idx) in scans]
+            ]
+            if matched:
+                if scope == "voi":
+                    if any(i.scope != "voi" for i in matched):
+                        raise ValidationProblem("A full scan in another project uses this VOI file")
+                    affected[other] = matched
+                else:
+                    scans = {(i.case_id, i.scan_idx) for i in matched}
+                    affected[other] = [i for i in indexed if (i.case_id, i.scan_idx) in scans]
         for project in self.workspace.list(archived=True):
             pdir = self.workspace.folder(project.project_id)
             if not (pdir / "project.json").is_file():
@@ -204,6 +226,7 @@ class RecycleService:
         public = RecyclePlan(
             case_id=selected.case_id,
             scan_idx=selected.scan_idx,
+            scope=scope,
             item_ids=sorted(i.item_id for i in target),
             recycle_bin=str(recycle),
             n_files=0,
@@ -232,6 +255,8 @@ class RecycleService:
             plan.moves[path] = ("files/" if is_within(path, root) else "derived_files/") + name
 
         for other, its in affected.items():
+            project_ids = {i.item_id for i in its}
+            scan_keys = metadata_scans(its, scope)
             for it in its:
                 for vol in it.volumes():
                     add(vol.ref, other)
@@ -248,7 +273,7 @@ class RecycleService:
             for run_file in sorted((pdir / "tasks/runs").glob("*/run.json")):
                 run = read_json(run_file)
                 outputs = run.get("outputs") or []
-                removed = [o for o in outputs if o.get("item_id") in ids]
+                removed = [o for o in outputs if o.get("item_id") in project_ids]
                 for output in removed:
                     ref = output.get("ref")
                     if isinstance(ref, str) and ":" in ref:
@@ -264,7 +289,7 @@ class RecycleService:
                     candidate = Path(out) / "metadata.jsonl"
                     if candidate.is_file():
                         self.workspace.project_derived_guard(other).check(candidate)
-                        self._prune_jsonl(plan, candidate, ids, selected)
+                        self._prune_jsonl(plan, candidate, project_ids, scan_keys)
             candidates = [pdir / "derived/runs.jsonl"]
             for folder in ("tasks/runs", "radiomics/runs"):
                 for name in (
@@ -279,12 +304,12 @@ class RecycleService:
                 for row in iter_jsonl(path):
                     outputs = row.get("outputs") or [row]
                     for output in outputs:
-                        if output.get("item_id") in ids:
+                        if output.get("item_id") in project_ids:
                             ref = output.get("ref")
                             if isinstance(ref, str) and ":" in ref:
                                 add(ref, other)
-                self._prune_jsonl(plan, path, ids, selected)
-            self._prune_parquet(plan, pdir / "index/variables.parquet", ids)
+                self._prune_jsonl(plan, path, project_ids, scan_keys)
+            self._prune_parquet(plan, pdir / "index/variables.parquet", project_ids)
             hashes = pdir / "index/hashes.json"
             if hashes.is_file():
                 raw = read_json(hashes)
@@ -302,30 +327,41 @@ class RecycleService:
                     plan.moves[cache] = f"project_cache/{other}/{cache.relative_to(pdir / 'cache')}"
             for folder in ("radiomics/runs", "tasks/runs"):
                 for path in (pdir / folder).glob("**/*.parquet"):
-                    self._prune_parquet(plan, path, ids)
+                    self._prune_parquet(plan, path, project_ids)
             # Events remain append-only history. Capture the relevant layer values in the audit.
             for path in [pdir / "curation/events.jsonl", *(pdir / "events").glob("*.jsonl")]:
                 rows = [
                     r
                     for r in iter_jsonl(path)
-                    if r.get("item_id") in ids
-                    or r.get("target")
-                    in {*ids, selected.case_id, f"{selected.case_id}.{selected.scan_idx}"}
+                    if r.get("item_id") in project_ids
+                    or r.get("target") in project_ids
                     or (
-                        r.get("case_id") == selected.case_id
-                        and str(r.get("scan_idx", selected.scan_idx)) == selected.scan_idx
+                        scope == "scan"
+                        and (
+                            r.get("target")
+                            in {selected.case_id, f"{selected.case_id}.{selected.scan_idx}"}
+                            or (
+                                r.get("case_id") == selected.case_id
+                                and str(r.get("scan_idx", selected.scan_idx)) == selected.scan_idx
+                            )
+                        )
                     )
                 ]
                 if rows:
                     plan.removed[str(path)] = rows
 
-        for rel in ("metadata.jsonl", "voi/voi_catalog.jsonl", "annotations.jsonl"):
+        for rel in (
+            "metadata.jsonl",
+            "voi_catalog.jsonl",
+            "voi/voi_catalog.jsonl",
+            "annotations.jsonl",
+        ):
             path = root / rel
             if path.exists():
                 if path.is_symlink() or not is_within(realpath(path), root):
                     raise ValidationProblem("Dataset metadata escapes its root")
                 resolver.guard_for(alias).check(path)
-                self._prune_jsonl(plan, path, ids, selected)
+                self._prune_jsonl(plan, path, ids, metadata_scans(target, scope))
         # Never move a volume used by an unrelated scan (including a shared segmentation).
         moved_names = {p.name for p in plan.moves}
         for project in self.workspace.list():
@@ -365,12 +401,14 @@ class RecycleService:
         return plan
 
     @staticmethod
-    def _prune_jsonl(plan: _Plan, path: Path, ids: set[str], selected: Item) -> None:
+    def _prune_jsonl(
+        plan: _Plan, path: Path, ids: set[str], scans: set[tuple[str, str, str | None]]
+    ) -> None:
         if not path.is_file():
             return
         if path.is_symlink():
             raise ValidationProblem("Refusing to rewrite a symlinked metadata file")
-        pairs = prune_rows(list(iter_jsonl(path)), ids, selected.case_id, selected.scan_idx)
+        pairs = prune_rows(list(iter_jsonl(path)), ids, scans)
         removed = [row for row, kept in pairs if kept is None]
         for row, trimmed in pairs:
             if trimmed is not None and trimmed is not row:
@@ -522,22 +560,27 @@ class RecycleService:
                 self._rollback(destination, manifest, record.name)
             pending.unlink()
 
-    def preview(self, pid: str, iid: str) -> RecyclePlan:
-        return self._plan(pid, iid, dry=True).public
+    def preview(self, pid: str, iid: str, scope: RecycleScope = "scan") -> RecyclePlan:
+        return self._plan(pid, iid, scope, dry=True).public
 
     async def recycle(
-        self, pid: str, iid: str, request: RecycleRequest, reviewer: str | None
+        self,
+        pid: str,
+        iid: str,
+        request: RecycleRequest,
+        reviewer: str | None,
+        scope: RecycleScope = "scan",
     ) -> RecycleResult:
         reviewer = require(reviewer)
         if not request.confirmed:
-            raise ValidationProblem("Confirm moving the whole scan to the recycle bin")
+            raise ValidationProblem("Confirm moving the selection to the recycle bin")
         async with self.workspace.locks("_recycle"), AsyncExitStack() as locks:
             # Lock every active project: sharing and output registration cannot race us.
             pids = sorted(p.project_id for p in self.workspace.list())
             for other in pids:
                 await locks.enter_async_context(self.workspace.locks(other))
             self.index.get_item(pid, iid)
-            plan = self._plan(pid, iid)
+            plan = self._plan(pid, iid, scope)
             if self._busy(plan.items):
                 raise JobConflict("Wait for running jobs before recycling a CT scan")
             if plan.public.token != request.token:
@@ -550,6 +593,7 @@ class RecycleService:
                 "at": utc_now(),
                 "reviewer": reviewer,
                 "status": "prepared",
+                "source_project": pid,
                 "scan": plan.public.model_dump(),
                 "items": {
                     p: [i.model_dump(mode="json") for i in its] for p, its in plan.items.items()

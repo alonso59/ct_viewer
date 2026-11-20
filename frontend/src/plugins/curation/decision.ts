@@ -4,7 +4,7 @@ import { create } from 'zustand'
 
 import i18n from '../../i18n'
 import { api, keys, ProblemError, queryClient, type CurationContext, type CurationEvent, type CurationStateRow, type CurationStatus, type Priority, type Project } from '../../api'
-import { fmtAgo, itemName, knownPhase, problemToastText } from '../../lib'
+import { parseItemId, fmtAgo, itemName, knownPhase, problemToastText } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { requireReviewer, useViewerSync } from '../../state'
 import { getViewerContext } from '../../features/viewer'
@@ -38,11 +38,11 @@ const EMPTY: ItemDraft = { comment: '', addToQueue: false, proposedSide: '' }
 /** Another session's decision on a target since its item was opened (from the live events) */
 export interface TheirDecision { reviewer: string; status: CurationStatus; at: string }
 const theirs = new Map<string, TheirDecision>()
-const decisionKey = (itemId: string | null, caseId: string, target: string, seg: string | null | undefined) => `${itemId ?? caseId}|${target}|${isMask(target) ? seg ?? '' : ''}`
+const decisionKey = (itemId: string | null, caseId: string, target: string, seg: string | null | undefined, scanIdx?: string | null) => `${target === 'scan' ? `${caseId}.${scanIdx}` : itemId ?? caseId}|${target}|${isMask(target) ? seg ?? '' : ''}`
 
 /** A live event from another session: writing over it asks first (Keep mine / Use theirs) */
-export function noteTheirs(e: Pick<CurationEvent, 'item_id' | 'case_id' | 'target' | 'seg_id' | 'reviewer' | 'status' | 'at'>) {
-  theirs.set(decisionKey(e.item_id, e.case_id, e.target, e.seg_id), { reviewer: e.reviewer, status: e.status, at: e.at })
+export function noteTheirs(e: Pick<CurationEvent, 'item_id' | 'case_id' | 'target' | 'seg_id' | 'scan_idx' | 'reviewer' | 'status' | 'at'>) {
+  theirs.set(decisionKey(e.item_id, e.case_id, e.target, e.seg_id, e.scan_idx), { reviewer: e.reviewer, status: e.status, at: e.at })
 }
 
 /** A write held back because someone else decided the same target after the item was opened;
@@ -121,7 +121,7 @@ export async function submitDecision(status: CurationStatus, over: { addToQueue?
   const target = caseTarget ? 'case' : d.target
   const seg = isMask(target) && shownSeg ? { seg_id: shownSeg } : {}
   const before = rowOf(queryClient.getQueryData<CurationStateRow[]>(keys.curationState(pid)) ?? [], activeItemId, activeCaseId, target, activeSegOf(pid))
-  const key = decisionKey(caseTarget ? null : activeItemId, activeCaseId, target, activeSegOf(pid))
+  const key = decisionKey(caseTarget ? null : activeItemId, activeCaseId, target, activeSegOf(pid), activeItemId ? parseItemId(activeItemId)?.scan_idx : undefined)
   const other = theirs.get(key)
   if (other && !over.keepMine) {
     useConflict.setState({ held: { status, over: { addToQueue: over.addToQueue }, key, theirs: other } })

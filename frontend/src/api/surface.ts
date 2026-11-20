@@ -245,8 +245,8 @@ export interface Api {
   listCases(pid: string, f?: CaseFilter): Promise<CaseSummary[]>
   getCase(pid: string, cid: string): Promise<CaseDetail>
   getItem(pid: string, iid: string): Promise<ItemDetail>
-  previewRecycle(pid: string, iid: string): Promise<import('./schema').components['schemas']['RecyclePlan']>
-  recycleScan(pid: string, iid: string, token: string, reviewer: string): Promise<import('./schema').components['schemas']['RecycleResult']>
+  previewRecycle(pid: string, iid: string, scope: 'scan' | 'voi'): Promise<import('./schema').components['schemas']['RecyclePlan']>
+  recycleScan(pid: string, iid: string, token: string, reviewer: string, scope: 'scan' | 'voi'): Promise<import('./schema').components['schemas']['RecycleResult']>
   listRecycleBin(pid: string): Promise<import('./schema').components['schemas']['RecycleBinEntry'][]>
   previewRestore(pid: string, rid: string): Promise<import('./schema').components['schemas']['RestorePlan']>
   restoreScan(pid: string, rid: string, token: string, reviewer: string): Promise<import('./schema').components['schemas']['RestoreResult']>

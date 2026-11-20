@@ -24,6 +24,7 @@ from app.curation.models import (
     CASE_TARGET,
     QUEUE_COLUMNS,
     QUEUE_STATUSES,
+    SCAN_TARGET,
     CurationEvent,
     CurationState,
     EventIn,
@@ -62,6 +63,7 @@ STATE_COLUMNS: Final = (
     "at",
     "event_id",
     "source",
+    "scan_idx",
 )
 
 
@@ -84,10 +86,17 @@ class CurationService:
     ) -> list[CurationEvent]:
         """Every event, newest first; filter by item and/or case."""
         events = st.load_events(self.workspace.project_dir(project_id))
+        selected = parse_item_id(item_id) if item_id else None
         return [
             e
             for e in reversed(events)
-            if (item_id is None or e.item_id == item_id)
+            if (
+                item_id is None
+                or e.item_id == item_id
+                or (
+                    e.target == SCAN_TARGET and selected and (e.case_id, e.scan_idx) == selected[:2]
+                )
+            )
             and (case_id is None or e.case_id == case_id)
         ]
 
@@ -139,12 +148,14 @@ class CurationService:
         if item is not None:
             for k, v in v2.item_context(item).items():
                 context.setdefault(k, v)
+        scan_idx = item.scan_idx if item is not None and body.target == SCAN_TARGET else None
         ev = CurationEvent(
             event_id=new_ulid(),
             at=utc_now(),
             reviewer=name,
             session_id=(session_id or "").strip() or body.session_id,
-            item_id=body.item_id if item is not None else None,
+            item_id=body.item_id if scan_idx is None else None,
+            scan_idx=scan_idx,
             case_id=case_id,
             target=body.target,
             seg_id=(body.seg_id or self.workspace.get(project_id).default_seg)
@@ -226,19 +237,33 @@ class CurationService:
             except Problem:
                 return None
 
+        scans: dict[tuple[str, str], Item] = {}
+        for it in idx.items:
+            if it.status != "excluded_upstream":
+                key = (it.case_id, it.scan_idx)
+                if key not in scans or it.scope == "complete":
+                    scans[key] = it
+
         rows: list[QueueRow] = []
         latest = sorted(st.reduced(pdir).latest.values(), key=lambda pe: pe[0])
         for _, e in latest:
-            if e.item_id is None or not (e.status in QUEUE_STATUSES or e.add_to_queue):
+            if not (e.status in QUEUE_STATUSES or e.add_to_queue):
                 continue
             if status is not None and e.status != status:
                 continue
-            item = idx.by_id.get(e.item_id)
-            scope, side, phase = _item_cols(e.item_id, item)
+            item = (
+                scans.get((e.case_id, e.scan_idx))
+                if e.scan_idx is not None
+                else idx.by_id.get(e.item_id or "")
+            )
+            iid = item.item_id if item else e.item_id
+            if iid is None:
+                continue
+            scope, side, phase = _item_cols(iid, item)
             rows.append(
                 QueueRow(
                     case_id=e.case_id,
-                    item_id=e.item_id,
+                    item_id=iid,
                     scope=scope,
                     side=side,
                     phase=phase,

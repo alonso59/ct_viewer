@@ -111,7 +111,7 @@ export interface CurationContext {
   import_id?: string
 }
 
-export type CurationEvent = Omit<Required<S['CurationEvent']>, 'context'> & { context: CurationContext }
+export type CurationEvent = Omit<Required<S['CurationEvent']>, 'context' | 'scan_idx'> & { context: CurationContext; scan_idx?: string | null }
 
 export type NewCurationEvent = Pick<
   CurationEvent,
@@ -123,6 +123,7 @@ export type NewCurationEvent = Pick<
  *  Flattened from `CurationState` (items[].targets, cases[].targets). */
 export interface CurationStateRow {
   item_id: string | null
+  scan_idx?: string | null
   case_id: string
   target: string
   status: CurationStatus

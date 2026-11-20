@@ -365,6 +365,8 @@
     "empty": "No decisions yet",
     "item": "This item",
     "list": "Curation events",
+    "comments": "Reviewer comments",
+    "noComments": "No reviewer comments for this case.",
     "noActive": "Open a case to see its history.",
     "proposedSide": "Proposed side: {{side}}",
     "queued": "Added to correction queue",

@@ -1281,7 +1281,7 @@
       "type": "string"
      },
      "targets": {
-      "description": "Case-target keys",
+      "description": "Case- and scan-target keys",
       "items": {
        "$ref": "#/components/schemas/TargetState"
       },
@@ -2963,6 +2963,17 @@
       "title": "Reviewer",
       "type": "string"
      },
+     "scan_idx": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scan Idx"
+     },
      "schema_version": {
       "const": 1,
       "default": 1,
@@ -3993,6 +4004,7 @@
         "type": "null"
        }
       ],
+      "description": "For a scan target, any item in the scan",
       "title": "Item Id"
      },
      "priority": {
@@ -4071,9 +4083,10 @@
       "examples": [
        "seg",
        "label:2",
+       "scan",
        "case"
       ],
-      "pattern": "^(seg|voi_mask|side|case|label:[0-9]+)$",
+      "pattern": "^(seg|voi_mask|side|case|scan|label:[0-9]+)$",
       "title": "Target",
       "type": "string"
      }
@@ -9919,6 +9932,15 @@
        }
       ],
       "title": "Scan Idx"
+     },
+     "scope": {
+      "default": "scan",
+      "enum": [
+       "scan",
+       "voi"
+      ],
+      "title": "Scope",
+      "type": "string"
      }
     },
     "required": [
@@ -9969,6 +9991,15 @@
      },
      "scan_idx": {
       "title": "Scan Idx",
+      "type": "string"
+     },
+     "scope": {
+      "default": "scan",
+      "enum": [
+       "scan",
+       "voi"
+      ],
+      "title": "Scope",
       "type": "string"
      },
      "token": {
@@ -14348,6 +14379,17 @@
       "title": "Reviewer",
       "type": "string"
      },
+     "scan_idx": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scan Idx"
+     },
      "seg_id": {
       "anyOf": [
        {
@@ -18489,7 +18531,7 @@
  },
  "info": {
   "title": "Radiology Workbench",
-  "version": "3.7.0"
+  "version": "3.7.1"
  },
  "openapi": "3.1.0",
  "paths": {
@@ -24223,7 +24265,7 @@
   },
   "/api/v1/projects/{pid}/items/{iid}/recycle": {
    "get": {
-    "description": "Preview the whole scan, related outputs and default recycle bin.",
+    "description": "Preview the scan or individual VOI, related outputs and recycle bin.",
     "operationId": "preview_recycle_api_v1_projects__pid__items__iid__recycle_get",
     "parameters": [
      {
@@ -24241,6 +24283,20 @@
       "required": true,
       "schema": {
        "title": "Iid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "default": "scan",
+       "enum": [
+        "scan",
+        "voi"
+       ],
+       "title": "Scope",
        "type": "string"
       }
      }
@@ -24291,6 +24347,20 @@
       "required": true,
       "schema": {
        "title": "Iid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "scope",
+      "required": false,
+      "schema": {
+       "default": "scan",
+       "enum": [
+        "scan",
+        "voi"
+       ],
+       "title": "Scope",
        "type": "string"
       }
      },

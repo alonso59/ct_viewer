@@ -9,6 +9,7 @@ import { useViewerSync } from '../../state'
 import { Icon, codicon } from '../../theme'
 import { dropHeld, keepHeld, submitDecision, useConflict, useDraft } from './decision'
 import { decisionsFor, targetName, targetsFor } from './model'
+import { HistoryList } from './History'
 import '../../i18n/lazy'
 
 const QUICK: { status: CurationStatus; cmd: string; tone: string }[] = [
@@ -133,8 +134,8 @@ export function CurationForm() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }} role="list" aria-label={t('curation.current')}>
           <div className="section-title" style={{ padding: 0 }}>{t('curation.current')}</div>
           {mine.map((s) => (
-            <div key={`${s.item_id ?? s.case_id}|${s.target}|${s.seg_id ?? ''}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
-              <span className="muted" title={s.target}>{targetName(s.target, labels, t)}</span>
+            <div key={`${s.item_id ?? s.case_id}|${s.scan_idx ?? ''}|${s.target}|${s.seg_id ?? ''}`} role="listitem" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} title={s.comment || undefined}>
+              <span className="muted" title={s.target}>{targetName(s.target, labels, t, s.scan_idx)}</span>
               {s.seg_id && (sets?.length ?? 0) > 1 ? <span className="badge" title={t('curation.segSet')}>{segName(s.seg_id)}</span> : null}
               <StatusBadge status={s.status} />
               {s.proposed_side ? <span className="muted">{t('history.proposedSide', { side: s.proposed_side })}</span> : null}
@@ -146,6 +147,10 @@ export function CurationForm() {
           ))}
         </div>
       ) : null}
+      <details open>
+        <summary className="section-title" style={{ padding: 0 }}>{t('history.comments')}</summary>
+        <HistoryList commentsOnly />
+      </details>
     </div>
   )
 }

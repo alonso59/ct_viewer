@@ -51,7 +51,7 @@ type Row =
   | { kind: 'case'; c: CaseSummary }
   /** An exam or series row of an expanded case; `path` names it in the folded set */
   | { kind: 'group'; group: ScanGroup; caseId: string; path: string; level: number }
-  | { kind: 'item'; item: ItemRecord; caseId: string; level: number; part: string | null; inSeries: boolean }
+  | { kind: 'item'; item: ItemRecord; caseId: string; level: number; part: string | null; inSeries: boolean; underScan: boolean }
   | { kind: 'loading'; caseId: string }
 /** The row's element id, for the tree's aria-activedescendant (ids stay valid IDREFs) */
 const rowDomId = (r: Row) =>
@@ -133,9 +133,13 @@ export function ProjectView() {
           const visible = s.items.filter((item) =>
             (showExcluded || item.status !== 'excluded_upstream') && (!only || only.has(item.item_id)) && (!phase || item.phase.canonical === phase))
           if (!visible.length) continue
+          const underScan = s.items.some((item) => item.scope === 'voi' && (showExcluded || item.status !== 'excluded_upstream'))
+          const groups: ScanGroup[] = underScan
+            ? [...s.groups, { kind: 'scan', key: `scan:${s.scanIdx}`, index: s.part ? `${s.scanIdx} ${s.part}` : s.scanIdx }]
+            : s.groups
           let path = c.case_id
           let folded = false
-          for (const [d, group] of s.groups.entries()) {
+          for (const [d, group] of groups.entries()) {
             path = `${path}/${group.key}`
             if (folded) break
             if (shown[d] !== path) {
@@ -144,7 +148,7 @@ export function ProjectView() {
             }
             folded = !!collapsed[path]
           }
-          if (!folded) for (const item of visible) out.push({ kind: 'item', item, caseId: c.case_id, level: s.groups.length + 2, part: s.part, inSeries: s.groups.at(-1)?.kind === 'series' })
+          if (!folded) for (const item of visible) out.push({ kind: 'item', item, caseId: c.case_id, level: groups.length + 2, part: s.part, inSeries: s.groups.at(-1)?.kind === 'series', underScan })
         }
       }
     }
@@ -292,7 +296,7 @@ export function ProjectView() {
                   data-focused={focused}
                   style={{ ...style, ...depth(r.level) }}
                   // the label never shows a UID; the tooltip does (copyable from there)
-                  title={r.group.kind === 'other' ? undefined : r.group.uid}
+                  title={'uid' in r.group ? r.group.uid : undefined}
                   onClick={() => { setCursor(v.index); toggleGroup(r.path) }}
                 >
                   <Icon spec={codicon(open ? 'chevron-down' : 'chevron-right')} />
@@ -323,7 +327,7 @@ export function ProjectView() {
                 >
                   <PhaseChip phase={it.phase.canonical} active />
                   {/* the part goes right after the scan number, so a narrow pane cuts the scope first */}
-                  <span className="item-label">{itemLabel(r.part ? { ...it, scan_idx: `${it.scan_idx} ${r.part}` } : it, t)}</span>
+                  <span className="item-label">{itemLabel(r.part ? { ...it, scan_idx: `${it.scan_idx} ${r.part}` } : it, t, r.underScan)}</span>
                   <ItemModality item={it} fallback={project.data?.default_modality} />
                   {it.warning_codes.length ? (
                     <span className="pv-warn pv-end" title={it.warning_codes.join(', ')}>

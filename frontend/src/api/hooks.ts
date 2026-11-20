@@ -625,6 +625,7 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
     item_id: ev.item_id ?? null,
     case_id: ev.case_id,
     target: ev.target,
+    scan_idx: ev.scan_idx ?? null,
     status: ev.status,
     priority: ev.priority,
     comment: ev.comment ?? '',
@@ -636,7 +637,7 @@ export function upsertStateRow(rows: CurationStateRow[], ev: CurationEvent): Cur
     seg_id: segKey(ev.target, ev.seg_id),
   }
   const same = (r: CurationStateRow) =>
-    r.item_id === row.item_id && r.case_id === row.case_id && r.target === row.target && segKey(r.target, r.seg_id) === row.seg_id
+    r.item_id === row.item_id && r.case_id === row.case_id && (r.scan_idx ?? null) === row.scan_idx && r.target === row.target && segKey(r.target, r.seg_id) === row.seg_id
   return rows.some((r) => r.event_id === row.event_id) ? rows : [...rows.filter((r) => !same(r)), row]
 }
 
@@ -811,14 +812,13 @@ export const useArchivedTaskRuns = (pid: string, on: boolean) =>
 export const useTaskRun = (pid: string, rid: string | null) =>
   useQuery({ queryKey: keys.taskRun(pid, rid ?? ''), queryFn: () => api.getTaskRun(pid, rid ?? ''), enabled: enabled(pid, rid), refetchInterval: (q) => q.state.data?.task.id === 'dicom.convert' && isTaskRunPending(q.state.data.status) ? 800 : false })
 
-/** Recycle the whole scan only after a preview and explicit confirmation. */
-export function useRecycleScan(pid: string, iid: string) {
+export function useRecycleScan(pid: string, iid: string, scope: 'scan' | 'voi') {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (token: string) => {
       const reviewer = await requireReviewer()
       if (!reviewer) throw new ReviewerCancelled()
-      return api.recycleScan(pid, iid, token, reviewer)
+      return api.recycleScan(pid, iid, token, reviewer, scope)
     },
     onSuccess: () => {
       void refreshQueries(qc, keys.project(pid))

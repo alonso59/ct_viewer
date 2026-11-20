@@ -19,11 +19,13 @@ from typing import Final
 
 from pydantic import ValidationError
 
+from app.core.ids import parse_item_id
 from app.curation.models import (
     LEGACY_PHASE_TARGET,
     NOT_REVIEWED,
     PARTIALLY_REVIEWED,
     QUEUE_STATUSES,
+    SEVERITY,
     CaseState,
     CurationEvent,
     ItemState,
@@ -121,9 +123,25 @@ def case_states(project_dir: Path) -> dict[str, CaseState]:
     return entry.cases
 
 
-def item_statuses(project_dir: Path) -> dict[str, str]:
-    """Latest QC status per item_id (worst over the item's targets)."""
-    return {k: v.status for k, v in item_states(project_dir).items()}
+def item_statuses(project_dir: Path, item_ids: Collection[str] = ()) -> dict[str, str]:
+    """Worst status over each item's own targets and its whole-scan decision."""
+    statuses: dict[str, str] = {k: v.status for k, v in item_states(project_dir).items()}
+    scans = {
+        (case.case_id, target.scan_idx): target.status
+        for case in case_states(project_dir).values()
+        for target in case.targets
+        if target.scan_idx is not None
+    }
+    if scans:
+        for iid in item_ids:
+            parts = parse_item_id(iid)
+            if (
+                parts
+                and (status := scans.get(parts[:2])) is not None
+                and SEVERITY[status] > SEVERITY[statuses.get(iid, NOT_REVIEWED)]
+            ):
+                statuses[iid] = status
+    return statuses
 
 
 @dataclass(frozen=True)
@@ -145,11 +163,11 @@ def case_reviews(project_dir: Path, active: Mapping[str, Collection[str]]) -> di
     the worst decision, except that a partial case whose worst status is not in the queue set
     shows `partially_reviewed` (a problem stays visible). Cases without decisions are omitted.
     """
-    items = item_states(project_dir)
+    statuses = item_statuses(project_dir, [iid for ids in active.values() for iid in ids])
     out: dict[str, CaseReview] = {}
     for case_id, cs in case_states(project_dir).items():
         ids = active.get(case_id, ())
-        n_rev = sum(1 for i in ids if (s := items.get(i)) is not None and s.status != NOT_REVIEWED)
+        n_rev = sum(statuses.get(i, NOT_REVIEWED) != NOT_REVIEWED for i in ids)
         state: ReviewState
         if cs.status == NOT_REVIEWED:
             state = "not_reviewed"

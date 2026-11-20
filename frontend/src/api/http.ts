@@ -222,6 +222,7 @@ function stateRows(st: Schemas['CurationState']): CurationStateRow[] {
     item_id,
     case_id,
     target: x.target,
+    scan_idx: x.scan_idx ?? null,
     status: x.status,
     priority: x.priority,
     comment: x.comment,
@@ -527,8 +528,8 @@ export function createHttpApi(doFetch: FetchFn, base = BASE): Api {
       const mask_path = d.advanced.mask_path ?? null
       return { ...normalizeItem(d), advanced: { image_path, mask_path }, warnings: (d.warnings ?? []).map(normalizeWarning) }
     },
-    previewRecycle: (pid, iid) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } } })),
-    recycleScan: (pid, iid, token, reviewer) => unwrap(client.POST('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid } }, body: { confirmed: true, token }, headers: reviewerHeader(reviewer) })),
+    previewRecycle: (pid, iid, scope) => unwrap(client.GET('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid }, query: scope === 'voi' ? { scope } : undefined } })),
+    recycleScan: (pid, iid, token, reviewer, scope) => unwrap(client.POST('/api/v1/projects/{pid}/items/{iid}/recycle', { params: { path: { pid, iid }, query: scope === 'voi' ? { scope } : undefined }, body: { confirmed: true, token }, headers: reviewerHeader(reviewer) })),
     listRecycleBin: (pid) => unwrap(client.GET('/api/v1/projects/{pid}/recycle-bin', { params: { path: { pid } } })),
     previewRestore: (pid, rid) => unwrap(client.GET('/api/v1/projects/{pid}/recycle-bin/{rid}/restore', { params: { path: { pid, rid } } })),
     restoreScan: (pid, rid, token, reviewer) => unwrap(client.POST('/api/v1/projects/{pid}/recycle-bin/{rid}/restore', { params: { path: { pid, rid } }, body: { confirmed: true, token }, headers: reviewerHeader(reviewer) })),

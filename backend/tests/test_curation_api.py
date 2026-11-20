@@ -276,6 +276,54 @@ def test_queue_json_and_csv(client: TestClient, proj: tuple[str, list[dict[str, 
     assert bad.status_code == 422
 
 
+def test_CUR03_whole_scan_decision_is_shared_by_full_volume_and_vois(
+    client: TestClient, proj: tuple[str, list[dict[str, Any]]]
+) -> None:
+    pid, items = proj
+    case = "case_00001"
+    scan = "03"
+    left, right, full = (f"{case}.{scan}.{part}" for part in ("voi.L", "voi.R", "complete.-"))
+    base = f"{API}/projects/{pid}"
+    decision = {"target": "scan", "status": "accepted"}
+    first = post(client, pid, {**decision, "item_id": left})
+    assert first.status_code == 201, first.text
+    assert (first.json()["case_id"], first.json()["scan_idx"], first.json()["item_id"]) == (
+        case,
+        scan,
+        None,
+    )
+    summary = client.get(f"{base}/cases/{case}").json()["case"]
+    assert summary["n_items_reviewed"] == sum(
+        item["case_id"] == case and item["scan_idx"] == scan and item["status"] == "active"
+        for item in items
+    )
+
+    newer = post(client, pid, {**decision, "item_id": right, "status": "needs_major_correction"})
+    assert newer.status_code == 201
+    second_scan = next(
+        item["item_id"] for item in items if item["case_id"] == case and item["scan_idx"] != scan
+    )
+    assert post(client, pid, {**decision, "item_id": second_scan}).status_code == 201
+    assert (
+        post(client, pid, {"target": "case", "case_id": case, "status": "accepted"}).status_code
+        == 201
+    )
+    state = client.get(f"{base}/curation/state", params={"case_id": case}).json()
+    targets = state["cases"][0]["targets"]
+    assert len(targets) == 3
+    [latest] = [r for r in targets if r["scan_idx"] == scan]
+    assert latest["event_id"] == newer.json()["event_id"]
+
+    for iid in (left, right, full):
+        history = client.get(f"{base}/curation/events", params={"item_id": iid}).json()["items"]
+        assert [r["event_id"] for r in history] == [
+            newer.json()["event_id"],
+            first.json()["event_id"],
+        ]
+    [row] = client.get(f"{base}/curation/queue", params={"format": "json"}).json()
+    assert row["item_id"] == full and row["target"] == "scan"
+
+
 def test_exports(client: TestClient, proj: tuple[str, list[dict[str, Any]]]) -> None:
     pid, items = proj
     a, b = active_with_mask(items)[:2]

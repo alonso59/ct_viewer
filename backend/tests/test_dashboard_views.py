@@ -36,7 +36,7 @@ OUTLIER_ITEM = f"{OUTLIER}.01.complete.-"
 @pytest.fixture
 def rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     """Curation status badge: the outlier is `rejected` (CUR-08 reader monkeypatched)."""
-    monkeypatch.setattr(curation_state, "item_statuses", lambda _p: {OUTLIER_ITEM: "rejected"})
+    monkeypatch.setattr(curation_state, "item_statuses", lambda *_: {OUTLIER_ITEM: "rejected"})
 
 
 def test_radiomics_run_paths_alias_the_table_paths(mod_client: TestClient, syn: Synthetic) -> None:

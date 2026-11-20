@@ -29,7 +29,7 @@ afterEach(() => {
   useExplorer.setState({ filter: {}, expanded: {}, collapsed: {}, order: [] })
 })
 
-async function mountMr() {
+async function mountMr(withVois = false) {
   const real = await api.getCase(DEMO_PID, 'case_00001')
   const base = real.items.find((i) => i.scope === 'complete')!
   const mk = (idx: string, extra: Record<string, unknown>, phase: string): ItemRecord => ({
@@ -41,6 +41,11 @@ async function mountMr() {
     mk('144', { study_uid: 'S1', days_from_first_scan: '0', series_uid: 'A', series_number: '10' }, 'NA'),
     mk('301', { study_uid: 'S2', days_from_first_scan: '84', series_uid: 'T', series_number: '3' }, 'NA'),
   ]
+  if (withVois) {
+    for (const side of ['L', 'R'] as const) {
+      items.push({ ...items[0]!, item_id: `case_00001.203.voi.${side}`, scope: 'voi', side, extra: {} })
+    }
+  }
   vi.spyOn(api, 'getCase').mockResolvedValue({ ...real, items })
   vi.spyOn(api, 'listCases').mockResolvedValue([real.summary])
   useWorkbench.setState({ pid: DEMO_PID })
@@ -88,4 +93,20 @@ test('the phase filter hides groups without a matching scan', async () => {
   await waitFor(() => expect(screen.queryByText('Exam · day 84')).not.toBeInTheDocument())
   expect(screen.getByText('Series 7 · dyn')).toBeInTheDocument()
   expect(screen.getAllByRole('treeitem').filter((r) => r.classList.contains('pv-item'))).toHaveLength(1)
+})
+
+
+test('UI-08 both VOIs are children of their own scan under the exam and series', async () => {
+  await mountMr(true)
+  const scan = (await screen.findByText('Scan 203 t2')).closest('[role="treeitem"]')!
+  const left = screen.getByText('VOI L').closest('[role="treeitem"]')!
+  const right = screen.getByText('VOI R').closest('[role="treeitem"]')!
+  expect(scan).toHaveAttribute('aria-level', '4')
+  expect(left).toHaveAttribute('aria-level', '5')
+  expect(right).toHaveAttribute('aria-level', '5')
+  expect(screen.getByText('Scan 155 · Full scan')).toBeInTheDocument()
+  fireEvent.click(scan)
+  expect(screen.queryByText('VOI L')).not.toBeInTheDocument()
+  expect(screen.queryByText('VOI R')).not.toBeInTheDocument()
+  expect(screen.getByText('Scan 155 · Full scan')).toBeInTheDocument()
 })

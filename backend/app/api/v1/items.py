@@ -12,7 +12,13 @@ from app.core.errors import NotFound, SourceMissing
 from app.core.fsio import read_json
 from app.core.ids import Scope
 from app.ingest.models import Item
-from app.ingest.recycle import RecyclePlan, RecycleRequest, RecycleResult, RecycleService
+from app.ingest.recycle import (
+    RecyclePlan,
+    RecycleRequest,
+    RecycleResult,
+    RecycleScope,
+    RecycleService,
+)
 from app.ingest.schemas import ItemDetail
 from app.variables.rebuild import schedule_variables_rebuild
 from app.variables.service import VariableService
@@ -77,9 +83,9 @@ async def get_dicom_tags(pid: str, iid: str, ctx: Ctx) -> dict[str, Any]:
 
 
 @router.get("/projects/{pid}/items/{iid}/recycle", response_model=RecyclePlan)
-def preview_recycle(pid: str, iid: str, ctx: Ctx) -> RecyclePlan:
-    """Preview the whole scan, related outputs and default recycle bin."""
-    return RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus).preview(pid, iid)
+def preview_recycle(pid: str, iid: str, ctx: Ctx, scope: RecycleScope = "scan") -> RecyclePlan:
+    """Preview the scan or individual VOI, related outputs and recycle bin."""
+    return RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus).preview(pid, iid, scope)
 
 
 @router.post("/projects/{pid}/items/{iid}/recycle", response_model=RecycleResult)
@@ -89,10 +95,11 @@ async def recycle_scan(
     body: RecycleRequest,
     ctx: Ctx,
     x_reviewer: Annotated[str | None, Header(alias="X-Reviewer")] = None,
+    scope: RecycleScope = "scan",
 ) -> RecycleResult:
     """Confirmed, audited removal; never a permanent delete."""
     service = RecycleService(ctx.workspace, ctx.index, ctx.jobs, ctx.bus)
-    result = await service.recycle(pid, iid, body, x_reviewer)
+    result = await service.recycle(pid, iid, body, x_reviewer, scope)
     for project_id in result.project_ids:
         schedule_variables_rebuild(
             project_id, VariableService(ctx.workspace, ctx.index, ctx.locks, ctx.bus).rebuild

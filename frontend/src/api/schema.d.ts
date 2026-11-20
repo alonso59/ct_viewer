@@ -1175,7 +1175,7 @@ export interface paths {
         };
         /**
          * Preview Recycle
-         * @description Preview the whole scan, related outputs and default recycle bin.
+         * @description Preview the scan or individual VOI, related outputs and recycle bin.
          */
         get: operations["preview_recycle_api_v1_projects__pid__items__iid__recycle_get"];
         put?: never;
@@ -3777,7 +3777,7 @@ export interface components {
             n_items_reviewed: number;
             /**
              * Targets
-             * @description Case-target keys
+             * @description Case- and scan-target keys
              */
             targets?: components["schemas"]["TargetState"][];
         };
@@ -4375,6 +4375,8 @@ export interface components {
             session_id?: string | null;
             /** Item Id */
             item_id?: string | null;
+            /** Scan Idx */
+            scan_idx?: string | null;
             /** Case Id */
             case_id: string;
             /** Target */
@@ -4750,7 +4752,10 @@ export interface components {
          * @description The server sets `event_id`, `at`, `reviewer`, `schema_version`.
          */
         EventIn: {
-            /** Item Id */
+            /**
+             * Item Id
+             * @description For a scan target, any item in the scan
+             */
             item_id?: string | null;
             /**
              * Case Id
@@ -4761,6 +4766,7 @@ export interface components {
              * Target
              * @example seg
              * @example label:2
+             * @example scan
              * @example case
              */
             target: string;
@@ -6931,6 +6937,12 @@ export interface components {
             scan_idx: string | null;
             /** Item Ids */
             item_ids: string[];
+            /**
+             * Scope
+             * @default scan
+             * @enum {string}
+             */
+            scope: "scan" | "voi";
             /** N Files */
             n_files: number;
             /** Projects */
@@ -6944,6 +6956,12 @@ export interface components {
             case_id: string;
             /** Scan Idx */
             scan_idx: string;
+            /**
+             * Scope
+             * @default scan
+             * @enum {string}
+             */
+            scope: "scan" | "voi";
             /** Item Ids */
             item_ids: string[];
             /** Recycle Bin */
@@ -8518,6 +8536,8 @@ export interface components {
         TargetState: {
             /** Target */
             target: string;
+            /** Scan Idx */
+            scan_idx?: string | null;
             /** Seg Id */
             seg_id?: string | null;
             /**
@@ -12319,7 +12339,9 @@ export interface operations {
     };
     preview_recycle_api_v1_projects__pid__items__iid__recycle_get: {
         parameters: {
-            query?: never;
+            query?: {
+                scope?: "scan" | "voi";
+            };
             header?: never;
             path: {
                 pid: string;
@@ -12351,7 +12373,9 @@ export interface operations {
     };
     recycle_scan_api_v1_projects__pid__items__iid__recycle_post: {
         parameters: {
-            query?: never;
+            query?: {
+                scope?: "scan" | "voi";
+            };
             header?: {
                 "X-Reviewer"?: string | null;
             };

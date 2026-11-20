@@ -85,6 +85,78 @@ def test_CUR17_lists_and_restores_scan_keeping_later_edits(
     assert iid in ctx.index.load(pid).by_id
 
 
+def test_CUR16_CUR17_recycle_and_restore_only_one_voi(client: TestClient, data_root: Path) -> None:
+    pid, _ = setup_scan(client, data_root)
+    other = client.post(f"{API}/projects", json={"name": "Shared dataset"}).json()["project_id"]
+    from tests.test_api_ingest import do_import
+
+    do_import(client, other, data_root)
+    ctx = ctx_of(client)
+    for job in ctx.jobs.list():
+        wait(client, job.job_id)
+    full, left, right = (
+        "case_00001.03.complete.-",
+        "case_00001.03.voi.L",
+        "case_00001.03.voi.R",
+    )
+    resolver = ctx.workspace.resolver(pid)
+    volumes: dict[Path, bytes] = {
+        path: path.read_bytes()
+        for iid in (full, left, right)
+        for vol in ctx.index.get_item(pid, iid).volumes()
+        if (path := resolver.resolve(vol.ref)).is_file()
+    }
+    left_paths = {resolver.resolve(vol.ref) for vol in ctx.index.get_item(pid, left).volumes()}
+
+    catalog = data_root / "voi/voi_catalog.jsonl"
+    rows = read_jsonl(catalog)
+    metadata = read_jsonl(data_root / "metadata.jsonl")
+    url = f"{API}/projects/{pid}/items/{left}/recycle"
+    plan = client.get(url, params={"scope": "voi"}).json()
+    assert plan["item_ids"] == [left] and plan["scope"] == "voi"
+    assert set(plan["projects"]) == {pid, other}
+    body = {"confirmed": True, "token": plan["token"]}
+    assert client.post(url, json=body, headers=R).status_code == 412
+    response = client.post(url, params={"scope": "voi"}, json=body, headers=R)
+    assert response.status_code == 200, response.text
+    rid = response.json()["recycle_id"]
+
+    assert read_jsonl(data_root / "metadata.jsonl") == metadata
+    assert read_jsonl(catalog) == [
+        row
+        for row in rows
+        if (row["case_id"], str(row["scan_idx"]), row["side"]) != ("case_00001", "03", "L")
+    ]
+    for path, original in volumes.items():
+        if path in left_paths:
+            assert not path.exists()
+        else:
+            assert path.read_bytes() == original
+    for project in (pid, other):
+        entries = ctx.index.load(project).by_id
+        assert full in entries and right in entries and left not in entries
+
+    from app.api.v1.imports import ingest_service
+
+    job = client.portal.call(ingest_service(ctx).reindex, pid)  # type: ignore[union-attr]
+    assert job and wait(client, job).status == "succeeded"
+    assert left not in ctx.index.load(pid).by_id
+
+    [entry] = client.get(f"{API}/projects/{other}/recycle-bin").json()
+    assert entry["scope"] == "voi" and entry["item_ids"] == [left]
+    restore = restore_plan(client, other, rid)
+    url = f"{API}/projects/{other}/recycle-bin/{rid}/restore"
+    response = client.post(url, json={"confirmed": True, "token": restore["token"]}, headers=R)
+    assert response.status_code == 200, response.text
+    assert restore["item_ids"] == [left]
+    assert read_jsonl(data_root / "metadata.jsonl") == metadata
+    restored_rows = read_jsonl(catalog)
+    assert len(restored_rows) == len(rows) and all(row in restored_rows for row in rows)
+    assert all(path.read_bytes() == original for path, original in volumes.items())
+    for project in (pid, other):
+        assert {full, left, right} <= ctx.index.load(project).by_id.keys()
+
+
 def test_CUR17_refuses_restore_over_an_existing_file(client: TestClient, data_root: Path) -> None:
     pid, _, rid = recycled(client, data_root)
     ctx = ctx_of(client)

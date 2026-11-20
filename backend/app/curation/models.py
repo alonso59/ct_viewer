@@ -54,9 +54,10 @@ QUEUE_STATUSES: Final = frozenset(
 NOT_REVIEWED: Final = "not_reviewed"
 PARTIALLY_REVIEWED: Final = "partially_reviewed"
 CASE_TARGET: Final = "case"
-TARGET_PATTERN: Final = r"^(seg|voi_mask|side|case|label:[0-9]+)$"
+SCAN_TARGET: Final = "scan"
+TARGET_PATTERN: Final = r"^(seg|voi_mask|side|case|scan|label:[0-9]+)$"
 LEGACY_PHASE_TARGET: Final = "phase"  # older events: kept on disk, ignored on read
-Target = Annotated[str, Field(pattern=TARGET_PATTERN, examples=["seg", "label:2", "case"])]
+Target = Annotated[str, Field(pattern=TARGET_PATTERN, examples=["seg", "label:2", "scan", "case"])]
 
 QUEUE_COLUMNS: Final = (
     "case_id",
@@ -84,7 +85,8 @@ class CurationEvent(BaseModel):
     at: str
     reviewer: str
     session_id: str | None = None
-    item_id: str | None = None  # null when target = case
+    item_id: str | None = None  # null for case and scan targets
+    scan_idx: str | None = None  # set only for a whole-scan decision
     case_id: str
     target: str
     # Mask targets (seg, label:*, voi_mask): the segmentation set; null = imported
@@ -110,7 +112,7 @@ class EventIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    item_id: str | None = None
+    item_id: str | None = Field(default=None, description="For a scan target, any item in the scan")
     case_id: str | None = Field(
         default=None, description="Required when target = case; else derived from the item"
     )
@@ -130,6 +132,7 @@ class TargetState(BaseModel):
     """Latest event for one `(item_id, target)` (or case-target) key."""
 
     target: str
+    scan_idx: str | None = None
     seg_id: str | None = None  # mask targets
     status: Status
     priority: Priority
@@ -163,7 +166,9 @@ class CaseState(BaseModel):
     event_id: str
     last_reviewed_at: str
     n_items_reviewed: int
-    targets: list[TargetState] = Field(default_factory=list, description="Case-target keys")
+    targets: list[TargetState] = Field(
+        default_factory=list, description="Case- and scan-target keys"
+    )
 
 
 class CurationState(BaseModel):

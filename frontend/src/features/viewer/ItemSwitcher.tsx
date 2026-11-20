@@ -79,7 +79,7 @@ export function ItemSwitcher({ items, current, onPick }: { items: ItemRecord[]; 
             {scans.map((s, n) => (
               <Fragment key={s.idx}>
                 {newHeadings(s, scans[n - 1]).map((g) => (
-                  <Menu.Label key={g.key} className="menu-label scan-group" data-depth={s.groups.indexOf(g)} title={g.kind === 'other' ? undefined : g.uid}>
+                  <Menu.Label key={g.key} className="menu-label scan-group" data-depth={s.groups.indexOf(g)} title={'uid' in g ? g.uid : undefined}>
                     {scanGroupLabel(t, g)}
                   </Menu.Label>
                 ))}

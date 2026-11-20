@@ -8,7 +8,7 @@ import { Dialog, fmtDate, ProblemCard } from '../../lib'
 import { toast, useWorkbench } from '../../shell'
 import { codicon } from '../../theme'
 
-const scanName = (e: RecycleBinEntry) => (e.case_id ? `${e.case_id} · ${e.scan_idx ?? ''}` : e.item_ids.join(', '))
+const scanName = (e: RecycleBinEntry) => (e.scope === 'voi' ? e.item_ids.join(', ') : e.case_id ? `${e.case_id} · ${e.scan_idx ?? ''}` : e.item_ids.join(', '))
 
 function RestoreDialog({ pid, entry, onClose }: { pid: string; entry: RecycleBinEntry; onClose: () => void }) {
   const { t } = useTranslation()

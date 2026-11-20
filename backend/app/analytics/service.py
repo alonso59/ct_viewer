@@ -100,7 +100,7 @@ class AnalyticsBase:
 
         def work() -> Inputs:
             rd = dt.join_phase(dt.load_table(src), phases)
-            statuses = curation_state.item_statuses(pdir)
+            statuses = curation_state.item_statuses(pdir, self.store.load(pid).by_id.keys())
             n_total = rd.n
             rd, status = dt.apply_filters(rd, filters, statuses, var_items)
             frame = dt.Frame(rd, status, dt.VarTable.build(catalog, table), priority, n_total)

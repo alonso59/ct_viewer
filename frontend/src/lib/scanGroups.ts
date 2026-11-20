@@ -6,6 +6,7 @@ export type ScanGroup =
   | { kind: 'exam'; key: string; uid: string; day: number | null; ordinal: number | null }
   | { kind: 'series'; key: string; uid: string; number: string | null; description: string }
   | { kind: 'other'; key: string }
+  | { kind: 'scan'; key: string; index: string }
 
 /** A scan with the groups it sits under (outermost first) and its series part (`t2`, `b800`) */
 export interface GroupedScan {
@@ -107,6 +108,7 @@ export function groupScans(items: ItemRecord[]): GroupedScan[] {
 
 /** "Exam · day 84", "Series 7 · e-THRIVE_dyn_BH", "Other scans" */
 export function scanGroupLabel(t: TFunction, g: ScanGroup): string {
+  if (g.kind === 'scan') return t('item.scanShort', { scan: g.index })
   if (g.kind === 'other') return t('scanGroup.other')
   if (g.kind === 'series') {
     const name = g.number ? t('scanGroup.series', { number: g.number }) : t('scanGroup.seriesUnnumbered')

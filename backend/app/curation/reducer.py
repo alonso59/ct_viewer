@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from app.curation.models import SEVERITY, CaseState, CurationEvent, ItemState, TargetState
 
-Key = tuple[str, str | None, str, str | None]  # case, item, target, seg (mask targets)
+Key = tuple[str, str | None, str, str | None]  # case, item or scan, target, seg
 
 
 @dataclass
@@ -22,7 +22,7 @@ class Reduced:
     last_at: dict[str, str] = field(default_factory=dict)  # case_id → newest `at`
 
     def add(self, pos: int, ev: CurationEvent) -> None:
-        self.latest[(ev.case_id, ev.item_id, ev.target, ev.seg_key)] = (pos, ev)
+        self.latest[(ev.case_id, ev.item_id or ev.scan_idx, ev.target, ev.seg_key)] = (pos, ev)
         prev = self.last_at.get(ev.case_id)
         if prev is None or ev.at > prev:
             self.last_at[ev.case_id] = ev.at
@@ -30,8 +30,8 @@ class Reduced:
 
     def items(self) -> dict[str, ItemState]:
         groups: dict[str, list[tuple[int, CurationEvent]]] = {}
-        for (_, item_id, _, _), pe in self.latest.items():
-            if item_id is not None:
+        for pe in self.latest.values():
+            if (item_id := pe[1].item_id) is not None:
                 groups.setdefault(item_id, []).append(pe)
         out: dict[str, ItemState] = {}
         for item_id in sorted(groups):
@@ -77,6 +77,7 @@ def _targets(evs: list[tuple[int, CurationEvent]]) -> list[TargetState]:
     return [
         TargetState(
             target=e.target,
+            scan_idx=e.scan_idx,
             seg_id=e.seg_key,
             status=e.status,
             priority=e.priority,

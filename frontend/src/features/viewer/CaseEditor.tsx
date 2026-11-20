@@ -164,8 +164,11 @@ export function CaseEditor({ params, panelId, active }: EditorProps<CaseParams>)
             {shownSeg ? t('viewer.segMissing', { set: setName(missing), shown: setName(shownSeg) }) : t('viewer.segMissingNone', { set: setName(missing) })}
           </span>
         ) : null}
-        <RecycleScan pid={pid} item={current} onRecycled={() => {
-          const next = items.find((i) => i.scan_idx !== current.scan_idx)
+        <RecycleScan pid={pid} item={current} onRecycled={(itemIds) => {
+          const remaining = items.filter((i) => !itemIds.includes(i.item_id) && i.status !== 'excluded_upstream')
+          const next = remaining.find((i) => i.scan_idx === current.scan_idx && i.scope === current.scope)
+            ?? remaining.find((i) => i.scan_idx === current.scan_idx)
+            ?? remaining[0]
           if (next) pick(next.item_id)
           else runCommand('workbench.closeTab')
         }} />

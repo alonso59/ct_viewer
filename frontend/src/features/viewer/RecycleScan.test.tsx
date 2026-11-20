@@ -12,8 +12,8 @@ import { RecycleScan } from './RecycleScan'
 
 afterEach(() => { vi.restoreAllMocks(); registry.readOnly = false })
 
-async function setup() {
-  const item = (await api.getCase(DEMO_PID, 'case_00001')).items.find((i) => i.item_id === 'case_00001.01.complete.-')!
+async function setup(scope: 'complete' | 'voi' = 'complete') {
+  const item = (await api.getCase(DEMO_PID, 'case_00001')).items.find((i) => i.scope === scope)!
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const onRecycled = vi.fn()
   render(<QueryClientProvider client={qc}><RecycleScan pid={DEMO_PID} item={item} onRecycled={onRecycled} /></QueryClientProvider>)
@@ -28,7 +28,7 @@ test('CUR-16 cancel leaves the CT intact; confirmation sends the preview token a
   fireEvent.click(screen.getByRole('button', { name: 'Move scan to recycle bin' }))
   let dialog = await screen.findByRole('dialog')
   expect(await within(dialog).findByText('/data/Dataset900/recycle_bin')).toBeInTheDocument()
-  expect(preview).toHaveBeenCalledWith(DEMO_PID, item.item_id)
+  expect(preview).toHaveBeenCalledWith(DEMO_PID, item.item_id, 'scan')
   expect(write).not.toHaveBeenCalled()
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
   expect(write).not.toHaveBeenCalled()
@@ -37,7 +37,7 @@ test('CUR-16 cancel leaves the CT intact; confirmation sends the preview token a
   const confirm = within(dialog).getByRole('button', { name: 'Move scan to recycle bin' })
   await waitFor(() => expect(confirm).toBeEnabled())
   fireEvent.click(confirm)
-  await waitFor(() => expect(write).toHaveBeenCalledWith(DEMO_PID, item.item_id, expect.any(String), 'Dr. AP'))
+  await waitFor(() => expect(write).toHaveBeenCalledWith(DEMO_PID, item.item_id, expect.any(String), 'Dr. AP', 'scan'))
   await waitFor(() => expect(onRecycled).toHaveBeenCalledOnce())
 })
 
@@ -45,4 +45,23 @@ test('CUR-16 the recycle button is hidden on view-only links', async () => {
   registry.readOnly = true
   await setup()
   expect(screen.queryByRole('button', { name: 'Move scan to recycle bin' })).not.toBeInTheDocument()
+})
+
+
+test('CUR-16 a selected VOI previews and confirms only that item by default', async () => {
+  useReviewer.setState({ name: 'Dr. AP' })
+  const { item, onRecycled } = await setup('voi')
+  const preview = await api.previewRecycle(DEMO_PID, 'case_00001.01.complete.-', 'scan')
+  const read = vi.spyOn(api, 'previewRecycle').mockResolvedValue({ ...preview, scope: 'voi', item_ids: [item.item_id] })
+  const write = vi.spyOn(api, 'recycleScan').mockResolvedValue({
+    item_ids: [item.item_id], recycle_id: 'voi', recycle_dir: preview.recycle_bin, project_ids: [DEMO_PID],
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Move VOI to recycle bin' }))
+  const dialog = await screen.findByRole('dialog')
+  const confirm = within(dialog).getByRole('button', { name: 'Move VOI to recycle bin' })
+  await waitFor(() => expect(confirm).toBeEnabled())
+  expect(read).toHaveBeenCalledWith(DEMO_PID, item.item_id, 'voi')
+  fireEvent.click(confirm)
+  await waitFor(() => expect(write).toHaveBeenCalledWith(DEMO_PID, item.item_id, preview.token, 'Dr. AP', 'voi'))
+  expect(onRecycled).toHaveBeenCalledWith([item.item_id])
 })

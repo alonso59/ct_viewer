@@ -693,6 +693,8 @@
     "saved": "{{status}} · {{target}} · {{id}}",
     "target": {
       "case": "Whole case",
+      "scan": "Whole scan",
+      "scanIndex": "Whole scan {{scan}}",
       "label": "Target",
       "labelName": "Label: {{name}}",
       "seg": "Segmentation (all labels)",
@@ -1104,12 +1106,17 @@
   },
   "recycle": {
     "button": "Move scan to recycle bin",
+    "voiButton": "Move VOI to recycle bin",
+    "voiTitle": "Recycle {{case}} · scan {{scan}} · {{voi}}?",
+    "voiHelp": "Move the selected VOI and its registered outputs to the recycle bin. The full scan and any other VOIs stay available.",
+    "scope": "Items to recycle",
+    "wholeScan": "Whole scan",
     "title": "Recycle {{case}} · scan {{scan}}?",
     "help": "Move this CT scan, its VOIs, segmentations and registered outputs to the dataset recycle bin, and remove its active metadata and feature rows. The original metadata and file locations are kept.",
     "counts": "{{items}} items · {{files}} files · {{rows}} metadata records",
     "shared_one": "This dataset is used by {{count}} project. Its scan list will update too.",
     "shared_other": "This dataset is used by {{count}} projects. Their scan lists will update too.",
-    "moving": "Moving scan…"
+    "moving": "Moving to recycle bin…"
   },
   "recycleBin": {
     "title": "Recycle bin",
